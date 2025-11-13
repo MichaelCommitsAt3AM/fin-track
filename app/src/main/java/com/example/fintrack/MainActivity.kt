@@ -3,45 +3,48 @@ package com.example.fintrack
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.fintrack.ui.theme.FinTrackTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.fintrack.presentation.auth.LoginScreen
+import com.example.fintrack.ui.theme.FinTrackTheme // Make sure this imports your theme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint // <--- VERY IMPORTANT for Hilt
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            FinTrackTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+            // Replace 'FinTrackTheme' with whatever your actual theme name is
+            // (it was likely created automatically in the ui.theme package)
+            MaterialTheme {
+                Surface {
+                    val navController = rememberNavController()
+
+                    NavHost(
+                        navController = navController,
+                        startDestination = "login_screen"
+                    ) {
+                        composable("login_screen") {
+                            LoginScreen(
+                                onNavigateToHome = {
+                                    navController.navigate("home_screen") {
+                                        // Clear back stack so user can't back-button to login
+                                        popUpTo("login_screen") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        composable("home_screen") {
+                            // We haven't built HomeScreen yet, so just show a placeholder
+                            androidx.compose.material3.Text("Home Screen - Logged In!")
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FinTrackTheme {
-        Greeting("Android")
     }
 }

@@ -1,11 +1,20 @@
-package com.example.fintrack.ui.theme
+package com.example.fintrack.presentation.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// --- From your design ---
+val FinTrackGreen = Color(0xFF2ECC71) // "primary": "#2ECC71"
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Light Theme
+val LightBackground = Color(0xFFFFFFFF) // "background-light": "#FFFFFF"
+val LightText = Color(0xFF101622)       // "text-light": "#101622"
+val LightAccent = Color(0xFF95A5A6)     // "accent-light": "#95A5A6"
+val LightField = Color(0xFFF4F6F9)      // "field-light": "#F4F6F9"
+val LightBorder = Color(0xFFE0E6ED)     // "border-light": "#E0E6ED"
+
+// Dark Theme
+val DarkBackground = Color(0xFF101622) // "background-dark": "#101622"
+val DarkText = Color(0xFFE0E0E0)       // "text-dark": "#E0E0E0"
+val DarkAccent = Color(0xFF9DA6B9)     // "accent-dark": "#9DA6B9"
+val DarkField = Color(0xFF1C1F27)      // "field-dark": "#1C1F27"
+val DarkBorder = Color(0xFF3B4354)      // "border-dark": "#3B4354"
