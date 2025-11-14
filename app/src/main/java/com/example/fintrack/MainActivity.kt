@@ -3,23 +3,22 @@ package com.example.fintrack
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.fintrack.presentation.auth.LoginScreen
-import com.example.fintrack.ui.theme.FinTrackTheme // Make sure this imports your theme
+import com.example.fintrack.presentation.ui.theme.FinTrackTheme // <-- Import your new theme
 import dagger.hilt.android.AndroidEntryPoint
 
-@AndroidEntryPoint // <--- VERY IMPORTANT for Hilt
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // Replace 'FinTrackTheme' with whatever your actual theme name is
-            // (it was likely created automatically in the ui.theme package)
-            MaterialTheme {
+            // Use your new custom theme here
+            FinTrackTheme {
                 Surface {
                     val navController = rememberNavController()
 
@@ -31,7 +30,6 @@ class MainActivity : ComponentActivity() {
                             LoginScreen(
                                 onNavigateToHome = {
                                     navController.navigate("home_screen") {
-                                        // Clear back stack so user can't back-button to login
                                         popUpTo("login_screen") { inclusive = true }
                                     }
                                 }
@@ -39,7 +37,6 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("home_screen") {
-                            // We haven't built HomeScreen yet, so just show a placeholder
                             androidx.compose.material3.Text("Home Screen - Logged In!")
                         }
                     }
