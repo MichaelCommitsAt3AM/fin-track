@@ -15,6 +15,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+// Enum to manage the registration steps
+enum class RegistrationStep {
+    Email,
+    Password
+}
+
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val repository: AuthRepository
@@ -27,6 +33,10 @@ class AuthViewModel @Inject constructor(
     // Holds the state of the UI (is it loading? is there an error?)
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    // State for the registration step
+    private val _registrationStep = MutableStateFlow(RegistrationStep.Email)
+    val registrationStep: StateFlow<RegistrationStep> = _registrationStep.asStateFlow()
 
     // One-time events (like "Navigate to Home" or "Show Toast")
     private val _authEventChannel = Channel<AuthEvent>()
@@ -46,11 +56,21 @@ class AuthViewModel @Inject constructor(
 
     fun onEvent(event: AuthUiEvent) {
         when (event) {
-            is AuthUiEvent.SignInEmailChanged -> {
-                _uiState.value = _uiState.value.copy(email = event.value)
+            is AuthUiEvent.EmailChanged -> { // Renamed
+                _uiState.value = _uiState.value.copy(email = event.value, error = null)
             }
-            is AuthUiEvent.SignInPasswordChanged -> {
-                _uiState.value = _uiState.value.copy(password = event.value)
+            is AuthUiEvent.PasswordChanged -> { // Renamed
+                _uiState.value = _uiState.value.copy(password = event.value, error = null)
+            }
+            is AuthUiEvent.ConfirmPasswordChanged -> { // New
+                _uiState.value = _uiState.value.copy(confirmPassword = event.value, error = null)
+            }
+            is AuthUiEvent.CheckEmail -> { // New
+                checkEmail()
+            }
+            is AuthUiEvent.GoBackToEmailStep -> { // New
+                _registrationStep.value = RegistrationStep.Email
+                _uiState.value = _uiState.value.copy(password = "", confirmPassword = "", error = null)
             }
             is AuthUiEvent.SignUp -> {
                 signUp()
@@ -64,14 +84,43 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    private fun checkEmail() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val email = _uiState.value.email
+            if (email.isBlank()) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Email cannot be empty")
+                return@launch
+            }
+
+            val result = repository.checkEmailExists(email)
+            if (result.exists) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Email already in use. Please log in.")
+            } else if (result.error != null) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = result.error)
+            } else {
+                // Success! Email is available.
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                _registrationStep.value = RegistrationStep.Password
+            }
+        }
+    }
+
     private fun signUp() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val email = _uiState.value.email
             val password = _uiState.value.password
+            val confirmPassword = _uiState.value.confirmPassword
+
 
             if (email.isBlank() || password.isBlank()) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = "Fields cannot be empty")
+                return@launch
+            }
+
+            if (password != confirmPassword) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Passwords do not match")
                 return@launch
             }
 
@@ -115,13 +164,17 @@ data class AuthUiState(
     val isLoading: Boolean = false,
     val email: String = "",
     val password: String = "",
+    val confirmPassword: String = "",
     val error: String? = null
 )
 
 sealed class AuthUiEvent {
-    data class SignInEmailChanged(val value: String) : AuthUiEvent()
-    data class SignInPasswordChanged(val value: String) : AuthUiEvent()
+    data class EmailChanged(val value: String) : AuthUiEvent()
+    data class PasswordChanged(val value: String) : AuthUiEvent()
+    data class ConfirmPasswordChanged(val value: String) : AuthUiEvent()
     data class SignInWithGoogle(val credential: AuthCredential) : AuthUiEvent()
+    object CheckEmail : AuthUiEvent()
+    object GoBackToEmailStep : AuthUiEvent()
     object SignIn : AuthUiEvent()
     object SignUp : AuthUiEvent()
 }

@@ -30,6 +30,7 @@ import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 @Composable
 fun LoginScreen(
     onNavigateToHome: () -> Unit,
+    onNavigateToRegister: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -97,7 +98,7 @@ fun LoginScreen(
             )
             OutlinedTextField(
                 value = state.email,
-                onValueChange = { viewModel.onEvent(AuthUiEvent.SignInEmailChanged(it)) },
+                onValueChange = { viewModel.onEvent(AuthUiEvent.EmailChanged(it)) },
                 placeholder = { Text("Enter your email", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 leadingIcon = {
                     Icon(
@@ -128,7 +129,7 @@ fun LoginScreen(
             )
             OutlinedTextField(
                 value = state.password,
-                onValueChange = { viewModel.onEvent(AuthUiEvent.SignInPasswordChanged(it)) },
+                onValueChange = { viewModel.onEvent(AuthUiEvent.PasswordChanged(it)) },
                 placeholder = { Text("Enter your password", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 leadingIcon = {
                     Icon(
@@ -197,7 +198,7 @@ fun LoginScreen(
                 )
                 ClickableText(
                     text = AnnotatedString("Create an account"),
-                    onClick = { /* TODO: Handle Sign Up */ },
+                    onClick = { onNavigateToRegister() },
                     style = TextStyle(
                         color = FinTrackGreen,
                         fontWeight = FontWeight.Bold,

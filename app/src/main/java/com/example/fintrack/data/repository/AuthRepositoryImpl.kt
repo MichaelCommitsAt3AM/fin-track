@@ -2,6 +2,7 @@ package com.example.fintrack.data.repository
 
 import com.example.fintrack.domain.repository.AuthRepository
 import com.example.fintrack.domain.repository.AuthResult
+import com.example.fintrack.domain.repository.EmailCheckResult
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -54,6 +55,16 @@ class AuthRepositoryImpl @Inject constructor(
             AuthResult(user = result.user)
         } catch (e: Exception) {
             AuthResult(user = null, error = e.message)
+        }
+    }
+
+    override suspend fun checkEmailExists(email: String): EmailCheckResult {
+        return try {
+            val methods = firebaseAuth.fetchSignInMethodsForEmail(email).await()
+            val emailExists = methods.signInMethods?.isNotEmpty() ?: false
+            EmailCheckResult(exists = emailExists)
+        } catch (e: Exception) {
+            EmailCheckResult(exists = false, error = e.message)
         }
     }
 

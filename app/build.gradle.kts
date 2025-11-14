@@ -10,12 +10,12 @@ plugins {
 android {
     namespace = "com.example.fintrack"
     //noinspection GradleDependency
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.fintrack"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -79,6 +79,7 @@ dependencies {
 
     // Material Icons
     implementation(libs.androidx.compose.material.icons.extended)
+
 
 
     // --- Testing (Standard) ---

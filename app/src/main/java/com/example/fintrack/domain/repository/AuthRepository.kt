@@ -10,6 +10,11 @@ data class AuthResult(
     val error: String? = null
 )
 
+data class EmailCheckResult(
+    val exists: Boolean,
+    val error: String? = null
+)
+
 // The "contract" for handling authentication
 interface AuthRepository {
 
@@ -27,6 +32,8 @@ interface AuthRepository {
 
     // Sign in using a Google credential
     suspend fun signInWithGoogle(credential: AuthCredential): AuthResult
+
+    suspend fun checkEmailExists(email: String): EmailCheckResult
 
     // Sign out the current user
     fun signOut()
