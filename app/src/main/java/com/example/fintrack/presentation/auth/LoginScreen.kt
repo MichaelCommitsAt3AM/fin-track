@@ -13,14 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,17 +29,40 @@ import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 fun LoginScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToRegister: () -> Unit,
+    onNavigateToLogin: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit,
+    onNavigateToEmailVerification: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var passwordVisible by remember { mutableStateOf(false) }
 
+    if (state.showEmailVerificationDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissDialog() },
+            title = { Text("Verify your Email") },
+            text = { Text("We have sent a verification link to ${state.email}. Please check your inbox and click the link before logging in.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissDialog() }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onEvent(AuthUiEvent.ResendVerificationEmail) }) {
+                    Text("Resend Email")
+                }
+            }
+        )
+    }
+
     // Listen for one-time events (navigation, toasts)
     LaunchedEffect(key1 = true) {
         viewModel.authEvent.collect { event ->
             when (event) {
                 is AuthEvent.NavigateToHome -> onNavigateToHome()
+                is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
+                AuthEvent.NavigateToLogin -> onNavigateToLogin()
             }
         }
     }
@@ -161,7 +182,7 @@ fun LoginScreen(
             // Forgot Password
             ClickableText(
                 text = AnnotatedString("Forgot Password?"),
-                onClick = { /* TODO: Handle forgot password */ },
+                onClick = { onNavigateToForgotPassword() },
                 style = TextStyle(
                     color = FinTrackGreen,
                     fontSize = 14.sp,

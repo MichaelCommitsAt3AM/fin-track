@@ -33,6 +33,7 @@ import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 fun RegistrationScreen(
     onNavigateToHome: () -> Unit,
     onNavigateBackToLogin: () -> Unit,
+    onNavigateToEmailVerification: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -44,6 +45,8 @@ fun RegistrationScreen(
         viewModel.authEvent.collect { event ->
             when (event) {
                 is AuthEvent.NavigateToHome -> onNavigateToHome()
+                is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
+                AuthEvent.NavigateToLogin -> onNavigateBackToLogin()
             }
         }
     }
@@ -90,7 +93,7 @@ fun RegistrationScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Back to login Link
             Row {
@@ -219,17 +222,24 @@ fun RegisterPasswordStep(
     isLoading: Boolean,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
-    onCreateAccount: () -> Unit
+    onCreateAccount: () -> Unit,
+    minPasswordLength: Int = 6
+
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    val isPasswordValid = password.length >= minPasswordLength
+    val isConfirmPasswordValid = confirmPassword.length >= minPasswordLength
+    val doPasswordsMatch = password == confirmPassword
+
 
     Column(
         modifier = Modifier
             .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp)) // moved headline up
 
         // Headline Text
         Text(
@@ -280,8 +290,17 @@ fun RegisterPasswordStep(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            isError = password.isNotEmpty() && !isPasswordValid
         )
+        if (!isPasswordValid && password.isNotEmpty()) {
+            Text(
+                text = "Password must be at least $minPasswordLength characters",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.Start).padding(top = 4.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -318,8 +337,28 @@ fun RegisterPasswordStep(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            isError = confirmPassword.isNotEmpty() && (!isConfirmPasswordValid || !doPasswordsMatch )
         )
+        // Length error message (Must be 6 characters)
+        if (!isConfirmPasswordValid && confirmPassword.isNotEmpty()) {
+            Text(
+                text = "Confirm password must be at least $minPasswordLength characters",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.Start).padding(top = 4.dp)
+            )
+        } // If length is okay but mismatch → show mismatch error
+        else if (confirmPassword.isNotEmpty() && !doPasswordsMatch) {
+            Text(
+                text = "Passwords do not match",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(top = 4.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -329,6 +368,7 @@ fun RegisterPasswordStep(
         } else {
             Button(
                 onClick = onCreateAccount,
+                enabled = isPasswordValid && isConfirmPasswordValid && doPasswordsMatch,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FinTrackGreen)
@@ -338,3 +378,4 @@ fun RegisterPasswordStep(
         }
     }
 }
+

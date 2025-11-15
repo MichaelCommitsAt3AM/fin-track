@@ -2,8 +2,9 @@ package com.example.fintrack.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.fintrack.domain.repository.AuthRepository
-import com.example.fintrack.domain.repository.AuthResult
+import com.example.fintrack.core.domain.repository.AuthRepository
+import com.example.fintrack.core.domain.repository.AuthResult
+import com.example.fintrack.util.EmailVerificationRateLimiter
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseUser
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 // Enum to manage the registration steps
@@ -42,17 +45,57 @@ class AuthViewModel @Inject constructor(
     private val _authEventChannel = Channel<AuthEvent>()
     val authEvent = _authEventChannel.receiveAsFlow()
 
-    init {
-        // Check if user is already logged in when app starts
+    // Rate limiter for email verification
+    private val emailVerificationRateLimiter = EmailVerificationRateLimiter()
+
+    // Expose rate limiter state
+    val verificationAttemptsRemaining: StateFlow<Int> = MutableStateFlow(5).apply {
         viewModelScope.launch {
-            repository.getAuthState().collect { user ->
-                _currentUser.value = user
-                if (user != null) {
-                    _authEventChannel.send(AuthEvent.NavigateToHome)
+            emailVerificationRateLimiter.attemptCount.collect { attempts ->
+                value = emailVerificationRateLimiter.getRemainingAttempts()
+            }
+        }
+    }
+
+    val verificationCooldownSeconds: StateFlow<Long> = MutableStateFlow(0L).apply {
+        viewModelScope.launch {
+            while (true) {
+                value = emailVerificationRateLimiter.getCooldownSeconds()
+                if (value > 0) {
+                    delay(1000) // Update every second
+                } else {
+                    delay(100) // Check more frequently when not in cooldown
                 }
             }
         }
     }
+
+
+    init {
+        // Only observe auth state, don't trigger navigation
+        viewModelScope.launch {
+            repository.getAuthState().collect { user ->
+                _currentUser.value = user
+                // Remove all navigation logic from here
+            }
+        }
+    }
+
+    fun checkAuthStatus() {
+        viewModelScope.launch {
+            val user = _currentUser.value
+            if (user != null) {
+                if (user.isEmailVerified) {
+                    _authEventChannel.send(AuthEvent.NavigateToHome)
+                } else {
+                    _authEventChannel.send(AuthEvent.NavigateToEmailVerification)
+                }
+            }
+            // Don't send NavigateToLogin - we're already there
+        }
+    }
+
+
 
     fun onEvent(event: AuthUiEvent) {
         when (event) {
@@ -80,6 +123,12 @@ class AuthViewModel @Inject constructor(
             }
             is AuthUiEvent.SignInWithGoogle -> {
                 signInGoogle(event.credential)
+            }
+            is AuthUiEvent.SendPasswordReset -> {
+                sendPasswordReset(event.email)
+            }
+            is AuthUiEvent.ResendVerificationEmail -> {
+                sendVerificationEmail()
             }
         }
     }
@@ -113,7 +162,6 @@ class AuthViewModel @Inject constructor(
             val password = _uiState.value.password
             val confirmPassword = _uiState.value.confirmPassword
 
-
             if (email.isBlank() || password.isBlank()) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = "Fields cannot be empty")
                 return@launch
@@ -124,10 +172,34 @@ class AuthViewModel @Inject constructor(
                 return@launch
             }
 
+            // Create the account
             val result = repository.signUpWithEmail(email, password)
-            handleAuthResult(result)
+
+            if (result.user != null) {
+                // Send verification email and check for errors
+                val verificationResult = repository.sendEmailVerification()
+
+                if (verificationResult.error == null) {
+                    // Success!
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isEmailVerificationSent = true
+                    )
+                    _authEventChannel.send(AuthEvent.NavigateToEmailVerification)
+                } else {
+                    // Email sending failed
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Account created but failed to send verification email: ${verificationResult.error}"
+                    )
+                }
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = result.error)
+            }
         }
     }
+
+
 
     private fun signIn() {
         viewModelScope.launch {
@@ -136,8 +208,112 @@ class AuthViewModel @Inject constructor(
             val password = _uiState.value.password
 
             val result = repository.signInWithEmail(email, password)
-            handleAuthResult(result)
+
+            if (result.user != null) {
+                // CHECK IF VERIFIED
+                if (result.user.isEmailVerified) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _authEventChannel.send(AuthEvent.NavigateToHome)
+                } else {
+                    // Not verified: Sign out and show error/dialog
+                    repository.signOut()
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        showEmailVerificationDialog = true, // We will use this to show a dialog
+                        error = "Please verify your email address."
+                    )
+                }
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = result.error ?: "Authentication failed")
+            }
         }
+    }
+
+    private fun sendVerificationEmail() {
+        viewModelScope.launch {
+            // Check rate limit
+            if (!emailVerificationRateLimiter.canSendEmail()) {
+                val cooldownSeconds = emailVerificationRateLimiter.getCooldownSeconds()
+                val remainingAttempts = emailVerificationRateLimiter.getRemainingAttempts()
+
+                val errorMessage = when {
+                    remainingAttempts == 0 -> "Maximum attempts reached. Please try again later or contact support."
+                    cooldownSeconds > 0 -> "Please wait ${cooldownSeconds} seconds before resending."
+                    else -> "Unable to send email. Please try again."
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = errorMessage
+                )
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+            val result = repository.sendEmailVerification()
+
+            if (result.error == null) {
+                // Record successful attempt
+                emailVerificationRateLimiter.recordAttempt()
+
+                val remainingAttempts = emailVerificationRateLimiter.getRemainingAttempts()
+                val cooldownSeconds = emailVerificationRateLimiter.getCooldownSeconds()
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Verification email sent! Check your inbox. ($remainingAttempts attempts remaining)"
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Failed to send email: ${result.error}"
+                )
+            }
+        }
+    }
+
+    fun resetRateLimiter() {
+        emailVerificationRateLimiter.reset()
+    }
+
+    fun checkEmailVerification() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val user = repository.getCurrentUser()
+
+            // CRITICAL: Force refresh from Firebase to get latest status
+            user?.reload()?.await()
+
+            if (user?.isEmailVerified == true) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                _authEventChannel.send(AuthEvent.NavigateToHome)
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Email not verified yet. Please check your inbox.")
+            }
+        }
+    }
+
+    private fun sendPasswordReset(email: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, isPasswordResetSent = false)
+            if (email.isBlank()) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Please enter your email")
+                return@launch
+            }
+
+            val result = repository.sendPasswordResetEmail(email)
+
+            if (result.error == null) {
+                _uiState.value = _uiState.value.copy(isLoading = false, isPasswordResetSent = true)
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = result.error)
+            }
+        }
+    }
+
+    fun dismissDialog() {
+        _uiState.value = _uiState.value.copy(showEmailVerificationDialog = false)
     }
 
     private fun signInGoogle(credential: AuthCredential) {
@@ -156,6 +332,11 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(error = result.error ?: "Authentication failed")
         }
     }
+
+    fun signOut() {
+        repository.signOut()
+        // AuthStateListener in init block will handle the UI update (user becomes null)
+    }
 }
 
 // --- Helper Classes for State Management ---
@@ -165,6 +346,9 @@ data class AuthUiState(
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+    val isEmailVerificationSent: Boolean = false, // NEW
+    val isPasswordResetSent: Boolean = false, // NEW
+    val showEmailVerificationDialog: Boolean = false, // NEW: To prompt user to check email
     val error: String? = null
 )
 
@@ -177,8 +361,12 @@ sealed class AuthUiEvent {
     object GoBackToEmailStep : AuthUiEvent()
     object SignIn : AuthUiEvent()
     object SignUp : AuthUiEvent()
+    data class SendPasswordReset(val email: String) : AuthUiEvent()
+    object ResendVerificationEmail : AuthUiEvent()
 }
 
 sealed class AuthEvent {
     object NavigateToHome : AuthEvent()
+    object NavigateToLogin : AuthEvent()
+    object NavigateToEmailVerification : AuthEvent()
 }

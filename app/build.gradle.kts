@@ -80,6 +80,10 @@ dependencies {
     // Material Icons
     implementation(libs.androidx.compose.material.icons.extended)
 
+    // Coil
+    implementation(libs.coil)
+    implementation(libs.coil.compose)
+
 
 
     // --- Testing (Standard) ---
