@@ -4,7 +4,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -13,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.fintrack.presentation.add_transaction.AddTransactionScreen
 import com.example.fintrack.presentation.auth.EmailVerificationScreen
 import com.example.fintrack.presentation.auth.ForgotPasswordScreen
 import com.example.fintrack.presentation.auth.LoginScreen
@@ -21,6 +24,7 @@ import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
 import com.example.fintrack.presentation.navigation.BottomNavItem
+
 
 
 @Composable
@@ -106,13 +110,27 @@ fun NavGraph(
             Text("Budgets Screen (Coming Soon)")
         }
 
-        composable(BottomNavItem.Settings.route) {
-            SettingsScreen(navController = navController,
-                onNavigateToLogin = {
-                    navController.navigate(AppRoutes.Login.route) {
-                        popUpTo(AppRoutes.Home.route) { inclusive = true }
-                    }
-                },
+        composable(
+            route = AppRoutes.Settings.route,
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+        ) {
+            AddTransactionScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        settingsNavGraph(navController = navController)
+
+        // Add Transaction
+        composable(
+            route = AppRoutes.AddTransaction.route,
+            // Slides up from the bottom
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
+            // Slides back down
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+        ) {
+            AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

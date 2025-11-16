@@ -3,11 +3,11 @@ package com.example.fintrack.presentation.ui.components
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.fintrack.presentation.navigation.AppRoutes
 import com.example.fintrack.presentation.navigation.BottomNavItem
 
 @Composable
@@ -38,7 +38,12 @@ fun BottomNavBar(navController: NavController) {
                     enabled = false
                 )
             } else {
-                val isSelected = currentRoute == item.route
+                // Check if current route matches the item or is part of its graph
+                val isSelected = when (item) {
+                    BottomNavItem.Settings -> isSettingsRoute(currentRoute)
+                    else -> currentRoute == item.route
+                }
+
                 NavigationBarItem(
                     selected = isSelected,
                     onClick = {
@@ -81,4 +86,15 @@ fun BottomNavBar(navController: NavController) {
             }
         }
     }
+}
+
+/**
+ * Helper function to check if a route belongs to the settings navigation graph.
+ * Add any new settings-related routes here to keep the Settings tab highlighted.
+ */
+private fun isSettingsRoute(route: String?): Boolean {
+    return route == AppRoutes.SettingsGraph.route ||
+            route == AppRoutes.Settings.route ||
+            route == AppRoutes.ManageCategories.route
+    // Add future settings routes here (e.g., Profile, Security, etc.)
 }

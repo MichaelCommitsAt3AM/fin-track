@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.scale
 fun SettingsScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToManageCategories: () -> Unit,
     navController: NavController,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -100,6 +101,12 @@ fun SettingsScreen(
 
             // App Preferences Section
             SettingsSection(title = "App Preferences") {
+                SettingsItem(
+                    icon = Icons.Default.Category,
+                    title = "Manage Categories",
+                    onClick = onNavigateToManageCategories // <-- Hook up navigation
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = {})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Paid, title = "Currency", trailingText = "USD", onClick = {})

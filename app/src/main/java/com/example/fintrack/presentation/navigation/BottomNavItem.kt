@@ -38,7 +38,7 @@ sealed class BottomNavItem(
     )
 
     object Settings : BottomNavItem(
-        route = AppRoutes.Settings.route,
+        route = AppRoutes.SettingsGraph.route,
         title = "Settings",
         icon = Icons.Default.Settings
     )

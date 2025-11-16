@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
                     AppRoutes.Home.route,
                     AppRoutes.Reports.route,
                     AppRoutes.Budgets.route,
+                    AppRoutes.SettingsGraph.route,
                     AppRoutes.Settings.route
                 )
 
@@ -65,7 +66,7 @@ class MainActivity : ComponentActivity() {
                     floatingActionButton = {
                         if (showBottomNav) {
                             FloatingActionButton(
-                                onClick = { /* TODO */ },
+                                onClick = { navController.navigate(AppRoutes.AddTransaction.route) },
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                                 shape = CircleShape,

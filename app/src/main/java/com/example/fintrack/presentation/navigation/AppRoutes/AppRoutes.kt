@@ -15,9 +15,13 @@ sealed class AppRoutes(val route: String) {
     object Home : AppRoutes("home_screen")
     object Reports : AppRoutes("reports_screen")
     object Budgets : AppRoutes("budgets_screen")
+
+    // Settings feature
+    object SettingsGraph : AppRoutes("settings_graph")
     object Settings : AppRoutes("settings_screen")
+    object ManageCategories : AppRoutes("manage_categories_screen")
 
     // --- Add Transaction (FAB) ---
-    // We can add this route here for when we build it
-    // object AddTransaction : AppRoutes("add_transaction_screen")
+    object AddTransaction : AppRoutes("add_transaction_screen")
+
 }
