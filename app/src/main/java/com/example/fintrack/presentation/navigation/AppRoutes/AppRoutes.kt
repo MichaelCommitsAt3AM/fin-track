@@ -20,6 +20,11 @@ sealed class AppRoutes(val route: String) {
     object SettingsGraph : AppRoutes("settings_graph")
     object Settings : AppRoutes("settings_screen")
     object ManageCategories : AppRoutes("manage_categories_screen")
+    object AddCategory : AppRoutes("add_category_screen")
+    object EditCategory : AppRoutes("edit_category_screen/{categoryName}"){
+        fun createRoute(name: String) = "edit_category_screen/$name"
+    }
+
 
     // --- Add Transaction (FAB) ---
     object AddTransaction : AppRoutes("add_transaction_screen")

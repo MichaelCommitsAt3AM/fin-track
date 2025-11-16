@@ -1,4 +1,4 @@
-package com.example.fintrack.presentation.settings
+package com.example.fintrack.presentation.settings.categories
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,26 +20,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.fintrack.core.domain.model.Category
+import com.example.fintrack.core.domain.model.CategoryType
+import com.example.fintrack.presentation.settings.categories.ManageCategoriesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageCategoriesScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToAddCategory: () -> Unit,
+    onNavigateToEditCategory: (String) -> Unit,
+    viewModel: ManageCategoriesViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableStateOf(CategoryType.EXPENSE) }
-    var searchQuery by remember { mutableStateOf("") }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var categoryToDelete by remember { mutableStateOf<CategoryItem?>(null) }
+    val selectedTab by viewModel.selectedType.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
 
-    // Mock Data
-    val categories = listOf(
-        CategoryItem("Groceries", Icons.Default.ShoppingCart, Color(0xFF3B82F6)),
-        CategoryItem("Transport", Icons.Default.DirectionsBus, Color(0xFFF59E0B)),
-        CategoryItem("Rent", Icons.Default.House, Color(0xFF8B5CF6)),
-        CategoryItem("Entertainment", Icons.Default.Movie, Color(0xFFEC4899)),
-        CategoryItem("Health", Icons.Default.HealthAndSafety, Color(0xFF1BC57A))
-    )
+    // Observing real data from ViewModel
+    val categories by viewModel.categories.collectAsState()
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -63,7 +65,9 @@ fun ManageCategoriesScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* TODO: Add Category */ },
+                onClick = {
+                    onNavigateToAddCategory()
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
@@ -91,13 +95,13 @@ fun ManageCategoriesScreen(
                     TabButton(
                         text = "Expenses",
                         isSelected = selectedTab == CategoryType.EXPENSE,
-                        onClick = { selectedTab = CategoryType.EXPENSE },
+                        onClick = { viewModel.onTabSelected(CategoryType.EXPENSE) },
                         modifier = Modifier.weight(1f)
                     )
                     TabButton(
                         text = "Income",
                         isSelected = selectedTab == CategoryType.INCOME,
-                        onClick = { selectedTab = CategoryType.INCOME },
+                        onClick = { viewModel.onTabSelected(CategoryType.INCOME) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -105,7 +109,7 @@ fun ManageCategoriesScreen(
                 // --- Search Bar ---
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    onValueChange = { viewModel.onSearchQueryChanged(it) },
                     placeholder = { Text("Search categories...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier
@@ -127,8 +131,19 @@ fun ManageCategoriesScreen(
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(categories) { category ->
+                        // Convert hex string to Color
+                        val uiColor = try {
+                            Color(android.graphics.Color.parseColor(category.colorHex))
+                        } catch(e:Exception) {
+                            Color.Gray
+                        }
+                        val uiIcon = getIconByName(category.iconName)
+
                         CategoryRow(
-                            item = category,
+                            name = category.name,
+                            icon = uiIcon,
+                            color = uiColor,
+                            onClick = { onNavigateToEditCategory(category.name) },
                             onDeleteClick = {
                                 categoryToDelete = category
                                 showDeleteDialog = true
@@ -161,7 +176,7 @@ fun ManageCategoriesScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: Handle Delete Logic
+                        viewModel.deleteCategory(categoryToDelete!!)
                         showDeleteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -221,7 +236,10 @@ fun TabButton(
 
 @Composable
 fun CategoryRow(
-    item: CategoryItem,
+    name: String,
+    icon: ImageVector,
+    color: Color,
+    onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -231,7 +249,7 @@ fun CategoryRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .clickable { /* TODO: Edit Category */ }
+            .clickable { onClick() }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -244,8 +262,8 @@ fun CategoryRow(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = item.icon,
-                contentDescription = item.name,
+                imageVector = icon,
+                contentDescription = name,
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp)
             )
@@ -256,7 +274,7 @@ fun CategoryRow(
         // Text and Color Dot
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = item.name,
+                text = name,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
@@ -266,7 +284,7 @@ fun CategoryRow(
                 modifier = Modifier
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(item.color)
+                    .background(color)
             )
         }
 
@@ -311,12 +329,39 @@ fun CategoryRow(
     }
 }
 
-data class CategoryItem(
-    val name: String,
-    val icon: ImageVector,
-    val color: Color
-)
+// Helper to map string names back to Icons
+fun getIconByName(name: String): ImageVector {
+    return when (name) {
+        // Expenses
+        "shopping_cart" -> Icons.Default.ShoppingCart
+        "restaurant" -> Icons.Default.Restaurant
+        "directions_bus", "commute" -> Icons.Default.DirectionsBus
+        "home", "house" -> Icons.Default.Home
+        "receipt_long" -> Icons.Default.ReceiptLong
+        "movie" -> Icons.Default.Movie
+        "fitness_center" -> Icons.Default.FitnessCenter
+        "flight" -> Icons.Default.Flight
+        "school" -> Icons.Default.School
+        "pets" -> Icons.Default.Pets
+        "local_gas_station" -> Icons.Default.LocalGasStation
+        "build" -> Icons.Default.Build
+        "health_and_safety", "local_hospital" -> Icons.Default.HealthAndSafety
 
-enum class CategoryType {
-    EXPENSE, INCOME
+        // Income
+        "paid" -> Icons.Default.Paid
+        "savings" -> Icons.Default.Savings
+        "trending_up" -> Icons.AutoMirrored.Filled.TrendingUp
+        "work" -> Icons.Default.Work
+        "card_giftcard" -> Icons.Default.CardGiftcard
+        "sell" -> Icons.Default.Sell
+        "account_balance" -> Icons.Default.AccountBalance
+        "request_quote" -> Icons.Default.RequestQuote
+        "currency_exchange" -> Icons.Default.CurrencyExchange
+        "wallet", "account_balance_wallet" -> Icons.Default.AccountBalanceWallet
+        "redeem" -> Icons.Default.Redeem
+        "add_business" -> Icons.Default.AddBusiness
+
+        // Fallback
+        else -> Icons.Default.Category
+    }
 }

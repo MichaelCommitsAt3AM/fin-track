@@ -116,7 +116,8 @@ fun NavGraph(
             exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
         ) {
             AddTransactionScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route)}
             )
         }
 
@@ -131,7 +132,8 @@ fun NavGraph(
             exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
         ) {
             AddTransactionScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route)}
             )
         }
     }

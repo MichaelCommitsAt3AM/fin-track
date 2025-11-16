@@ -6,6 +6,7 @@ import com.example.fintrack.core.data.mapper.toDomain
 import com.example.fintrack.core.data.mapper.toEntity
 import com.example.fintrack.core.domain.model.Category
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.model.CategoryType
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,17 @@ class CategoryRepositoryImpl @Inject constructor(
             .document(getUserId() ?: "unknown_user")
             .collection("categories")
 
+    // --- Initialize Default categories ---
+    override suspend fun initDefaultCategories() {
+        val defaults = listOf(
+            Category("Food", "restaurant", "#F39C12", CategoryType.EXPENSE, isDefault = true),
+            Category("Rent", "house", "#8B5CF6", CategoryType.EXPENSE, isDefault = true),
+            Category("Transport", "directions_bus", "#3498DB", CategoryType.EXPENSE, isDefault = true)
+        )
+        // Insert locally and to cloud
+        insertAllCategories(defaults)
+    }
+
 
     override suspend fun insertCategory(category: Category) {
         // 1. Save locally
@@ -39,6 +51,24 @@ class CategoryRepositoryImpl @Inject constructor(
                     .set(category.toEntity()).await()
             } catch (e: Exception) {
                 Log.e("CategoryRepo", "Error saving category to cloud: ${e.message}")
+            }
+        }
+    }
+
+    // --- Delete Category ---
+    override suspend fun deleteCategory(category: Category) {
+        // 1. Delete locally
+        categoryDao.deleteCategory(category.name)
+
+        // 2. Delete from Cloud
+        getUserId()?.let {
+            try {
+                getUserCategoriesCollection()
+                    .document(category.name)
+                    .delete()
+                    .await()
+            } catch (e: Exception) {
+                Log.e("CategoryRepo", "Error deleting category: ${e.message}")
             }
         }
     }

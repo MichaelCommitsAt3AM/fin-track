@@ -2,7 +2,6 @@ package com.example.fintrack.presentation.add_transaction
 
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,14 +16,12 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,13 +32,17 @@ import java.util.TimeZone
 @Composable
 fun AddTransactionScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToManageCategories: () -> Unit, // <-- NEW PARAMETER
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // Listen for navigation events
+    val relevantCategories = remember(state.categories, state.transactionType) {
+        state.categories.filter { it.type.name == state.transactionType.name }
+    }
+
     LaunchedEffect(key1 = true) {
         viewModel.events.collect { event ->
             when (event) {
@@ -50,7 +51,6 @@ fun AddTransactionScreen(
         }
     }
 
-    // Show error toasts
     LaunchedEffect(state.error) {
         state.error?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
@@ -79,7 +79,6 @@ fun AddTransactionScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
-            // --- Income/Expense Toggle ---
             TransactionTypeToggle(
                 selectedType = state.transactionType,
                 onTypeSelected = { viewModel.onEvent(AddTransactionUiEvent.OnTypeChange(it)) }
@@ -87,17 +86,15 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Form Fields ---
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Category
+                // Updated Category Selector
                 CategorySelector(
-                    categories = state.categories.map { it.name },
+                    categories = relevantCategories.map { it.name },
                     selectedCategory = state.selectedCategory,
                     onCategorySelected = { viewModel.onEvent(AddTransactionUiEvent.OnCategoryChange(it)) },
-                    onAddCategory = { /* TODO: Show Add Category Dialog */ }
+                    onAddCategoryClick = onNavigateToManageCategories // Pass the navigation lambda
                 )
 
-                // Description
                 FinTrackTextField(
                     value = state.description,
                     onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnDescriptionChange(it)) },
@@ -105,7 +102,6 @@ fun AddTransactionScreen(
                     placeholder = "e.g. Weekly groceries"
                 )
 
-                // Date
                 FinTrackTextField(
                     value = viewModel.formatMillisToDate(state.date),
                     onValueChange = {},
@@ -116,7 +112,6 @@ fun AddTransactionScreen(
                     modifier = Modifier.clickable { showDatePicker = true }
                 )
 
-                // Amount
                 FinTrackTextField(
                     value = state.amount,
                     onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnAmountChange(it)) },
@@ -130,7 +125,6 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Submit Button ---
             Button(
                 onClick = { viewModel.onEvent(AddTransactionUiEvent.OnSaveTransaction) },
                 modifier = Modifier
@@ -148,7 +142,6 @@ fun AddTransactionScreen(
         }
     }
 
-    // --- Date Picker Dialog ---
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = state.date,
@@ -157,7 +150,6 @@ fun AddTransactionScreen(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    // Add one day to fix timezone issue (DatePicker defaults to UTC midnight)
                     val selectedDate = datePickerState.selectedDateMillis!!
                     viewModel.onEvent(AddTransactionUiEvent.OnDateChange(selectedDate))
                     showDatePicker = false
@@ -174,6 +166,98 @@ fun AddTransactionScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategorySelector(
+    categories: List<String>,
+    selectedCategory: String?,
+    onCategorySelected: (String) -> Unit,
+    onAddCategoryClick: () -> Unit // New parameter
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = "Category",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = selectedCategory ?: "Select a category",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    Icon(Icons.Default.ExpandMore, contentDescription = null)
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
+            ) {
+                if (categories.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("No categories found") },
+                        onClick = { },
+                        enabled = false
+                    )
+                } else {
+                    categories.forEach { categoryName ->
+                        DropdownMenuItem(
+                            text = { Text(categoryName) },
+                            onClick = {
+                                onCategorySelected(categoryName)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+
+                // --- ADD BUTTON INSIDE DROPDOWN ---
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "Add new category",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    onClick = {
+                        onAddCategoryClick()
+                        expanded = false
+                    }
+                )
+                // ----------------------------------
+            }
+        }
+    }
+}
+
+// ... [Keep TransactionTypeToggle and FinTrackTextField as they were] ...
 @Composable
 fun TransactionTypeToggle(
     selectedType: TransactionType,
@@ -210,79 +294,6 @@ fun TransactionTypeToggle(
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
             Text("Income", fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CategorySelector(
-    categories: List<String>,
-    selectedCategory: String?,
-    onCategorySelected: (String) -> Unit,
-    onAddCategory: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Text(
-            text = "Category",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-                modifier = Modifier.weight(1f)
-            ) {
-                OutlinedTextField(
-                    value = selectedCategory ?: "Select a category",
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = {
-                        Icon(Icons.Default.ExpandMore, contentDescription = null)
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
-                ) {
-                    categories.forEach { categoryName ->
-                        DropdownMenuItem(
-                            text = { Text(categoryName) },
-                            onClick = {
-                                onCategorySelected(categoryName)
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Add Category Button
-            IconButton(
-                onClick = onAddCategory,
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Category", tint = MaterialTheme.colorScheme.primary)
-            }
         }
     }
 }

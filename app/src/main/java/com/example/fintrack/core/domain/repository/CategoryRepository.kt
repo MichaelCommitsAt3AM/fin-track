@@ -11,4 +11,7 @@ interface CategoryRepository {
     suspend fun insertAllCategories(categories: List<Category>)
 
     fun getAllCategories(): Flow<List<Category>>
+
+    suspend fun deleteCategory(category: Category)
+    suspend fun initDefaultCategories()
 }

@@ -21,4 +21,8 @@ interface CategoryDao {
     // Get all categories, ordered by name
     @Query("SELECT * FROM categories ORDER BY name ASC")
     fun getAllCategories(): Flow<List<CategoryEntity>>
+
+    // Delete a category from the db
+    @Query("DELETE FROM categories WHERE name = :name")
+    suspend fun deleteCategory(name: String)
 }
