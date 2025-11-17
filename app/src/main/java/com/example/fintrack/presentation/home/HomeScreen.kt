@@ -56,10 +56,10 @@ fun HomeScreen(
 
     // Dummy data
     val spendingCategories = listOf(
-        SpendingCategory("Food", "$345.12", Icons.Default.Restaurant, SpendingFood),
-        SpendingCategory("Transport", "$88.50", Icons.Default.DirectionsBus, SpendingTransport),
-        SpendingCategory("Shopping", "$1,204.99", Icons.Default.ShoppingBag, SpendingShopping),
-        SpendingCategory("Bills", "$450.00", Icons.Default.ReceiptLong, SpendingBills)
+        SpendingCategory("Food", "Ksh 345.12", Icons.Default.Restaurant, SpendingFood),
+        SpendingCategory("Transport", "Ksh 88.50", Icons.Default.DirectionsBus, SpendingTransport),
+        SpendingCategory("Shopping", "Ksh 1,204.99", Icons.Default.ShoppingBag, SpendingShopping),
+        SpendingCategory("Bills", "Ksh 450.00", Icons.Default.ReceiptLong, SpendingBills)
     )
 //    val transactions = listOf(
 //        Transaction("Amazon Purchase", "Today", -78.99, Icons.Default.ShoppingCart),
@@ -152,7 +152,7 @@ fun BalanceCard() {
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
             )
             Text(
-                text = "$12,345.67", // Hardcoded
+                text = "Ksh 12,345.67", // Updated to Ksh
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary
@@ -198,7 +198,7 @@ fun SpendingSection(categories: List<SpendingCategory>) {
         SectionHeader(title = "Spending", onViewAllClick = { /* TODO */ })
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            modifier = Modifier.height(200.dp), // Fixed height for 2 rows
+            modifier = Modifier.height(216.dp), // Fixed height for 2 rows
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp)
@@ -269,7 +269,7 @@ fun TransactionsSection(
 @Composable
 fun TransactionItem(transaction: TransactionUiModel) {
     val amountColor = if (transaction.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
-    val amountString = if (transaction.amount > 0) "+$${"%.2f".format(transaction.amount)}" else "-$${"%.2f".format(kotlin.math.abs(transaction.amount))}"
+    val amountString = if (transaction.amount > 0) "+Ksh ${"%.2f".format(transaction.amount)}" else "-Ksh ${"%.2f".format(kotlin.math.abs(transaction.amount))}"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -287,7 +287,7 @@ fun TransactionItem(transaction: TransactionUiModel) {
                     .background(amountColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = transaction.icon, contentDescription = transaction.name, tint = transaction.color)
+                Icon(imageVector = transaction.icon, contentDescription = transaction.name, tint = amountColor)
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -340,3 +340,4 @@ fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
 
 // Data classes for dummy data
 data class SpendingCategory(val name: String, val amount: String, val icon: ImageVector, val color: Color)
+data class Transaction(val name: String, val date: String, val amount: Double, val icon: ImageVector)

@@ -117,7 +117,7 @@ fun AddTransactionScreen(
                     onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnAmountChange(it)) },
                     label = "Amount",
                     placeholder = "0.00",
-                    leadingIcon = { Text("$", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    leadingIcon = { Text(" Ksh:", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
                 )
