@@ -31,4 +31,7 @@ interface TransactionDao {
     // Get transactions by type (e.g., "INCOME" or "EXPENSE")
     @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date DESC")
     fun getTransactionsByType(type: String): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions ORDER BY date DESC LIMIT :limit")
+    fun getRecentTransactions(limit: Int): Flow<List<TransactionEntity>>
 }

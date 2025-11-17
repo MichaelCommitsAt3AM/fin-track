@@ -28,5 +28,6 @@ sealed class AppRoutes(val route: String) {
 
     // --- Add Transaction (FAB) ---
     object AddTransaction : AppRoutes("add_transaction_screen")
+    object TransactionList : AppRoutes("transaction_list_screen")
 
 }

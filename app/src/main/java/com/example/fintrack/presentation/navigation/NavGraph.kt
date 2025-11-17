@@ -24,7 +24,7 @@ import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
 import com.example.fintrack.presentation.navigation.BottomNavItem
-
+import com.example.fintrack.presentation.transactions.TransactionListScreen
 
 
 @Composable
@@ -95,8 +95,8 @@ fun NavGraph(
         // --- Main App Routes ---
         composable(
             route = BottomNavItem.Home.route,
-            enterTransition = { fadeIn(animationSpec = tween(500)) },
-            exitTransition = { fadeOut(animationSpec = tween(500)) }
+            enterTransition = { fadeIn(animationSpec = tween(300)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
             HomeScreen(navController = navController)
         }
@@ -134,6 +134,17 @@ fun NavGraph(
             AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route)}
+            )
+        }
+
+        // --- Transaction List Screen ---
+        composable(
+            route = AppRoutes.TransactionList.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            TransactionListScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

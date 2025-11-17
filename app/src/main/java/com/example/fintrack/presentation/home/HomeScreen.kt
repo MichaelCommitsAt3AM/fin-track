@@ -35,6 +35,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -43,9 +44,16 @@ import com.example.fintrack.presentation.ui.theme.SpendingBills
 import com.example.fintrack.presentation.ui.theme.SpendingFood
 import com.example.fintrack.presentation.ui.theme.SpendingShopping
 import com.example.fintrack.presentation.ui.theme.SpendingTransport
+import com.example.fintrack.presentation.navigation.AppRoutes
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    navController: NavController,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
+
+    val recentTransactions by viewModel.recentTransactions.collectAsState()
+
     // Dummy data
     val spendingCategories = listOf(
         SpendingCategory("Food", "$345.12", Icons.Default.Restaurant, SpendingFood),
@@ -53,11 +61,11 @@ fun HomeScreen(navController: NavController) {
         SpendingCategory("Shopping", "$1,204.99", Icons.Default.ShoppingBag, SpendingShopping),
         SpendingCategory("Bills", "$450.00", Icons.Default.ReceiptLong, SpendingBills)
     )
-    val transactions = listOf(
-        Transaction("Amazon Purchase", "Today", -78.99, Icons.Default.ShoppingCart),
-        Transaction("Salary", "Yesterday", 2500.00, Icons.Default.Paid),
-        Transaction("Starbucks", "2 days ago", -6.50, Icons.Default.Coffee)
-    )
+//    val transactions = listOf(
+//        Transaction("Amazon Purchase", "Today", -78.99, Icons.Default.ShoppingCart),
+//        Transaction("Salary", "Yesterday", 2500.00, Icons.Default.Paid),
+//        Transaction("Starbucks", "2 days ago", -6.50, Icons.Default.Coffee)
+//    )
 
     // FIX: Removed Scaffold entirely.
     // The padding for the Bottom Bar is handled by MainActivity -> NavGraph.
@@ -72,7 +80,12 @@ fun HomeScreen(navController: NavController) {
         item { HomeHeader() }
         item { BalanceCard() }
         item { SpendingSection(spendingCategories) }
-        item { TransactionsSection(transactions) }
+        item { TransactionsSection(
+            transactions = recentTransactions,
+            onViewAllClick = {
+                navController.navigate(AppRoutes.TransactionList.route)
+            }
+        ) }
     }
 }
 
@@ -182,7 +195,7 @@ fun BalanceAction(text: String, icon: ImageVector, modifier: Modifier = Modifier
 @Composable
 fun SpendingSection(categories: List<SpendingCategory>) {
     Column(modifier = Modifier.padding(top = 28.dp)) {
-        SectionHeader(title = "Spending", onVewAllClick = { /* TODO */ })
+        SectionHeader(title = "Spending", onViewAllClick = { /* TODO */ })
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.height(200.dp), // Fixed height for 2 rows
@@ -236,9 +249,14 @@ fun SpendingItem(category: SpendingCategory) {
 }
 
 @Composable
-fun TransactionsSection(transactions: List<Transaction>) {
+fun TransactionsSection(
+    transactions: List<TransactionUiModel>,
+    onViewAllClick: () -> Unit
+) {
     Column(modifier = Modifier.padding(top = 28.dp)) {
-        SectionHeader(title = "Recent Transactions", onVewAllClick = { /* TODO */ })
+        SectionHeader(
+            title = "Recent Transactions",
+            onViewAllClick =  onViewAllClick )
         Spacer(modifier = Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             transactions.forEach { transaction ->
@@ -249,7 +267,7 @@ fun TransactionsSection(transactions: List<Transaction>) {
 }
 
 @Composable
-fun TransactionItem(transaction: Transaction) {
+fun TransactionItem(transaction: TransactionUiModel) {
     val amountColor = if (transaction.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
     val amountString = if (transaction.amount > 0) "+$${"%.2f".format(transaction.amount)}" else "-$${"%.2f".format(kotlin.math.abs(transaction.amount))}"
 
@@ -269,7 +287,7 @@ fun TransactionItem(transaction: Transaction) {
                     .background(amountColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = transaction.icon, contentDescription = transaction.name, tint = amountColor)
+                Icon(imageVector = transaction.icon, contentDescription = transaction.name, tint = transaction.color)
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -296,7 +314,7 @@ fun TransactionItem(transaction: Transaction) {
 }
 
 @Composable
-fun SectionHeader(title: String, onVewAllClick: () -> Unit) {
+fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -310,7 +328,7 @@ fun SectionHeader(title: String, onVewAllClick: () -> Unit) {
         )
         ClickableText(
             text = AnnotatedString("View All"),
-            onClick = { onVewAllClick() },
+            onClick = { offset -> onViewAllClick() },
             style = TextStyle(
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
@@ -322,4 +340,3 @@ fun SectionHeader(title: String, onVewAllClick: () -> Unit) {
 
 // Data classes for dummy data
 data class SpendingCategory(val name: String, val amount: String, val icon: ImageVector, val color: Color)
-data class Transaction(val name: String, val date: String, val amount: Double, val icon: ImageVector)

@@ -39,7 +39,7 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
         // 2. Manage Categories Screen
         composable(
             route = AppRoutes.ManageCategories.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            //enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
             popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
         ) {
             ManageCategoriesScreen(

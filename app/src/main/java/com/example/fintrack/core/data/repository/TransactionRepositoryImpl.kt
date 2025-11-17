@@ -88,4 +88,12 @@ class TransactionRepositoryImpl @Inject constructor(
             entityList.map { it.toDomain() }
         }
     }
+
+    override fun getRecentTransactions(limit: Int): Flow<List<Transaction>> {
+        // We only read from local Room DB for the Home Screen for speed.
+        // Background sync will keep it updated.
+        return transactionDao.getRecentTransactions(limit).map { entityList ->
+            entityList.map { it.toDomain() }
+        }
+    }
 }

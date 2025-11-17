@@ -16,4 +16,7 @@ interface TransactionRepository {
     fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<Transaction>>
 
     fun getTransactionsByType(type: String): Flow<List<Transaction>>
+
+    // Fetch the latest N transactions (eg limit = 3)
+    fun getRecentTransactions(limit: Int): Flow<List<Transaction>>
 }
