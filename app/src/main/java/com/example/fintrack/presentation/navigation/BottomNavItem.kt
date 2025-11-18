@@ -25,11 +25,11 @@ sealed class BottomNavItem(
     )
 
     // This is a placeholder for the middle FAB space
-    object Placeholder : BottomNavItem(
-        route = "",
-        title = "",
-        icon = Icons.Default.Home // Icon doesn't matter, won't be shown
-    )
+//    object Placeholder : BottomNavItem(
+//        route = "",
+//        title = "",
+//        icon = Icons.Default.Home // Icon doesn't matter, won't be shown
+//    )
 
     object Budgets : BottomNavItem(
         route = AppRoutes.Budgets.route,

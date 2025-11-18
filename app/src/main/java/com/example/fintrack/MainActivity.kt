@@ -3,7 +3,6 @@ package com.example.fintrack
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -14,14 +13,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.fintrack.presentation.navigation.AppRoutes
 import com.example.fintrack.presentation.navigation.BottomNavItem
 import com.example.fintrack.presentation.navigation.NavGraph
-import com.example.fintrack.presentation.ui.components.BottomNavBar
-import com.example.fintrack.presentation.navigation.AppRoutes
+import com.example.fintrack.core.ui.components.BottomNavBar
 import com.example.fintrack.presentation.ui.theme.FinTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
@@ -40,7 +37,7 @@ class MainActivity : ComponentActivity() {
                     when {
                         currentUser == null -> AppRoutes.Login.route
                         !currentUser.isEmailVerified -> AppRoutes.VerifyEmail.route
-                        else -> BottomNavItem.Home.route
+                        else -> AppRoutes.Home.route
                     }
                 }
 
@@ -55,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     AppRoutes.Settings.route
                 )
 
+                // FIX: Use a consistent variable name
                 val showBottomNav = currentRoute in mainTabRoutes
 
                 Scaffold(
@@ -69,8 +67,8 @@ class MainActivity : ComponentActivity() {
                                 onClick = { navController.navigate(AppRoutes.AddTransaction.route) },
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                                shape = CircleShape,
-                                modifier = Modifier.offset(y = 45.dp)
+                                shape = CircleShape
+                                // FIX: Removed Modifier.offset(y = 45.dp) so it sits correctly at the bottom right
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
@@ -79,7 +77,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
-                    floatingActionButtonPosition = FabPosition.Center
+                    floatingActionButtonPosition = FabPosition.End // Bottom Right
                 ) { paddingValues ->
                     NavGraph(
                         navController = navController,
