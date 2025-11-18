@@ -29,10 +29,10 @@ fun ReportsScreen(navController: NavController) {
     // Dummy Data
     val weeklyData = listOf(0.6f, 0.4f, 0.75f, 0.3f, 0.85f, 0.5f, 0.2f) // Percentage heights
     val categoryData = listOf(
-        CategoryReport("Food & Drinks", "$345.12", 0.55f, Icons.Default.Restaurant, SpendingFood),
-        CategoryReport("Shopping", "$1,204.99", 0.85f, Icons.Default.ShoppingBag, SpendingShopping),
-        CategoryReport("Bills & Utilities", "$450.00", 0.65f, Icons.Default.ReceiptLong, SpendingBills),
-        CategoryReport("Transportation", "$88.50", 0.30f, Icons.Default.DirectionsBus, SpendingTransport)
+        CategoryReport("Food & Drinks", "Ksh345.12", 0.55f, Icons.Default.Restaurant, SpendingFood),
+        CategoryReport("Shopping", "Ksh1,204.99", 0.85f, Icons.Default.ShoppingBag, SpendingShopping),
+        CategoryReport("Bills & Utilities", "Ksh450.00", 0.65f, Icons.Default.ReceiptLong, SpendingBills),
+        CategoryReport("Transportation", "Ksh88.50", 0.30f, Icons.Default.DirectionsBus, SpendingTransport)
     )
 
     LazyColumn(
@@ -196,14 +196,14 @@ fun MonthlySummaryCard() {
                 // Income Box
                 SummaryBox(
                     label = "Income",
-                    amount = "$4,500.00",
+                    amount = "Ksh4,500.00",
                     amountColor = FinTrackGreen,
                     modifier = Modifier.weight(1f)
                 )
                 // Expense Box
                 SummaryBox(
                     label = "Expense",
-                    amount = "$2,145.50",
+                    amount = "Ksh2,145.50",
                     amountColor = MaterialTheme.colorScheme.error,
                     modifier = Modifier.weight(1f)
                 )
