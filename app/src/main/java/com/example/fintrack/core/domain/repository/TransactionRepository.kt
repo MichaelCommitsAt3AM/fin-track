@@ -1,5 +1,6 @@
 package com.example.fintrack.core.domain.repository
 
+import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
 
@@ -19,4 +20,9 @@ interface TransactionRepository {
 
     // Fetch the latest N transactions (eg limit = 3)
     fun getRecentTransactions(limit: Int): Flow<List<Transaction>>
+
+    suspend fun insertRecurringTransaction(recurringTransaction: RecurringTransaction)
+
+    suspend fun syncTransactionsFromCloud()
+
 }

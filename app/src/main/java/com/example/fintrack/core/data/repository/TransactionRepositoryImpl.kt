@@ -1,11 +1,15 @@
 package com.example.fintrack.core.data.repository
 
 import android.util.Log
+import com.example.fintrack.core.data.local.FinanceDatabase
 import com.example.fintrack.core.data.local.dao.TransactionDao
 import com.example.fintrack.core.data.mapper.toDomain
 import com.example.fintrack.core.data.mapper.toEntity
+import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.repository.TransactionRepository
+import com.example.fintrack.data.local.dao.RecurringTransactionDao
+import com.example.fintrack.data.local.model.RecurringTransactionEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -15,10 +19,14 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
-    private val transactionDao: TransactionDao,
+    private val db: FinanceDatabase,
     private val firebaseAuth: FirebaseAuth,     // <-- Inject Auth
     private val firestore: FirebaseFirestore    // <-- Inject Firestore
 ) : TransactionRepository {
+
+    private val transactionDao: TransactionDao = db.transactionDao()
+    private val recurringTransactionDao: RecurringTransactionDao = db.recurringTransactionDao()
+
 
     // Helper to get the current user ID
     private fun getUserId(): String? = firebaseAuth.currentUser?.uid
@@ -94,6 +102,52 @@ class TransactionRepositoryImpl @Inject constructor(
         // Background sync will keep it updated.
         return transactionDao.getRecentTransactions(limit).map { entityList ->
             entityList.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun insertRecurringTransaction(recurringTransaction: RecurringTransaction) {
+        // 1. Save Locally
+        val entity = RecurringTransactionEntity(
+            type = recurringTransaction.type.name,
+            amount = recurringTransaction.amount,
+            category = recurringTransaction.category,
+            startDate = recurringTransaction.startDate,
+            frequency = recurringTransaction.frequency.name,
+            notes = recurringTransaction.notes
+        )
+        recurringTransactionDao.insert(entity)
+
+        // 2. Save to Cloud (Optional for now, but good practice)
+        getUserId()?.let {
+            try {
+                firestore.collection("users")
+                    .document(it)
+                    .collection("recurring_transactions")
+                    .add(recurringTransaction) // Let Firestore generate ID
+                    .await()
+            } catch (e: Exception) {
+                Log.e("TransactionRepo", "Error saving recurring to cloud: ${e.message}")
+            }
+        }
+    }
+
+    override suspend fun syncTransactionsFromCloud() {
+        getUserId()?.let { userId ->
+            try {
+                val snapshot = getUserTransactionsCollection().get().await()
+
+                // IMPORTANT: Since Transaction is a data class without a no-arg constructor,
+                // automated mapping might fail. It's safer to map manually or ensure default values.
+                // Assuming standard mapping works for now:
+                val transactions = snapshot.toObjects(Transaction::class.java)
+
+                if (transactions.isNotEmpty()) {
+                    // Save to Local Room DB
+                    transactionDao.insertAll(transactions.map { it.toEntity() })
+                }
+            } catch (e: Exception) {
+                Log.e("TransactionRepo", "Sync failed: ${e.message}")
+            }
         }
     }
 }

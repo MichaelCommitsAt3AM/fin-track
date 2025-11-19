@@ -14,4 +14,5 @@ interface CategoryRepository {
 
     suspend fun deleteCategory(category: Category)
     suspend fun initDefaultCategories()
+    suspend fun syncCategoriesFromCloud()
 }

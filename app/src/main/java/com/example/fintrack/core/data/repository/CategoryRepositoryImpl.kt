@@ -99,4 +99,20 @@ class CategoryRepositoryImpl @Inject constructor(
             entityList.map { it.toDomain() }
         }
     }
+
+    override suspend fun syncCategoriesFromCloud() {
+        getUserId()?.let { userId ->
+            try {
+                val snapshot = getUserCategoriesCollection().get().await()
+                val categories = snapshot.toObjects(Category::class.java)
+
+                if (categories.isNotEmpty()) {
+                    // Save to Local Room DB
+                    categoryDao.insertAll(categories.map { it.toEntity() })
+                }
+            } catch (e: Exception) {
+                Log.e("CategoryRepo", "Sync failed: ${e.message}")
+            }
+        }
+    }
 }

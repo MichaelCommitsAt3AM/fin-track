@@ -3,9 +3,11 @@ package com.example.fintrack.presentation.add_transaction
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fintrack.core.domain.model.Category
+import com.example.fintrack.core.domain.model.RecurrenceFrequency
+import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
-import com.example.fintrack.core.domain.use_case.AddTransactionUseCase
+import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -25,6 +27,10 @@ data class AddTransactionUiState(
     val description: String = "",
     val selectedCategory: String? = null,
     val date: Long = System.currentTimeMillis(),
+    // Recurring State
+    val isRecurring: Boolean = false,
+    val recurrenceFrequency: RecurrenceFrequency = RecurrenceFrequency.MONTHLY,
+
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -35,6 +41,8 @@ sealed class AddTransactionUiEvent {
     data class OnDescriptionChange(val description: String) : AddTransactionUiEvent()
     data class OnCategoryChange(val category: String) : AddTransactionUiEvent()
     data class OnDateChange(val date: Long) : AddTransactionUiEvent()
+    data class OnRecurringChange(val isRecurring: Boolean) : AddTransactionUiEvent()
+    data class OnFrequencyChange(val frequency: RecurrenceFrequency) : AddTransactionUiEvent()
     object OnSaveTransaction : AddTransactionUiEvent()
 }
 
@@ -44,7 +52,7 @@ sealed class AddTransactionEvent {
 
 @HiltViewModel
 class AddTransactionViewModel @Inject constructor(
-    private val addTransactionUseCase: AddTransactionUseCase,
+    private val transactionRepository: TransactionRepository, // <-- FIX: Use Repository directly
     private val getCategoriesUseCase: GetCategoriesUseCase
 ) : ViewModel() {
 
@@ -68,11 +76,18 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onEvent(event: AddTransactionUiEvent) {
         when (event) {
-            is AddTransactionUiEvent.OnTypeChange -> _uiState.value = _uiState.value.copy(transactionType = event.type)
+            is AddTransactionUiEvent.OnTypeChange -> {
+                _uiState.value = _uiState.value.copy(
+                    transactionType = event.type,
+                    selectedCategory = null // Reset category when switching types
+                )
+            }
             is AddTransactionUiEvent.OnAmountChange -> _uiState.value = _uiState.value.copy(amount = event.amount)
             is AddTransactionUiEvent.OnDescriptionChange -> _uiState.value = _uiState.value.copy(description = event.description)
             is AddTransactionUiEvent.OnCategoryChange -> _uiState.value = _uiState.value.copy(selectedCategory = event.category)
             is AddTransactionUiEvent.OnDateChange -> _uiState.value = _uiState.value.copy(date = event.date)
+            is AddTransactionUiEvent.OnRecurringChange -> _uiState.value = _uiState.value.copy(isRecurring = event.isRecurring)
+            is AddTransactionUiEvent.OnFrequencyChange -> _uiState.value = _uiState.value.copy(recurrenceFrequency = event.frequency)
             is AddTransactionUiEvent.OnSaveTransaction -> saveTransaction()
         }
     }
@@ -95,10 +110,10 @@ class AddTransactionViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true)
 
         viewModelScope.launch {
-            // Create a unique ID. We use timestamp + random to ensure uniqueness.
-            // In a real app, you might let Room generate this, but we need it for Firestore.
+            // Create a unique ID
             val uniqueId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt() + (0..1000).random()
 
+            // 1. Save Immediate Transaction
             val transaction = Transaction(
                 id = uniqueId,
                 type = state.transactionType,
@@ -106,11 +121,24 @@ class AddTransactionViewModel @Inject constructor(
                 category = state.selectedCategory,
                 date = state.date,
                 notes = state.description,
-                paymentMethod = "Card", // Hardcoded for now
-                tags = null // Hardcoded for now
+                paymentMethod = "Card",
+                tags = null
             )
+            // FIX: Call repository directly
+            transactionRepository.insertTransaction(transaction)
 
-            addTransactionUseCase(transaction)
+            // 2. Save Recurring Rule (If enabled)
+            if (state.isRecurring) {
+                val recurringRule = RecurringTransaction(
+                    type = state.transactionType,
+                    amount = amountDouble,
+                    category = state.selectedCategory,
+                    startDate = state.date,
+                    frequency = state.recurrenceFrequency,
+                    notes = state.description
+                )
+                transactionRepository.insertRecurringTransaction(recurringRule)
+            }
 
             _uiState.value = _uiState.value.copy(isLoading = false)
             _eventChannel.send(AddTransactionEvent.NavigateBack)

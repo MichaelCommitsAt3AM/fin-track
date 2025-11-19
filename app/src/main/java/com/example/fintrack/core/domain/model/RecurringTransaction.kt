@@ -1,0 +1,11 @@
+package com.example.fintrack.core.domain.model
+
+data class RecurringTransaction(
+    val id: Int = 0,
+    val type: TransactionType,
+    val amount: Double,
+    val category: String,
+    val startDate: Long,
+    val frequency: RecurrenceFrequency,
+    val notes: String?
+)

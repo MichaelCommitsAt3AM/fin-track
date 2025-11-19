@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.fintrack.core.domain.model.TransactionType
+import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,6 +114,14 @@ fun AddTransactionScreen(
                     modifier = Modifier.clickable { showDatePicker = true }
                 )
 
+                // --- Recurring Section ---
+                RecurrenceSection(
+                    isRecurring = state.isRecurring,
+                    selectedFrequency = state.recurrenceFrequency,
+                    onRecurringChange = { viewModel.onEvent(AddTransactionUiEvent.OnRecurringChange(it)) },
+                    onFrequencyChange = { viewModel.onEvent(AddTransactionUiEvent.OnFrequencyChange(it)) }
+                )
+
                 FinTrackTextField(
                     value = state.amount,
                     onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnAmountChange(it)) },
@@ -162,6 +172,83 @@ fun AddTransactionScreen(
             }
         ) {
             DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+fun RecurrenceSection(
+    isRecurring: Boolean,
+    selectedFrequency: RecurrenceFrequency,
+    onRecurringChange: (Boolean) -> Unit,
+    onFrequencyChange: (RecurrenceFrequency) -> Unit
+) {
+    Column {
+        // Header with Switch
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recurring Transaction?",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Switch(
+                checked = isRecurring,
+                onCheckedChange = onRecurringChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+
+        // Frequency Options (Visible only if Recurring)
+        if (isRecurring) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val frequencies = listOf(
+                    RecurrenceFrequency.DAILY,
+                    RecurrenceFrequency.WEEKLY,
+                    RecurrenceFrequency.MONTHLY
+                )
+
+                frequencies.forEach { freq ->
+                    val isSelected = selectedFrequency == freq
+                    val bgColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow
+                    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onFrequencyChange(freq) },
+                        label = {
+                            Text(
+                                text = freq.name.lowercase().replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderColor = Color.Transparent,
+                            selectedBorderColor = Color.Transparent,
+                            enabled = true,
+                            selected = isSelected
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+            }
         }
     }
 }

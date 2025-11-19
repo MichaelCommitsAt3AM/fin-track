@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.fintrack.core.domain.repository.AuthRepository
 import com.example.fintrack.core.domain.repository.AuthResult
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.util.EmailVerificationRateLimiter // Assuming util is now in core
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseUser
@@ -28,7 +29,8 @@ enum class RegistrationStep {
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val repository: AuthRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val transactionRepository: TransactionRepository
 ) : ViewModel() {
 
     // Holds the current user (null if logged out)
@@ -86,6 +88,10 @@ class AuthViewModel @Inject constructor(
             val user = _currentUser.value
             if (user != null) {
                 if (user.isEmailVerified) {
+
+                    // Refreshes user data from the cloud every time the app is opened
+                    syncUserData()
+
                     _authEventChannel.send(AuthEvent.NavigateToHome)
                 } else {
                     _authEventChannel.send(AuthEvent.NavigateToEmailVerification)
@@ -151,6 +157,19 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    private fun syncUserData() {
+        viewModelScope.launch {
+            // Launch in parallel for speed
+            val job1 = launch { categoryRepository.syncCategoriesFromCloud() }
+            val job2 = launch { transactionRepository.syncTransactionsFromCloud() }
+            // You can also add syncBudgetsFromCloud() here later
+
+            // Wait for both to finish (optional, but good if you want to show a loading spinner)
+            job1.join()
+            job2.join()
+        }
+    }
+
     private fun signUp() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -207,6 +226,9 @@ class AuthViewModel @Inject constructor(
 
             if (result.user != null) {
                 if (result.user.isEmailVerified) {
+                    // Load all user's data from the cloud
+                    syncUserData()
+
                     _uiState.value = _uiState.value.copy(isLoading = false)
                     _authEventChannel.send(AuthEvent.NavigateToHome)
                 } else {

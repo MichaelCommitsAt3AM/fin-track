@@ -29,10 +29,10 @@ fun ReportsScreen(navController: NavController) {
     // Dummy Data
     val weeklyData = listOf(0.6f, 0.4f, 0.75f, 0.3f, 0.85f, 0.5f, 0.2f) // Percentage heights
     val categoryData = listOf(
-        CategoryReport("Food & Drinks", "Ksh345.12", 0.55f, Icons.Default.Restaurant, SpendingFood),
-        CategoryReport("Shopping", "Ksh1,204.99", 0.85f, Icons.Default.ShoppingBag, SpendingShopping),
-        CategoryReport("Bills & Utilities", "Ksh450.00", 0.65f, Icons.Default.ReceiptLong, SpendingBills),
-        CategoryReport("Transportation", "Ksh88.50", 0.30f, Icons.Default.DirectionsBus, SpendingTransport)
+        CategoryReport("Food & Drinks", "Ksh 345.12", 0.55f, Icons.Default.Restaurant, SpendingFood),
+        CategoryReport("Shopping", "Ksh 1,204.99", 0.85f, Icons.Default.ShoppingBag, SpendingShopping),
+        CategoryReport("Bills & Utilities", "Ksh 450.00", 0.65f, Icons.Default.ReceiptLong, SpendingBills),
+        CategoryReport("Transportation", "Ksh 88.50", 0.30f, Icons.Default.DirectionsBus, SpendingTransport)
     )
 
     LazyColumn(
