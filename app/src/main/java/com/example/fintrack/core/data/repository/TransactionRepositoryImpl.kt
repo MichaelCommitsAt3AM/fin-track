@@ -3,6 +3,7 @@ package com.example.fintrack.core.data.repository
 import android.util.Log
 import com.example.fintrack.core.data.local.FinanceDatabase
 import com.example.fintrack.core.data.local.dao.TransactionDao
+import com.example.fintrack.core.data.local.model.TransactionEntity
 import com.example.fintrack.core.data.mapper.toDomain
 import com.example.fintrack.core.data.mapper.toEntity
 import com.example.fintrack.core.domain.model.RecurringTransaction
@@ -37,22 +38,28 @@ class TransactionRepositoryImpl @Inject constructor(
         .collection("transactions") // Get the transactions sub-collection
 
     override suspend fun insertTransaction(transaction: Transaction) {
-        // 1. Save to local Room database (as before)
-        transactionDao.insertTransaction(transaction.toEntity())
+        // Generate a unique ID using Firestore's auto-ID or UUID
+        val transactionId = if (transaction.id.isEmpty()) {
+            getUserTransactionsCollection().document().id // Let Firestore generate ID
+        } else {
+            transaction.id
+        }
+
+        val transactionWithId = transaction.copy(id = transactionId)
+
+        // 1. Save to local Room database
+        transactionDao.insertTransaction(transactionWithId.toEntity())
 
         // 2. Save to Cloud Firestore
         getUserId()?.let { userId ->
             try {
-                // We use the domain model (Transaction) for Firestore,
-                // as it's just a simple data class.
-                // We set the document ID to match the Room ID for easy mapping.
                 getUserTransactionsCollection()
-                    .document(transaction.id.toString())
-                    .set(transaction)
-                    .await() // Wait for the cloud save to complete
+                    .document(transactionId) // Use the same ID
+                    .set(transactionWithId)
+                    .await()
+                Log.d("TransactionRepo", "Transaction saved with ID: $transactionId")
             } catch (e: Exception) {
                 Log.e("TransactionRepo", "Error saving to Firestore: ${e.message}")
-                // Handle error: maybe add to a "failed sync" queue
             }
         }
     }
@@ -65,9 +72,10 @@ class TransactionRepositoryImpl @Inject constructor(
         getUserId()?.let {
             try {
                 getUserTransactionsCollection()
-                    .document(transaction.id.toString())
-                    .set(transaction) // 'set' works for both create and update
+                    .document(transaction.id)
+                    .set(transaction)
                     .await()
+                Log.d("TransactionRepo", "Transaction updated: ${transaction.id}")
             } catch (e: Exception) {
                 Log.e("TransactionRepo", "Error updating Firestore: ${e.message}")
             }
@@ -134,20 +142,42 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun syncTransactionsFromCloud() {
         getUserId()?.let { userId ->
             try {
+                Log.d("TransactionRepo", "Starting transaction sync for user: $userId")
                 val snapshot = getUserTransactionsCollection().get().await()
 
-                // IMPORTANT: Since Transaction is a data class without a no-arg constructor,
-                // automated mapping might fail. It's safer to map manually or ensure default values.
-                // Assuming standard mapping works for now:
-                val transactions = snapshot.toObjects(Transaction::class.java)
+                Log.d("TransactionRepo", "Found ${snapshot.size()} transactions in Firestore")
 
-                if (transactions.isNotEmpty()) {
-                    // Save to Local Room DB
-                    transactionDao.insertAll(transactions.map { it.toEntity() })
+                // Manual mapping from Firestore documents to Room entities
+                val entities = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val entity = TransactionEntity(
+                            id = doc.id, // Use Firestore document ID
+                            type = doc.getString("type") ?: "",
+                            amount = doc.getDouble("amount") ?: 0.0,
+                            category = doc.getString("category") ?: "",
+                            date = doc.getLong("date") ?: 0L,
+                            notes = doc.getString("notes"),
+                            paymentMethod = doc.getString("paymentMethod"),
+                            tags = doc.get("tags") as? List<String>
+                        )
+                        Log.d("TransactionRepo", "Mapped transaction: ${entity.id}")
+                        entity
+                    } catch (e: Exception) {
+                        Log.e("TransactionRepo", "Error mapping document ${doc.id}: ${e.message}", e)
+                        null
+                    }
+                }
+
+                if (entities.isNotEmpty()) {
+                    Log.d("TransactionRepo", "Inserting ${entities.size} transactions into Room")
+                    transactionDao.insertAll(entities)
+                    Log.d("TransactionRepo", "Sync completed successfully")
+                } else {
+                    Log.w("TransactionRepo", "No valid transactions to sync")
                 }
             } catch (e: Exception) {
-                Log.e("TransactionRepo", "Sync failed: ${e.message}")
+                Log.e("TransactionRepo", "Sync failed: ${e.message}", e)
             }
-        }
+        } ?: Log.e("TransactionRepo", "Cannot sync: User ID is null")
     }
 }

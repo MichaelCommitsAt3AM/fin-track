@@ -19,6 +19,7 @@ firebaseBom = "33.6.0"
 materialIconsExtended = "1.7.8"
 coil = "2.6.0"
 litertSupportApi = "1.4.1"
+material = "1.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -39,6 +40,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 coil = { module = "io.coil-kt:coil", version.ref = "coil" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 coil-compose-core = { module = "io.coil-kt:coil-compose-core", version.ref = "coil" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 
 # --- Navigation ---

@@ -47,6 +47,7 @@ fun RegistrationScreen(
                 is AuthEvent.NavigateToHome -> onNavigateToHome()
                 is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
                 AuthEvent.NavigateToLogin -> onNavigateBackToLogin()
+                else -> {}
             }
         }
     }

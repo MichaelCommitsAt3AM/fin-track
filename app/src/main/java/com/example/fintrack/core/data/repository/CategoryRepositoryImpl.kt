@@ -7,6 +7,7 @@ import com.example.fintrack.core.data.mapper.toEntity
 import com.example.fintrack.core.domain.model.Category
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.model.CategoryType
+import com.example.fintrack.core.data.local.model.CategoryEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -40,20 +41,32 @@ class CategoryRepositoryImpl @Inject constructor(
 
 
     override suspend fun insertCategory(category: Category) {
-        // 1. Save locally
-        categoryDao.insertCategory(category.toEntity())
+        val entity = category.toEntity()
 
-        // 2. Save to Firestore
+        // 1. Save locally
+        categoryDao.insertCategory(entity)
+
+        // 2. Save to Firestore with consistent field names
         getUserId()?.let {
             try {
+                val firestoreData = hashMapOf(
+                    "icon" to entity.iconName,  // Map iconName to icon
+                    "color" to entity.colorHex,  // Map colorHex to color
+                    "type" to entity.type,
+                    "isDefault" to entity.isDefault
+                )
+
                 getUserCategoriesCollection()
                     .document(category.name)
-                    .set(category.toEntity()).await()
+                    .set(firestoreData)
+                    .await()
+                Log.d("CategoryRepo", "Category saved: ${category.name}")
             } catch (e: Exception) {
                 Log.e("CategoryRepo", "Error saving category to cloud: ${e.message}")
             }
         }
     }
+
 
     // --- Delete Category ---
     override suspend fun deleteCategory(category: Category) {
@@ -103,16 +116,39 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun syncCategoriesFromCloud() {
         getUserId()?.let { userId ->
             try {
+                Log.d("CategoryRepo", "Starting category sync for user: $userId")
                 val snapshot = getUserCategoriesCollection().get().await()
-                val categories = snapshot.toObjects(Category::class.java)
 
-                if (categories.isNotEmpty()) {
-                    // Save to Local Room DB
-                    categoryDao.insertAll(categories.map { it.toEntity() })
+                Log.d("CategoryRepo", "Found ${snapshot.size()} categories in Firestore")
+
+                val entities = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val entity = CategoryEntity(
+                            name = doc.id,
+                            iconName = doc.getString("icon") ?: doc.getString("iconName") ?: "", // Handle both field names
+                            colorHex = doc.getString("color") ?: doc.getString("colorHex") ?: "",
+                            type = doc.getString("type") ?: "",
+                            isDefault = doc.getBoolean("isDefault") ?: false
+                        )
+                        Log.d("CategoryRepo", "Mapped category: ${entity.name}")
+                        entity
+                    } catch (e: Exception) {
+                        Log.e("CategoryRepo", "Error mapping document ${doc.id}: ${e.message}", e)
+                        null
+                    }
+                }
+
+                if (entities.isNotEmpty()) {
+                    Log.d("CategoryRepo", "Inserting ${entities.size} categories into Room")
+                    categoryDao.insertAll(entities)
+                    Log.d("CategoryRepo", "Sync completed successfully")
+                } else {
+                    Log.w("CategoryRepo", "No valid categories to sync")
                 }
             } catch (e: Exception) {
-                Log.e("CategoryRepo", "Sync failed: ${e.message}")
+                Log.e("CategoryRepo", "Sync failed: ${e.message}", e)
             }
-        }
+        } ?: Log.e("CategoryRepo", "Cannot sync: User ID is null")
     }
+
 }

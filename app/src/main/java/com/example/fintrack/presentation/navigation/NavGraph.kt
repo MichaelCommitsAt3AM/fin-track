@@ -25,18 +25,19 @@ import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
 import com.example.fintrack.presentation.navigation.BottomNavItem
 import com.example.fintrack.presentation.transactions.TransactionListScreen
+import com.example.fintrack.presentation.setup.SetupScreen // Add this import
 
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    paddingValues: PaddingValues, // Receive padding from the main Scaffold
+    paddingValues: PaddingValues,
     startDestination: String
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        modifier = Modifier.padding(paddingValues) // Apply padding here
+        modifier = Modifier.padding(paddingValues)
     ) {
         // --- Auth Routes ---
         composable(
@@ -46,16 +47,19 @@ fun NavGraph(
         ) {
             LoginScreen(
                 onNavigateToHome = {
-                    navController.navigate(BottomNavItem.Home.route) {
+                    // Navigate to setup screen instead of home
+                    navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
                 },
                 onNavigateToRegister = { navController.navigate(AppRoutes.Register.route) },
                 onNavigateToForgotPassword = { navController.navigate(AppRoutes.ForgotPassword.route) },
                 onNavigateToEmailVerification = {
-                    navController.navigate(AppRoutes.VerifyEmail.route) { popUpTo(AppRoutes.Login.route) { inclusive = true } }
+                    navController.navigate(AppRoutes.VerifyEmail.route) {
+                        popUpTo(AppRoutes.Login.route) { inclusive = true }
+                    }
                 },
-                onNavigateToLogin = { navController.navigate(AppRoutes.Login.route)}
+                onNavigateToLogin = { navController.navigate(AppRoutes.Login.route) }
             )
         }
 
@@ -66,13 +70,16 @@ fun NavGraph(
         ) {
             RegistrationScreen(
                 onNavigateToHome = {
+                    // For new signups, go directly to home (they have no data to sync)
                     navController.navigate(BottomNavItem.Home.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
                 },
                 onNavigateBackToLogin = { navController.popBackStack() },
-                onNavigateToEmailVerification ={
-                    navController.navigate(AppRoutes.VerifyEmail.route) { popUpTo(AppRoutes.Login.route) { inclusive = true } }
+                onNavigateToEmailVerification = {
+                    navController.navigate(AppRoutes.VerifyEmail.route) {
+                        popUpTo(AppRoutes.Login.route) { inclusive = true }
+                    }
                 }
             )
         }
@@ -84,11 +91,30 @@ fun NavGraph(
         composable(AppRoutes.VerifyEmail.route) {
             EmailVerificationScreen(
                 onNavigateToHome = {
-                    navController.navigate(AppRoutes.Home.route) {
+                    // After email verification, go to setup for existing users
+                    navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
                 },
                 onNavigateToLogin = { navController.popBackStack() }
+            )
+        }
+
+        // --- Setup Screen (New) ---
+        composable(
+            route = AppRoutes.Setup.route,
+            enterTransition = { fadeIn(animationSpec = tween(300)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
+            SetupScreen(
+                onNavigateToHome = {
+                    navController.navigate(BottomNavItem.Home.route) {
+                        // Clear the entire back stack
+                        popUpTo(AppRoutes.Setup.route) { inclusive = true }
+                        popUpTo(AppRoutes.Login.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 
@@ -101,7 +127,6 @@ fun NavGraph(
             HomeScreen(navController = navController)
         }
 
-        // TODO: Add animations in between screens
         composable(BottomNavItem.Reports.route) {
             ReportsScreen(navController = navController)
         }
@@ -117,7 +142,7 @@ fun NavGraph(
         ) {
             AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route)}
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) }
             )
         }
 
@@ -126,14 +151,12 @@ fun NavGraph(
         // Add Transaction
         composable(
             route = AppRoutes.AddTransaction.route,
-            // Slides up from the bottom
             enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            // Slides back down
             exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
         ) {
             AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route)}
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) }
             )
         }
 

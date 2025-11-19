@@ -2,7 +2,7 @@ package com.example.fintrack.core.domain.model
 
 // Represents a single transaction in the app's business logic
 data class Transaction(
-    val id: Int,
+    val id: String= "",
     val type: TransactionType,
     val amount: Double,
     val category: String,

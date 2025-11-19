@@ -10,6 +10,7 @@ sealed class AppRoutes(val route: String) {
     object Register : AppRoutes("registration_screen")
     object ForgotPassword : AppRoutes("forgot_password_screen")
     object VerifyEmail : AppRoutes("verify_email_screen")
+    object Setup : AppRoutes("setup_screen") // Add this
 
     // --- Main App (Bottom Bar) Flow ---
     object Home : AppRoutes("home_screen")
@@ -25,9 +26,7 @@ sealed class AppRoutes(val route: String) {
         fun createRoute(name: String) = "edit_category_screen/$name"
     }
 
-
     // --- Add Transaction (FAB) ---
     object AddTransaction : AppRoutes("add_transaction_screen")
     object TransactionList : AppRoutes("transaction_list_screen")
-
 }

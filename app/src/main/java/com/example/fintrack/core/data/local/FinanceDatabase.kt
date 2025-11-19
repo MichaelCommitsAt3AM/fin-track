@@ -20,7 +20,7 @@ import com.example.fintrack.data.local.dao.RecurringTransactionDao
         BudgetEntity::class,
         RecurringTransactionEntity::class
     ],
-    version = 2 // Increment this number if you change the schema
+    version = 3 // Increment this number if you change the schema
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {

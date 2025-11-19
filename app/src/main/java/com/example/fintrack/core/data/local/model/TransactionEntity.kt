@@ -6,9 +6,9 @@ import androidx.room.PrimaryKey
 // Defines the "transactions" table in the Room database
 @Entity(tableName = "transactions")
 data class TransactionEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
-    val type: String, // "INCOME" or "EXPENSE"
+    @PrimaryKey
+    val id: String = "",
+    val type: String, // "INCOMaE" or "EXPENSE"
     val amount: Double,
     val category: String,
     val date: Long, // Store as a timestamp for easy sorting/filtering

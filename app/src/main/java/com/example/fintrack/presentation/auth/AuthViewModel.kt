@@ -92,7 +92,7 @@ class AuthViewModel @Inject constructor(
                     // Refreshes user data from the cloud every time the app is opened
                     syncUserData()
 
-                    _authEventChannel.send(AuthEvent.NavigateToHome)
+                    _authEventChannel.send(AuthEvent.NavigateToSetup)
                 } else {
                     _authEventChannel.send(AuthEvent.NavigateToEmailVerification)
                 }
@@ -230,7 +230,7 @@ class AuthViewModel @Inject constructor(
                     syncUserData()
 
                     _uiState.value = _uiState.value.copy(isLoading = false)
-                    _authEventChannel.send(AuthEvent.NavigateToHome)
+                    _authEventChannel.send(AuthEvent.NavigateToSetup)
                 } else {
                     repository.signOut()
                     _uiState.value = _uiState.value.copy(
@@ -375,4 +375,5 @@ sealed class AuthEvent {
     object NavigateToHome : AuthEvent()
     object NavigateToLogin : AuthEvent()
     object NavigateToEmailVerification : AuthEvent()
+    object NavigateToSetup : AuthEvent()
 }

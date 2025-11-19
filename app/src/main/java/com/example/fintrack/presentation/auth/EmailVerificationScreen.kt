@@ -38,6 +38,7 @@ fun EmailVerificationScreen(
                 is AuthEvent.NavigateToHome -> onNavigateToHome()
                 is AuthEvent.NavigateToLogin -> onNavigateToLogin()
                 is AuthEvent.NavigateToEmailVerification -> {}
+                else -> {}
             }
         }
     }

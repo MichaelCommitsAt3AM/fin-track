@@ -61,6 +61,7 @@ fun LoginScreen(
         viewModel.authEvent.collect { event ->
             when (event) {
                 is AuthEvent.NavigateToHome -> onNavigateToHome()
+                is AuthEvent.NavigateToSetup -> onNavigateToHome()
                 is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
                 AuthEvent.NavigateToLogin -> onNavigateToLogin()
             }

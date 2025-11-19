@@ -115,7 +115,7 @@ class AddTransactionViewModel @Inject constructor(
 
             // 1. Save Immediate Transaction
             val transaction = Transaction(
-                id = uniqueId,
+                id = "",
                 type = state.transactionType,
                 amount = amountDouble,
                 category = state.selectedCategory,
