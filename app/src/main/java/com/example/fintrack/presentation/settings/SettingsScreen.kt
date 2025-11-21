@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.fintrack.presentation.navigation.AppRoutes
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
@@ -106,6 +107,12 @@ fun SettingsScreen(
                     title = "Manage Categories",
                     onClick = onNavigateToManageCategories // <-- Hook up navigation
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.Repeat,
+                    title = "Manage Recurring Transactions",
+                    onClick = { navController.navigate(AppRoutes.RecurringTransactions.route)}
+                    )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = {})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))

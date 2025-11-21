@@ -21,6 +21,10 @@ interface TransactionRepository {
     // Fetch the latest N transactions (eg limit = 3)
     fun getRecentTransactions(limit: Int): Flow<List<Transaction>>
 
+    fun getAllRecurringTransactions(): Flow<List<RecurringTransaction>>
+
+    suspend fun deleteRecurringTransaction(recurringTransaction: RecurringTransaction)
+
     suspend fun insertRecurringTransaction(recurringTransaction: RecurringTransaction)
 
     suspend fun syncTransactionsFromCloud()

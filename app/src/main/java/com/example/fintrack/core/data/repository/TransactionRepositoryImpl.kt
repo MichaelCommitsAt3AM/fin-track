@@ -8,6 +8,8 @@ import com.example.fintrack.core.data.mapper.toDomain
 import com.example.fintrack.core.data.mapper.toEntity
 import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
+import com.example.fintrack.core.domain.model.TransactionType
+import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.data.local.dao.RecurringTransactionDao
 import com.example.fintrack.data.local.model.RecurringTransactionEntity
@@ -15,46 +17,39 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.collections.map
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
     private val db: FinanceDatabase,
-    private val firebaseAuth: FirebaseAuth,     // <-- Inject Auth
-    private val firestore: FirebaseFirestore    // <-- Inject Firestore
+    private val firebaseAuth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
 ) : TransactionRepository {
 
     private val transactionDao: TransactionDao = db.transactionDao()
     private val recurringTransactionDao: RecurringTransactionDao = db.recurringTransactionDao()
 
-
-    // Helper to get the current user ID
     private fun getUserId(): String? = firebaseAuth.currentUser?.uid
 
-    // Helper to get the user's specific collection
     private fun getUserTransactionsCollection() = firestore.collection("users")
-        .document(getUserId() ?: "unknown_user") // Get the user's document
-        .collection("transactions") // Get the transactions sub-collection
+        .document(getUserId() ?: "unknown_user")
+        .collection("transactions")
 
     override suspend fun insertTransaction(transaction: Transaction) {
-        // Generate a unique ID using Firestore's auto-ID or UUID
         val transactionId = if (transaction.id.isEmpty()) {
-            getUserTransactionsCollection().document().id // Let Firestore generate ID
+            getUserTransactionsCollection().document().id
         } else {
             transaction.id
         }
 
         val transactionWithId = transaction.copy(id = transactionId)
 
-        // 1. Save to local Room database
         transactionDao.insertTransaction(transactionWithId.toEntity())
 
-        // 2. Save to Cloud Firestore
         getUserId()?.let { userId ->
             try {
                 getUserTransactionsCollection()
-                    .document(transactionId) // Use the same ID
+                    .document(transactionId)
                     .set(transactionWithId)
                     .await()
                 Log.d("TransactionRepo", "Transaction saved with ID: $transactionId")
@@ -65,10 +60,8 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTransaction(transaction: Transaction) {
-        // 1. Update in local Room database
         transactionDao.updateTransaction(transaction.toEntity())
 
-        // 2. Update in Cloud Firestore
         getUserId()?.let {
             try {
                 getUserTransactionsCollection()
@@ -82,12 +75,7 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
-    // --- READ OPERATIONS ---
-    // For now, our read operations will continue to come from Room,
-    // which is the "Single Source of Truth."
-
     override fun getAllTransactions(): Flow<List<Transaction>> {
-        // This logic doesn't change. We read from the local DB.
         return transactionDao.getAllTransactions().map { entityList ->
             entityList.map { it.toDomain() }
         }
@@ -106,10 +94,25 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override fun getRecentTransactions(limit: Int): Flow<List<Transaction>> {
-        // We only read from local Room DB for the Home Screen for speed.
-        // Background sync will keep it updated.
         return transactionDao.getRecentTransactions(limit).map { entityList ->
             entityList.map { it.toDomain() }
+        }
+    }
+
+    // ============ RECURRING TRANSACTIONS ============
+
+    override fun getAllRecurringTransactions(): Flow<List<RecurringTransaction>> {
+        return recurringTransactionDao.getAllRecurringTransactions().map { entityList ->
+            entityList.map { entity ->
+                RecurringTransaction(
+                    type = TransactionType.valueOf(entity.type),
+                    amount = entity.amount,
+                    category = entity.category,
+                    startDate = entity.startDate,
+                    frequency = RecurrenceFrequency.valueOf(entity.frequency),
+                    notes = entity.notes
+                )
+            }
         }
     }
 
@@ -125,16 +128,43 @@ class TransactionRepositoryImpl @Inject constructor(
         )
         recurringTransactionDao.insert(entity)
 
-        // 2. Save to Cloud (Optional for now, but good practice)
+        // 2. Save to Cloud
         getUserId()?.let {
             try {
                 firestore.collection("users")
                     .document(it)
                     .collection("recurring_transactions")
-                    .add(recurringTransaction) // Let Firestore generate ID
+                    .add(recurringTransaction)
                     .await()
+                Log.d("TransactionRepo", "Recurring transaction saved to cloud")
             } catch (e: Exception) {
                 Log.e("TransactionRepo", "Error saving recurring to cloud: ${e.message}")
+            }
+        }
+    }
+
+    override suspend fun deleteRecurringTransaction(recurringTransaction: RecurringTransaction) {
+        // 1. Delete locally
+        recurringTransactionDao.delete(recurringTransaction.category)
+        Log.d("TransactionRepo", "Deleted recurring transaction locally: ${recurringTransaction.category}")
+
+        // 2. Delete from Firestore
+        getUserId()?.let { userId ->
+            try {
+                val snapshot = firestore.collection("users")
+                    .document(userId)
+                    .collection("recurring_transactions")
+                    .whereEqualTo("category", recurringTransaction.category)
+                    .whereEqualTo("amount", recurringTransaction.amount)
+                    .get()
+                    .await()
+
+                snapshot.documents.forEach { doc ->
+                    doc.reference.delete().await()
+                    Log.d("TransactionRepo", "Deleted recurring transaction from cloud: ${doc.id}")
+                }
+            } catch (e: Exception) {
+                Log.e("TransactionRepo", "Error deleting recurring transaction from cloud: ${e.message}")
             }
         }
     }
@@ -147,11 +177,10 @@ class TransactionRepositoryImpl @Inject constructor(
 
                 Log.d("TransactionRepo", "Found ${snapshot.size()} transactions in Firestore")
 
-                // Manual mapping from Firestore documents to Room entities
                 val entities = snapshot.documents.mapNotNull { doc ->
                     try {
                         val entity = TransactionEntity(
-                            id = doc.id, // Use Firestore document ID
+                            id = doc.id,
                             type = doc.getString("type") ?: "",
                             amount = doc.getDouble("amount") ?: 0.0,
                             category = doc.getString("category") ?: "",

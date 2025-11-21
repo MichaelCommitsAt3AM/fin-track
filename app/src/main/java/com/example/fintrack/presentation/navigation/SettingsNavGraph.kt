@@ -14,6 +14,7 @@ import androidx.navigation.navigation
 import com.example.fintrack.presentation.settings.CategoryDetailScreen
 import com.example.fintrack.presentation.settings.categories.ManageCategoriesScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
+import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
 
 fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
     navigation(
@@ -48,6 +49,16 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
                     navController.navigate(AppRoutes.AddCategory.route)
                 },
                 onNavigateToEditCategory = { categoryName -> navController.navigate(AppRoutes.EditCategory.createRoute(categoryName))}
+            )
+        }
+
+        composable(
+            route = AppRoutes.RecurringTransactions.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            RecurringTransactionsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
