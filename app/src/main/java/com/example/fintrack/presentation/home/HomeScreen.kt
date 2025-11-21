@@ -10,17 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Coffee
-import androidx.compose.material.icons.filled.DirectionsBus
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Paid
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,10 +30,6 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
-import com.example.fintrack.presentation.ui.theme.SpendingBills
-import com.example.fintrack.presentation.ui.theme.SpendingFood
-import com.example.fintrack.presentation.ui.theme.SpendingShopping
-import com.example.fintrack.presentation.ui.theme.SpendingTransport
 import com.example.fintrack.presentation.navigation.AppRoutes
 
 @Composable
@@ -51,41 +37,32 @@ fun HomeScreen(
     navController: NavController,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-
     val recentTransactions by viewModel.recentTransactions.collectAsState()
+    val spendingCategories by viewModel.spendingCategories.collectAsState()
 
-    // Dummy data
-    val spendingCategories = listOf(
-        SpendingCategory("Food", "Ksh 345.12", Icons.Default.Restaurant, SpendingFood),
-        SpendingCategory("Transport", "Ksh 88.50", Icons.Default.DirectionsBus, SpendingTransport),
-        SpendingCategory("Shopping", "Ksh 1,204.99", Icons.Default.ShoppingBag, SpendingShopping),
-        SpendingCategory("Bills", "Ksh 450.00", Icons.Default.ReceiptLong, SpendingBills)
-    )
-//    val transactions = listOf(
-//        Transaction("Amazon Purchase", "Today", -78.99, Icons.Default.ShoppingCart),
-//        Transaction("Salary", "Yesterday", 2500.00, Icons.Default.Paid),
-//        Transaction("Starbucks", "2 days ago", -6.50, Icons.Default.Coffee)
-//    )
-
-    // FIX: Removed Scaffold entirely.
-    // The padding for the Bottom Bar is handled by MainActivity -> NavGraph.
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 20.dp), // Apply horizontal padding
-        // Add a little bottom padding so the last item isn't flush with the bottom bar
+            .padding(horizontal = 20.dp),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item { HomeHeader() }
-        item { BalanceCard() }
-        item { SpendingSection(spendingCategories) }
-        item { TransactionsSection(
-            transactions = recentTransactions,
-            onViewAllClick = {
-                navController.navigate(AppRoutes.TransactionList.route)
-            }
-        ) }
+        item { WeeklySpendingCard() }
+        item {
+            SpendingSection(
+                categories = spendingCategories,
+                isEmpty = spendingCategories.isEmpty()
+            )
+        }
+        item {
+            TransactionsSection(
+                transactions = recentTransactions,
+                onViewAllClick = {
+                    navController.navigate(AppRoutes.TransactionList.route)
+                }
+            )
+        }
     }
 }
 
@@ -101,7 +78,7 @@ fun HomeHeader() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data("https://placehold.co/100x100/2ECC71/FFFFFF?text=JD") // Placeholder
+                    .data("https://placehold.co/100x100/2ECC71/FFFFFF?text=JD")
                     .crossfade(true)
                     .build(),
                 contentDescription = "User Avatar",
@@ -118,7 +95,7 @@ fun HomeHeader() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "John Doe", // Hardcoded
+                    text = "John Doe",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -127,7 +104,9 @@ fun HomeHeader() {
         }
         IconButton(
             onClick = { /* TODO */ },
-            modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerLow)
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             Icon(
                 imageVector = Icons.Default.Notifications,
@@ -152,7 +131,7 @@ fun BalanceCard() {
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
             )
             Text(
-                text = "Ksh 12,345.67", // Updated to Ksh
+                text = "Ksh 12,345.67",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary
@@ -169,6 +148,142 @@ fun BalanceCard() {
         }
     }
 }
+
+@Composable
+fun WeeklySpendingCard(
+    amountSpent: Double = 433.62,
+    lastWeekSpent: Double = 377.06
+) {
+    val difference = amountSpent - lastWeekSpent
+    val percentageChange = if (lastWeekSpent > 0) {
+        ((difference / lastWeekSpent) * 100).toInt()
+    } else 0
+    val isUp = difference > 0
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF5B7FFF),
+                                Color(0xFF9B59B6)
+                            ),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(1000f, 1000f)
+                        )
+                    )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(128.dp)
+                        .offset(x = 250.dp, y = (-48).dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.1f))
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(160.dp)
+                        .offset(x = (-32).dp, y = 100.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.1f))
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    Text(
+                        text = "Weekly Spending",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFD8B4FE)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // CHANGE HERE: Replace "$" with "Ksh"
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Ksh",  // Changed from "$"
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "%,.2f".format(amountSpent),  // Added comma formatting
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            lineHeight = 48.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // CHANGE HERE: Replace "$" with "Ksh"
+                        Text(
+                            text = "vs. last week (Ksh %,.2f)".format(lastWeekSpent),  // Changed from "$%.2f"
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFD8B4FE)
+                        )
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.2f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isUp) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                                    contentDescription = null,
+                                    tint = if (isUp) Color(0xFFFCA5A5) else Color(0xFFA7F3D0),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "${kotlin.math.abs(percentageChange)}%",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isUp) Color(0xFFFCA5A5) else Color(0xFFA7F3D0)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
 
 @Composable
 fun BalanceAction(text: String, icon: ImageVector, modifier: Modifier = Modifier) {
@@ -193,25 +308,57 @@ fun BalanceAction(text: String, icon: ImageVector, modifier: Modifier = Modifier
 }
 
 @Composable
-fun SpendingSection(categories: List<SpendingCategory>) {
+fun SpendingSection(
+    categories: List<SpendingCategoryUiModel>,
+    isEmpty: Boolean
+) {
     Column(modifier = Modifier.padding(top = 28.dp)) {
         SectionHeader(title = "Spending", onViewAllClick = { /* TODO */ })
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.height(216.dp), // Fixed height for 2 rows
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp)
-        ) {
-            items(categories) { category ->
-                SpendingItem(category)
+
+        if (isEmpty) {
+            // Empty state
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Receipt,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "No spending data this month",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.height(216.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(top = 16.dp)
+            ) {
+                items(categories) { category ->
+                    SpendingItem(category)
+                }
             }
         }
     }
 }
 
 @Composable
-fun SpendingItem(category: SpendingCategory) {
+fun SpendingItem(category: SpendingCategoryUiModel) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -228,7 +375,11 @@ fun SpendingItem(category: SpendingCategory) {
                     .background(category.color.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = category.icon, contentDescription = category.name, tint = category.color)
+                Icon(
+                    imageVector = category.icon,
+                    contentDescription = category.name,
+                    tint = category.color
+                )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column {
@@ -256,7 +407,8 @@ fun TransactionsSection(
     Column(modifier = Modifier.padding(top = 28.dp)) {
         SectionHeader(
             title = "Recent Transactions",
-            onViewAllClick =  onViewAllClick )
+            onViewAllClick = onViewAllClick
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             transactions.forEach { transaction ->
@@ -269,7 +421,11 @@ fun TransactionsSection(
 @Composable
 fun TransactionItem(transaction: TransactionUiModel) {
     val amountColor = if (transaction.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
-    val amountString = if (transaction.amount > 0) "+Ksh ${"%.2f".format(transaction.amount)}" else "-Ksh ${"%.2f".format(kotlin.math.abs(transaction.amount))}"
+    val amountString = if (transaction.amount > 0) {
+        "+Ksh ${"%.2f".format(transaction.amount)}"
+    } else {
+        "-Ksh ${"%.2f".format(kotlin.math.abs(transaction.amount))}"
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -287,7 +443,11 @@ fun TransactionItem(transaction: TransactionUiModel) {
                     .background(amountColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = transaction.icon, contentDescription = transaction.name, tint = amountColor)
+                Icon(
+                    imageVector = transaction.icon,
+                    contentDescription = transaction.name,
+                    tint = amountColor
+                )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -328,7 +488,7 @@ fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
         )
         ClickableText(
             text = AnnotatedString("View All"),
-            onClick = { offset -> onViewAllClick() },
+            onClick = { onViewAllClick() },
             style = TextStyle(
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
@@ -337,7 +497,3 @@ fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
         )
     }
 }
-
-// Data classes for dummy data
-data class SpendingCategory(val name: String, val amount: String, val icon: ImageVector, val color: Color)
-data class Transaction(val name: String, val date: String, val amount: Double, val icon: ImageVector)

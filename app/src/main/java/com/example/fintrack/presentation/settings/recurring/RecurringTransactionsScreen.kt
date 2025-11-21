@@ -118,7 +118,9 @@ fun RecurringTransactionItem(
     onMenuClick: () -> Unit
 ) {
     val iconName = getCategoryIcon(transaction.category)
-    val formattedAmount = NumberFormat.getCurrencyInstance(Locale.US).format(transaction.amount)
+    val formattedAmount = NumberFormat.getCurrencyInstance().apply {
+        currency = Currency.getInstance("Ksh")
+    }.format(transaction.amount)
     val frequencyText = formatFrequency(transaction.frequency, transaction.startDate)
 
     Surface(
