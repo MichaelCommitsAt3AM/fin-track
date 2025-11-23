@@ -20,6 +20,8 @@ import com.example.fintrack.presentation.auth.EmailVerificationScreen
 import com.example.fintrack.presentation.auth.ForgotPasswordScreen
 import com.example.fintrack.presentation.auth.LoginScreen
 import com.example.fintrack.presentation.auth.RegistrationScreen
+import com.example.fintrack.presentation.budgets.AddBudgetScreen
+import com.example.fintrack.presentation.budgets.BudgetsScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
@@ -137,9 +139,28 @@ fun NavGraph(
             )
         }
 
-        composable(BottomNavItem.Budgets.route) {
-            Text("Budgets Screen (Coming Soon)")
+        composable(
+            route = BottomNavItem.Budgets.route,
+            enterTransition = { fadeIn(animationSpec = tween(300)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
+            BudgetsScreen(
+                paddingValues = paddingValues,
+                onNavigateToAddBudget = { navController.navigate(AppRoutes.AddBudget.route) }
+            )
         }
+
+        // Add AddBudget screen
+        composable(
+            route = AppRoutes.AddBudget.route,
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+        ) {
+            AddBudgetScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
 
         composable(
             route = AppRoutes.Settings.route,
@@ -152,7 +173,10 @@ fun NavGraph(
             )
         }
 
-        settingsNavGraph(navController = navController)
+        settingsNavGraph(
+            navController = navController,
+            paddingValues  = paddingValues
+        )
 
         // Add Transaction
         composable(

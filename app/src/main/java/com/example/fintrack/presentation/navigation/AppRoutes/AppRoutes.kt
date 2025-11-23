@@ -16,6 +16,7 @@ sealed class AppRoutes(val route: String) {
     object Home : AppRoutes("home_screen")
     object Reports : AppRoutes("reports_screen")
     object Budgets : AppRoutes("budgets_screen")
+    object AddBudget : AppRoutes("add_budget_screen")
 
     // Settings feature
     object SettingsGraph : AppRoutes("settings_graph")

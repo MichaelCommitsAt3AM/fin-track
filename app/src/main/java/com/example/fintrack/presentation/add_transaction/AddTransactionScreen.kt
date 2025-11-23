@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -418,40 +419,82 @@ fun TransactionTypeToggle(
     selectedType: TransactionType,
     onTypeSelected: (TransactionType) -> Unit
 ) {
-    Row(
+    val expenseColor = Color(0xFFE53935)
+    val incomeColor = MaterialTheme.colorScheme.primary
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
+            .height(48.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(4.dp)
     ) {
-        val expenseColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.primary else Color.Transparent
-        val expenseTextColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
-        val incomeColor = if (selectedType == TransactionType.INCOME) MaterialTheme.colorScheme.primary else Color.Transparent
-        val incomeTextColor = if (selectedType == TransactionType.INCOME) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        val halfWidth = maxWidth / 2
 
-        Button(
-            onClick = { onTypeSelected(TransactionType.EXPENSE) },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = expenseColor, contentColor = expenseTextColor),
-            shape = RoundedCornerShape(8.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        ) {
-            Text("Expense", fontWeight = FontWeight.SemiBold)
-        }
+        val highlightX by animateDpAsState(
+            targetValue = if (selectedType == TransactionType.EXPENSE) 0.dp else halfWidth,
+            label = ""
+        )
 
-        Button(
-            onClick = { onTypeSelected(TransactionType.INCOME) },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = incomeColor, contentColor = incomeTextColor),
-            shape = RoundedCornerShape(8.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        ) {
-            Text("Income", fontWeight = FontWeight.SemiBold)
+        // 🔵 Sliding highlight
+        Box(
+            modifier = Modifier
+                .offset(x = highlightX)
+                .width(halfWidth)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (selectedType == TransactionType.EXPENSE)
+                        expenseColor
+                    else incomeColor
+                )
+        )
+
+        Row(modifier = Modifier.matchParentSize()) {
+
+            // EXPENSE
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onTypeSelected(TransactionType.EXPENSE) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Expense",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedType == TransactionType.EXPENSE)
+                        Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // INCOME
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onTypeSelected(TransactionType.INCOME) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Income",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedType == TransactionType.INCOME)
+                        Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
+
+
+
 
 @Composable
 fun FinTrackTextField(

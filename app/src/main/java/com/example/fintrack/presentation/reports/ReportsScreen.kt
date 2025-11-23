@@ -42,6 +42,7 @@ fun ReportsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .padding(paddingValues)
             .padding(horizontal = 20.dp),
         contentPadding = PaddingValues(bottom = 32.dp, top = 24.dp)
     ) {

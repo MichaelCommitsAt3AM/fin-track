@@ -5,6 +5,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -17,7 +18,10 @@ import com.example.fintrack.presentation.settings.SettingsScreen
 import com.example.fintrack.presentation.settings.recurring.EditRecurringTransactionScreen
 import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
 
-fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
+fun NavGraphBuilder.settingsNavGraph(
+    navController: NavHostController,
+    paddingValues: PaddingValues,
+    ) {
     navigation(
         route = AppRoutes.SettingsGraph.route,
         startDestination = AppRoutes.Settings.route
@@ -34,7 +38,8 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToManageCategories = {
                     navController.navigate(AppRoutes.ManageCategories.route)
-                }
+                },
+                paddingValues = paddingValues
             )
         }
 

@@ -33,12 +33,14 @@ import coil.request.ImageRequest
 // Helper extension for modifier scaling if needed, otherwise simply import
 import androidx.compose.ui.draw.scale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToManageCategories: () -> Unit,
     navController: NavController,
+    paddingValues: PaddingValues,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     // Listen for logout event
@@ -58,13 +60,14 @@ fun SettingsScreen(
         topBar = {
             SettingsTopBar(onBackClick = { navController.popBackStack() })
         }
-    ) { paddingValues ->
+    ) { scaffoldPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(top = scaffoldPadding.calculateTopPadding())
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
         ) {
             // Profile Section
             ProfileHeader()
@@ -178,7 +181,7 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
             titleContentColor = MaterialTheme.colorScheme.onBackground
-        )
+        ),
     )
 }
 
