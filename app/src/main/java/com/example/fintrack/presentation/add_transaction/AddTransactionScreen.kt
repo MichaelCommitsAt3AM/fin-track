@@ -69,7 +69,9 @@ fun AddTransactionScreen(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
-                )
+                ),
+
+                // modifier = Modifier.padding(WindowInsets.statusBars.asPaddingValues())
             )
         }
     ) { paddingValues ->
@@ -81,6 +83,8 @@ fun AddTransactionScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
+            // Spacer(modifier = Modifier.height(12.dp))
+
             TransactionTypeToggle(
                 selectedType = state.transactionType,
                 onTypeSelected = { viewModel.onEvent(AddTransactionUiEvent.OnTypeChange(it)) }
@@ -89,7 +93,7 @@ fun AddTransactionScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Updated Category Selector
+                // Category Selector
                 CategorySelector(
                     categories = relevantCategories.map { it.name },
                     selectedCategory = state.selectedCategory,
@@ -97,11 +101,11 @@ fun AddTransactionScreen(
                     onAddCategoryClick = onNavigateToManageCategories // Pass the navigation lambda
                 )
 
-                FinTrackTextField(
-                    value = state.description,
-                    onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnDescriptionChange(it)) },
-                    label = "Description",
-                    placeholder = "e.g. Weekly groceries"
+                // Payment Method Selector
+                PaymentMethodSelector(
+                    paymentMethods = state.paymentMethods,
+                    selectedPaymentMethod = state.selectedPaymentMethod,
+                    onPaymentMethodSelected = { viewModel.onEvent(AddTransactionUiEvent.OnPaymentMethodChange(it)) }
                 )
 
                 FinTrackTextField(
@@ -130,6 +134,13 @@ fun AddTransactionScreen(
                     leadingIcon = { Text(" Ksh:", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                )
+
+                FinTrackTextField(
+                    value = state.description,
+                    onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnDescriptionChange(it)) },
+                    label = "Description",
+                    placeholder = "e.g. Weekly groceries"
                 )
             }
 
@@ -344,7 +355,64 @@ fun CategorySelector(
     }
 }
 
-// ... [Keep TransactionTypeToggle and FinTrackTextField as they were] ...
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PaymentMethodSelector(
+    paymentMethods: List<String>,
+    selectedPaymentMethod: String?,
+    onPaymentMethodSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = "Payment Method",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = selectedPaymentMethod ?: "Select payment method",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    Icon(Icons.Default.ExpandMore, contentDescription = null)
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
+            ) {
+                paymentMethods.forEach { method ->
+                    DropdownMenuItem(
+                        text = { Text(method) },
+                        onClick = {
+                            onPaymentMethodSelected(method)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun TransactionTypeToggle(
     selectedType: TransactionType,

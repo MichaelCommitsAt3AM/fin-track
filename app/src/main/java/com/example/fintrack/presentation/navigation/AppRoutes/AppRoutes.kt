@@ -31,4 +31,9 @@ sealed class AppRoutes(val route: String) {
     object TransactionList : AppRoutes("transaction_list_screen")
     object RecurringTransactions : AppRoutes("recurring_transactions_screen")
 
+    object EditRecurringTransaction : AppRoutes("edit_recurring_transaction/{transactionId}") {
+        fun createRoute(transactionId: String) = "edit_recurring_transaction/$transactionId"
+    }
+
+
 }

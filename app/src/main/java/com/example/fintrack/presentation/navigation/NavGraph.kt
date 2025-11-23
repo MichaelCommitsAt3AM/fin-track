@@ -37,7 +37,7 @@ fun NavGraph(
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        modifier = Modifier.padding(paddingValues)
+        modifier = Modifier
     ) {
         // --- Auth Routes ---
         composable(
@@ -124,11 +124,17 @@ fun NavGraph(
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            HomeScreen(navController = navController)
+            HomeScreen(
+                navController = navController,
+                paddingValues = paddingValues
+            )
         }
 
         composable(BottomNavItem.Reports.route) {
-            ReportsScreen(navController = navController)
+            ReportsScreen(
+                navController = navController,
+                paddingValues = paddingValues
+            )
         }
 
         composable(BottomNavItem.Budgets.route) {

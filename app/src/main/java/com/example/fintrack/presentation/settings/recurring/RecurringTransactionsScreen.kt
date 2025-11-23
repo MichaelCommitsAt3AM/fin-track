@@ -30,10 +30,10 @@ import java.util.*
 @Composable
 fun RecurringTransactionsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToEditRecurringTransaction: (String) -> Unit,
     viewModel: RecurringTransactionsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showMenu by remember { mutableStateOf<RecurringTransaction?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -61,28 +61,17 @@ fun RecurringTransactionsScreen(
                     items(uiState.recurringTransactions) { transaction ->
                         RecurringTransactionItem(
                             transaction = transaction,
-                            onMenuClick = { showMenu = transaction }
+                            onEdit = {
+                                onNavigateToEditRecurringTransaction(transaction.category)
+                            },
+                            onDelete = {
+                                viewModel.deleteRecurringTransaction(transaction)
+                            }
                         )
                     }
                 }
             }
         }
-    }
-
-    // Options Menu Dialog
-    if (showMenu != null) {
-        RecurringTransactionMenu(
-            transaction = showMenu!!,
-            onDismiss = { showMenu = null },
-            onEdit = {
-                // TODO: Navigate to edit screen
-                showMenu = null
-            },
-            onDelete = {
-                viewModel.deleteRecurringTransaction(showMenu!!)
-                showMenu = null
-            }
-        )
     }
 }
 
@@ -115,12 +104,12 @@ fun RecurringTransactionsTopBar(onBackClick: () -> Unit) {
 @Composable
 fun RecurringTransactionItem(
     transaction: RecurringTransaction,
-    onMenuClick: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     val iconName = getCategoryIcon(transaction.category)
-    val formattedAmount = NumberFormat.getCurrencyInstance().apply {
-        currency = Currency.getInstance("Ksh")
-    }.format(transaction.amount)
+    val formattedAmount = "Ksh %,.2f".format(transaction.amount)
     val frequencyText = formatFrequency(transaction.frequency, transaction.startDate)
 
     Surface(
@@ -185,16 +174,73 @@ fun RecurringTransactionItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // More Options Button
-            IconButton(
-                onClick = onMenuClick,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Options",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            // Dropdown Menu
+            Box {
+                IconButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
+                ) {
+                    // Edit option
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Edit",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onEdit()
+                        }
+                    )
+
+                    // Delete option
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "Delete",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
     }
@@ -242,52 +288,6 @@ fun EmptyState(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }
-}
-
-@Composable
-fun RecurringTransactionMenu(
-    transaction: RecurringTransaction,
-    onDismiss: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = transaction.category,
-                style = MaterialTheme.typography.titleMedium
-            )
-        },
-        text = {
-            Column {
-                TextButton(
-                    onClick = onEdit,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(imageVector = Icons.Default.Edit, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Edit")
-                }
-                TextButton(
-                    onClick = onDelete,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Delete")
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }
 
 // Helper Functions

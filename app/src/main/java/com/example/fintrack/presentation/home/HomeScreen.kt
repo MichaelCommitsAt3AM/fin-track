@@ -35,20 +35,31 @@ import com.example.fintrack.presentation.navigation.AppRoutes
 @Composable
 fun HomeScreen(
     navController: NavController,
+    paddingValues: PaddingValues,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val spendingCategories by viewModel.spendingCategories.collectAsState()
+    //val (amountSpent, lastWeekSpent) by viewModel.weeklySpending.collectAsState()
+
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .padding(paddingValues)
             .padding(horizontal = 20.dp),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item { HomeHeader() }
         item { WeeklySpendingCard() }
+        // Uncomment 42 and below to use real values from the db
+        // and comment the top
+
+//        item { WeeklySpendingCard(
+//            amountSpent = amountSpent,
+//            lastWeekSpent = lastWeekSpent
+//        )}
         item {
             SpendingSection(
                 categories = spendingCategories,

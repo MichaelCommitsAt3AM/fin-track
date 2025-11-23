@@ -14,6 +14,7 @@ import androidx.navigation.navigation
 import com.example.fintrack.presentation.settings.CategoryDetailScreen
 import com.example.fintrack.presentation.settings.categories.ManageCategoriesScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
+import com.example.fintrack.presentation.settings.recurring.EditRecurringTransactionScreen
 import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
 
 fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
@@ -58,7 +59,10 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
             popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
         ) {
             RecurringTransactionsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEditRecurringTransaction = { transactionId ->
+                    navController.navigate(AppRoutes.EditRecurringTransaction.createRoute(transactionId))
+                }
             )
         }
 
@@ -82,6 +86,21 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
         ) {
             CategoryDetailScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // 5. Edit Recurring Transaction Screen (Slide Over)
+        composable(
+            route = AppRoutes.EditRecurringTransaction.route,
+            arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+        ) { backStackEntry ->
+            val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+            EditRecurringTransactionScreen(
+                recurringTransactionId = transactionId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) }
             )
         }
     }

@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.lang.reflect.Type
 import java.text.SimpleDateFormat
@@ -129,6 +130,58 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    // Calculates weekly and last week's spending
+    val weeklySpending: StateFlow<Pair<Double, Double>> = transactionRepository.getAllTransactions()
+        .map { transactions ->
+            val calendar = Calendar.getInstance()
+
+            // This week's range
+            calendar.timeInMillis = System.currentTimeMillis()
+            // Set to start of week (typically Sunday - adjust if you want Monday)
+            calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val weekStart = calendar.timeInMillis
+
+            // End of this week (coming Saturday or Sunday)
+            calendar.add(Calendar.DAY_OF_WEEK, 6)
+            calendar.set(Calendar.HOUR_OF_DAY, 23)
+            calendar.set(Calendar.MINUTE, 59)
+            calendar.set(Calendar.SECOND, 59)
+            calendar.set(Calendar.MILLISECOND, 999)
+            val weekEnd = calendar.timeInMillis
+
+            // Last week's range
+            calendar.timeInMillis = weekStart
+            calendar.add(Calendar.DAY_OF_YEAR, -7)
+            val lastWeekStart = calendar.timeInMillis
+            calendar.add(Calendar.DAY_OF_YEAR, 6)
+            calendar.set(Calendar.HOUR_OF_DAY, 23)
+            calendar.set(Calendar.MINUTE, 59)
+            calendar.set(Calendar.SECOND, 59)
+            calendar.set(Calendar.MILLISECOND, 999)
+            val lastWeekEnd = calendar.timeInMillis
+
+            // Compute totals
+            val thisWeekTotal = transactions
+                .filter { it.type == TransactionType.EXPENSE && it.date in weekStart..weekEnd }
+                .sumOf { it.amount }
+
+            val lastWeekTotal = transactions
+                .filter { it.type == TransactionType.EXPENSE && it.date in lastWeekStart..lastWeekEnd }
+                .sumOf { it.amount }
+
+            Pair(thisWeekTotal, lastWeekTotal)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Pair(0.0, 0.0)
+        )
+
 
     private fun formatDate(dateMillis: Long): String {
         val sdf = SimpleDateFormat("dd MMM", Locale.getDefault())

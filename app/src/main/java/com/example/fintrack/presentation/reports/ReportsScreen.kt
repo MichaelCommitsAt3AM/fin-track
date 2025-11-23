@@ -25,7 +25,10 @@ import androidx.navigation.NavController
 import com.example.fintrack.presentation.ui.theme.*
 
 @Composable
-fun ReportsScreen(navController: NavController) {
+fun ReportsScreen(
+    navController: NavController,
+    paddingValues: PaddingValues,
+    ) {
     // Dummy Data
     val weeklyData = listOf(0.6f, 0.4f, 0.75f, 0.3f, 0.85f, 0.5f, 0.2f) // Percentage heights
     val categoryData = listOf(

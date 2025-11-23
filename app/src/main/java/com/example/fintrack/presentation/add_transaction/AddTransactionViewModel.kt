@@ -23,9 +23,11 @@ import javax.inject.Inject
 data class AddTransactionUiState(
     val transactionType: TransactionType = TransactionType.EXPENSE,
     val categories: List<Category> = emptyList(),
+    val paymentMethods: List<String> = listOf("Cash", "Card", "M-Pesa"), // Default payment methods
     val amount: String = "",
     val description: String = "",
     val selectedCategory: String? = null,
+    val selectedPaymentMethod: String? = "Cash", // Default to Cash
     val date: Long = System.currentTimeMillis(),
     // Recurring State
     val isRecurring: Boolean = false,
@@ -40,6 +42,7 @@ sealed class AddTransactionUiEvent {
     data class OnAmountChange(val amount: String) : AddTransactionUiEvent()
     data class OnDescriptionChange(val description: String) : AddTransactionUiEvent()
     data class OnCategoryChange(val category: String) : AddTransactionUiEvent()
+    data class OnPaymentMethodChange(val paymentMethod: String) : AddTransactionUiEvent() // NEW
     data class OnDateChange(val date: Long) : AddTransactionUiEvent()
     data class OnRecurringChange(val isRecurring: Boolean) : AddTransactionUiEvent()
     data class OnFrequencyChange(val frequency: RecurrenceFrequency) : AddTransactionUiEvent()
@@ -52,7 +55,7 @@ sealed class AddTransactionEvent {
 
 @HiltViewModel
 class AddTransactionViewModel @Inject constructor(
-    private val transactionRepository: TransactionRepository, // <-- FIX: Use Repository directly
+    private val transactionRepository: TransactionRepository,
     private val getCategoriesUseCase: GetCategoriesUseCase
 ) : ViewModel() {
 
@@ -79,12 +82,13 @@ class AddTransactionViewModel @Inject constructor(
             is AddTransactionUiEvent.OnTypeChange -> {
                 _uiState.value = _uiState.value.copy(
                     transactionType = event.type,
-                    selectedCategory = null // Reset category when switching types
+                    selectedCategory = null
                 )
             }
             is AddTransactionUiEvent.OnAmountChange -> _uiState.value = _uiState.value.copy(amount = event.amount)
             is AddTransactionUiEvent.OnDescriptionChange -> _uiState.value = _uiState.value.copy(description = event.description)
             is AddTransactionUiEvent.OnCategoryChange -> _uiState.value = _uiState.value.copy(selectedCategory = event.category)
+            is AddTransactionUiEvent.OnPaymentMethodChange -> _uiState.value = _uiState.value.copy(selectedPaymentMethod = event.paymentMethod) // NEW
             is AddTransactionUiEvent.OnDateChange -> _uiState.value = _uiState.value.copy(date = event.date)
             is AddTransactionUiEvent.OnRecurringChange -> _uiState.value = _uiState.value.copy(isRecurring = event.isRecurring)
             is AddTransactionUiEvent.OnFrequencyChange -> _uiState.value = _uiState.value.copy(recurrenceFrequency = event.frequency)
@@ -101,6 +105,10 @@ class AddTransactionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(error = "Please select a category")
             return
         }
+        if (state.selectedPaymentMethod == null) {
+            _uiState.value = _uiState.value.copy(error = "Please select a payment method")
+            return
+        }
         if (amountDouble == null || amountDouble <= 0) {
             _uiState.value = _uiState.value.copy(error = "Please enter a valid amount")
             return
@@ -110,9 +118,6 @@ class AddTransactionViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true)
 
         viewModelScope.launch {
-            // Create a unique ID
-            val uniqueId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt() + (0..1000).random()
-
             // 1. Save Immediate Transaction
             val transaction = Transaction(
                 id = "",
@@ -120,11 +125,10 @@ class AddTransactionViewModel @Inject constructor(
                 amount = amountDouble,
                 category = state.selectedCategory,
                 date = state.date,
-                notes = state.description,
-                paymentMethod = "Card",
+                notes = state.description.ifBlank { null },
+                paymentMethod = state.selectedPaymentMethod, // Use selected payment method
                 tags = null
             )
-            // FIX: Call repository directly
             transactionRepository.insertTransaction(transaction)
 
             // 2. Save Recurring Rule (If enabled)
@@ -135,7 +139,7 @@ class AddTransactionViewModel @Inject constructor(
                     category = state.selectedCategory,
                     startDate = state.date,
                     frequency = state.recurrenceFrequency,
-                    notes = state.description
+                    notes = state.description.ifBlank { null }
                 )
                 transactionRepository.insertRecurringTransaction(recurringRule)
             }
