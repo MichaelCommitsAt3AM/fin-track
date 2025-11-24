@@ -21,6 +21,8 @@ sealed class AppRoutes(val route: String) {
     // Settings feature
     object SettingsGraph : AppRoutes("settings_graph")
     object Settings : AppRoutes("settings_screen")
+    object ManageProfile : AppRoutes("manage_profile_screen")
+
     object ManageCategories : AppRoutes("manage_categories_screen")
     object AddCategory : AppRoutes("add_category_screen")
     object EditCategory : AppRoutes("edit_category_screen/{categoryName}"){

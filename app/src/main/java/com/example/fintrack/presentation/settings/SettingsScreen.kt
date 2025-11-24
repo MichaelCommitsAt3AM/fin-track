@@ -1,5 +1,6 @@
 package com.example.fintrack.presentation.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,11 +28,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.fintrack.presentation.navigation.AppRoutes
+import com.google.firebase.firestore.FirebaseFirestore
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
 // Helper extension for modifier scaling if needed, otherwise simply import
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.painterResource
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +81,7 @@ fun SettingsScreen(
 
             // Account Section
             SettingsSection(title = "Account") {
-                SettingsItem(icon = Icons.Default.Person, title = "Manage Profile", onClick = {})
+                SettingsItem(icon = Icons.Default.Person, title = "Manage Profile", onClick = {navController.navigate(AppRoutes.ManageProfile.route)})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.AccountBalance, title = "Linked Accounts", onClick = {})
             }
@@ -186,16 +191,40 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
 }
 
 @Composable
-fun ProfileHeader() {
+fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
+    val context = LocalContext.current
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    // Load avatar ID from Firestore or use default
+    var avatarId by remember { mutableStateOf(1) }
+
+    LaunchedEffect(key1 = currentUser?.uid) {
+        currentUser?.uid?.let { uid ->
+            try {
+                val userDoc = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .get()
+                    .await()
+                avatarId = userDoc.getLong("avatarId")?.toInt() ?: 1
+            } catch (e: Exception) {
+                avatarId = 1
+            }
+        }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data("https://placehold.co/200x200/2ECC71/FFFFFF?text=AJ")
-                .crossfade(true)
-                .build(),
+        Image(
+            painter = painterResource(
+                id = context.resources.getIdentifier(
+                    "avatar_$avatarId",
+                    "drawable",
+                    context.packageName
+                )
+            ),
             contentDescription = "Profile Picture",
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -205,19 +234,20 @@ fun ProfileHeader() {
         Spacer(modifier = Modifier.width(16.dp))
         Column {
             Text(
-                text = "Alex Johnson",
+                text = currentUser?.displayName ?: "User",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "alex.johnson@email.com",
+                text = currentUser?.email ?: "",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
+
 
 @Composable
 fun SettingsSection(title: String, content: @Composable () -> Unit) {

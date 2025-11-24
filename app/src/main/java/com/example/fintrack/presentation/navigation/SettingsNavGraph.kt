@@ -15,6 +15,7 @@ import androidx.navigation.navigation
 import com.example.fintrack.presentation.settings.CategoryDetailScreen
 import com.example.fintrack.presentation.settings.categories.ManageCategoriesScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
+import com.example.fintrack.presentation.settings.profile.ManageProfileScreen
 import com.example.fintrack.presentation.settings.recurring.EditRecurringTransactionScreen
 import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
 
@@ -42,6 +43,18 @@ fun NavGraphBuilder.settingsNavGraph(
                 paddingValues = paddingValues
             )
         }
+
+        // Add this after the Main Settings Screen composable
+        composable(
+            route = AppRoutes.ManageProfile.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            ManageProfileScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
 
         // 2. Manage Categories Screen
         composable(
