@@ -2,13 +2,21 @@ package com.example.fintrack.presentation.budgets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.Color
+import com.example.fintrack.core.domain.model.Budget
 import com.example.fintrack.core.domain.model.CategoryType
+import com.example.fintrack.core.domain.model.TransactionType
+import com.example.fintrack.core.domain.repository.BudgetRepository
+import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
+import com.example.fintrack.presentation.settings.getIconByName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -25,7 +33,7 @@ data class BudgetListUiState(
 data class AddBudgetUiState(
     val amount: String = "",
     val selectedCategory: String? = null,
-    val categories: List<String> = emptyList(), // Changed from hardcoded list to empty
+    val categories: List<String> = emptyList(),
     val month: String = getCurrentMonth(),
     val isLoading: Boolean = false
 )
@@ -53,9 +61,9 @@ sealed class BudgetEvent {
 
 @HiltViewModel
 class BudgetsViewModel @Inject constructor(
-    private val getCategoriesUseCase: GetCategoriesUseCase // Inject GetCategoriesUseCase
-    // TODO: Inject BudgetRepository when created
-    // private val budgetRepository: BudgetRepository
+    private val getCategoriesUseCase: GetCategoriesUseCase,
+    private val budgetRepository: BudgetRepository, // Inject BudgetRepository
+    private val transactionRepository: TransactionRepository
 ) : ViewModel() {
 
     // State for Budget List Screen
@@ -71,7 +79,7 @@ class BudgetsViewModel @Inject constructor(
 
     init {
         loadBudgets()
-        loadExpenseCategories() // Load categories on init
+        loadExpenseCategories()
     }
 
     // ========== Load Expense Categories ==========
@@ -83,7 +91,7 @@ class BudgetsViewModel @Inject constructor(
                 val expenseCategories = categories
                     .filter { it.type == CategoryType.EXPENSE }
                     .map { it.name }
-                    .sorted() // Sort alphabetically
+                    .sorted()
 
                 _addBudgetState.value = _addBudgetState.value.copy(
                     categories = expenseCategories
@@ -98,48 +106,90 @@ class BudgetsViewModel @Inject constructor(
         viewModelScope.launch {
             _budgetListState.value = _budgetListState.value.copy(isLoading = true)
 
-            // TODO: Load from repository
-            // For now, using dummy data
-            val dummyBudgets = listOf(
-                BudgetItem(
-                    category = "Shopping",
-                    spent = 250.0,
-                    total = 1000.0,
-                    icon = androidx.compose.material.icons.Icons.Default.ShoppingBag,
-                    color = androidx.compose.ui.graphics.Color(0xFF6366F1)
-                ),
-                BudgetItem(
-                    category = "Food & Dining",
-                    spent = 420.0,
-                    total = 600.0,
-                    icon = androidx.compose.material.icons.Icons.Default.Restaurant,
-                    color = androidx.compose.ui.graphics.Color(0xFFF97316),
-                    warning = "You're nearing your budget!"
-                ),
-                BudgetItem(
-                    category = "Transportation",
-                    spent = 255.0,
-                    total = 200.0,
-                    icon = androidx.compose.material.icons.Icons.Default.DirectionsBus,
-                    color = androidx.compose.ui.graphics.Color(0xFFEF4444),
-                    warning = "You've exceeded your budget!",
-                    isOverBudget = true
-                ),
-                BudgetItem(
-                    category = "Utilities",
-                    spent = 125.0,
-                    total = 300.0,
-                    icon = androidx.compose.material.icons.Icons.Default.Receipt,
-                    color = androidx.compose.ui.graphics.Color(0xFF0EA5E9)
-                )
-            )
+            try {
+                // Get current month and year
+                val calendar = Calendar.getInstance()
+                val currentMonth = calendar.get(Calendar.MONTH) + 1 // Calendar.MONTH is 0-based
+                val currentYear = calendar.get(Calendar.YEAR)
 
-            _budgetListState.value = _budgetListState.value.copy(
-                budgets = dummyBudgets,
-                isLoading = false
-            )
+                // Calculate start and end timestamps for the current month
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val monthStart = calendar.timeInMillis
+
+                calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                calendar.set(Calendar.MILLISECOND, 999)
+                val monthEnd = calendar.timeInMillis
+
+                // Combine budgets, categories, and transactions flows
+                combine(
+                    budgetRepository.getAllBudgetsForMonth(currentMonth, currentYear),
+                    getCategoriesUseCase(),
+                    transactionRepository.getAllTransactions()
+                ) { budgets, categories, transactions ->
+                    budgets.map { budget ->
+                        // Find the matching category
+                        val category = categories.find { it.name == budget.categoryName }
+
+                        // Get icon and color
+                        val icon = category?.iconName?.let { getIconByName(it) }
+                            ?: Icons.Default.Category
+                        val color = try {
+                            Color(android.graphics.Color.parseColor(category?.colorHex ?: "#6366F1"))
+                        } catch (e: Exception) {
+                            Color(0xFF6366F1)
+                        }
+
+                        // Calculate spent amount from transactions
+                        val spent = transactions
+                            .filter { transaction ->
+                                transaction.category == budget.categoryName &&
+                                        transaction.type == TransactionType.EXPENSE &&
+                                        transaction.date >= monthStart &&
+                                        transaction.date <= monthEnd
+                            }
+                            .sumOf { it.amount }
+
+                        val remaining = budget.amount - spent
+                        val progress = if (budget.amount > 0) (spent / budget.amount) else 0.0
+
+                        BudgetItem(
+                            category = budget.categoryName,
+                            spent = spent,
+                            total = budget.amount,
+                            icon = icon,
+                            color = color,
+                            warning = when {
+                                spent > budget.amount -> "You've exceeded your budget!"
+                                progress >= 0.7 -> "You're nearing your budget!"
+                                else -> null
+                            },
+                            isOverBudget = spent > budget.amount
+                        )
+                    }
+                }.collect { budgetItems ->
+                    _budgetListState.value = _budgetListState.value.copy(
+                        budgets = budgetItems,
+                        isLoading = false
+                    )
+                }
+            } catch (e: Exception) {
+                _budgetListState.value = _budgetListState.value.copy(
+                    budgets = emptyList(),
+                    isLoading = false
+                )
+                _eventChannel.send(BudgetEvent.ShowError("Failed to load budgets: ${e.message}"))
+            }
         }
     }
+
+
 
     fun onBudgetListEvent(event: BudgetListUiEvent) {
         when (event) {
@@ -151,7 +201,7 @@ class BudgetsViewModel @Inject constructor(
     private fun deleteBudget(budget: BudgetItem) {
         viewModelScope.launch {
             try {
-                // TODO: Delete from repository
+                // TODO: Add delete method to repository
                 // budgetRepository.deleteBudget(budget)
 
                 loadBudgets() // Reload list
@@ -204,17 +254,29 @@ class BudgetsViewModel @Inject constructor(
             return
         }
 
+        // Parse month string (YYYY-MM) to month and year
+        val monthYear = parseMonthString(state.month)
+        if (monthYear == null) {
+            viewModelScope.launch {
+                _eventChannel.send(BudgetEvent.ShowError("Invalid month format. Use YYYY-MM"))
+            }
+            return
+        }
+
         _addBudgetState.value = _addBudgetState.value.copy(isLoading = true)
 
         viewModelScope.launch {
             try {
-                // TODO: Save to repository
-                // val budget = Budget(
-                //     category = state.selectedCategory!!,
-                //     amount = amountDouble,
-                //     month = state.month
-                // )
-                // budgetRepository.insertBudget(budget)
+                // Create budget object
+                val budget = Budget(
+                    categoryName = state.selectedCategory!!,
+                    amount = amountDouble,
+                    month = monthYear.first,
+                    year = monthYear.second
+                )
+
+                // Save to repository
+                budgetRepository.insertBudget(budget)
 
                 _addBudgetState.value = _addBudgetState.value.copy(isLoading = false)
 
@@ -227,13 +289,29 @@ class BudgetsViewModel @Inject constructor(
                 _eventChannel.send(BudgetEvent.NavigateBack)
             } catch (e: Exception) {
                 _addBudgetState.value = _addBudgetState.value.copy(isLoading = false)
-                _eventChannel.send(BudgetEvent.ShowError("Failed to save budget"))
+                _eventChannel.send(BudgetEvent.ShowError("Failed to save budget: ${e.message}"))
             }
         }
     }
 
     private fun resetAddBudgetForm() {
         _addBudgetState.value = AddBudgetUiState()
+    }
+
+    // Helper function to parse "YYYY-MM" to (month, year)
+    private fun parseMonthString(monthString: String): Pair<Int, Int>? {
+        return try {
+            val parts = monthString.split("-")
+            if (parts.size == 2) {
+                val year = parts[0].toInt()
+                val month = parts[1].toInt()
+                if (month in 1..12) {
+                    Pair(month, year)
+                } else null
+            } else null
+        } catch (e: Exception) {
+            null
+        }
     }
 }
 

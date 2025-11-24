@@ -25,43 +25,7 @@ fun BudgetsScreen(
     onNavigateToAddBudget: () -> Unit,
     viewModel: BudgetsViewModel = hiltViewModel()
 ) {
-
     val state by viewModel.budgetListState.collectAsState()
-
-    // Dummy data for budgets
-    val budgets = listOf(
-        BudgetItem(
-            category = "Shopping",
-            spent = 250.0,
-            total = 1000.0,
-            icon = Icons.Default.ShoppingBag,
-            color = Color(0xFF6366F1) // Indigo
-        ),
-        BudgetItem(
-            category = "Food & Dining",
-            spent = 420.0,
-            total = 600.0,
-            icon = Icons.Default.Restaurant,
-            color = Color(0xFFF97316), // Orange
-            warning = "You're nearing your budget!"
-        ),
-        BudgetItem(
-            category = "Transportation",
-            spent = 255.0,
-            total = 200.0,
-            icon = Icons.Default.DirectionsBus,
-            color = Color(0xFFEF4444), // Red
-            warning = "You've exceeded your budget!",
-            isOverBudget = true
-        ),
-        BudgetItem(
-            category = "Utilities",
-            spent = 125.0,
-            total = 300.0,
-            icon = Icons.Default.Receipt,
-            color = Color(0xFF0EA5E9) // Sky
-        )
-    )
 
     LazyColumn(
         modifier = Modifier
@@ -86,7 +50,7 @@ fun BudgetsScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 IconButton(
-                    onClick = { onNavigateToAddBudget() }, // Add this callback
+                    onClick = onNavigateToAddBudget,
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
@@ -98,22 +62,105 @@ fun BudgetsScreen(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
             }
         }
 
-        // Monthly Budgets Section
-        item {
-            Text(
-                text = "Monthly Budgets",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+        // Loading State
+        if (state.isLoading) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+
+        // Empty State
+        if (!state.isLoading && state.budgets.isEmpty()) {
+            item {
+                EmptyBudgetsState(onAddBudgetClick = onNavigateToAddBudget)
+            }
+        }
+
+        // Monthly Budgets Section (only show if budgets exist)
+        if (state.budgets.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Monthly Budgets",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            items(state.budgets) { budget ->
+                BudgetCard(budget = budget)
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyBudgetsState(onAddBudgetClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Savings,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp)
             )
         }
 
-        items(budgets) { budget ->
-            BudgetCard(budget = budget)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "No Budgets Yet",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Create your first budget to track your spending",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onAddBudgetClick,
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Create Budget", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -122,7 +169,7 @@ fun BudgetsScreen(
 fun BudgetCard(budget: BudgetItem) {
     val progress = (budget.spent / budget.total).toFloat().coerceIn(0f, 1f)
     val remaining = budget.total - budget.spent
-    val isNearingBudget = progress >= 0.7 && !budget.isOverBudget
+    val isNearingBudget = progress >= 0.7f && !budget.isOverBudget
 
     Card(
         modifier = Modifier.fillMaxWidth(),
