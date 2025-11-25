@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
+import com.example.fintrack.core.domain.repository.UserRepository // ADD THIS
+import com.example.fintrack.core.domain.repository.BudgetRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -32,7 +34,9 @@ sealed class SetupEvent {
 @HiltViewModel
 class SetupViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val userRepository: UserRepository,
+    private val budgetRepository: BudgetRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SetupUiState())
@@ -46,12 +50,25 @@ class SetupViewModel @Inject constructor(
             try {
                 Log.d("SetupViewModel", "Starting setup process")
 
-                // Step 1: Check if data already exists locally
+                // Step 1: Sync user profile first
                 _uiState.value = _uiState.value.copy(
-                    currentStep = "Checking local data...",
+                    currentStep = "Loading your profile...",
                     progress = 0.1f
                 )
-                delay(300) // Small delay for UX
+                delay(300)
+
+                val userJob = async {
+                    userRepository.syncUserFromCloud()
+                }
+                userJob.await()
+                Log.d("SetupViewModel", "User profile synced")
+
+                // Step 2: Check if data already exists locally
+                _uiState.value = _uiState.value.copy(
+                    currentStep = "Checking local data...",
+                    progress = 0.2f
+                )
+                delay(300)
 
                 val hasLocalData = checkLocalData()
 
@@ -66,10 +83,10 @@ class SetupViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Step 2: Sync categories
+                // Step 3: Sync categories
                 _uiState.value = _uiState.value.copy(
                     currentStep = "Syncing categories...",
-                    progress = 0.3f
+                    progress = 0.4f
                 )
 
                 val categoriesJob = async {
@@ -79,10 +96,10 @@ class SetupViewModel @Inject constructor(
                 categoriesJob.await()
                 Log.d("SetupViewModel", "Categories synced")
 
-                // Step 3: Sync transactions
+                // Step 4: Sync transactions
                 _uiState.value = _uiState.value.copy(
                     currentStep = "Syncing transactions...",
-                    progress = 0.6f
+                    progress = 0.7f
                 )
 
                 val transactionsJob = async {
@@ -92,7 +109,31 @@ class SetupViewModel @Inject constructor(
                 transactionsJob.await()
                 Log.d("SetupViewModel", "Transactions synced")
 
-                // Step 4: Verify sync
+                // Step 5: Sync budgets
+                _uiState.value = _uiState.value.copy(
+                    currentStep = "Syncing budgets...",
+                    progress = 0.8f
+                )
+
+                val budgetsJob = async {
+                    budgetRepository.syncBudgetsFromCloud()
+                }
+                budgetsJob.await()
+                Log.d("SetupViewModel", "Budgets synced")
+
+                // Step 6: Sync Recurring transactions
+                _uiState.value = _uiState.value.copy(
+                    currentStep = "Syncing recurring transactions...",
+                    progress = 0.85f
+                )
+
+                val recurringJob = async {
+                    transactionRepository.syncRecurringTransactionsFromCloud()
+                }
+                recurringJob.await()
+                Log.d("SetupViewModel", "Recurring transactions synced")
+
+                // Step 7: Verify sync
                 _uiState.value = _uiState.value.copy(
                     currentStep = "Verifying data...",
                     progress = 0.9f

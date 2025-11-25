@@ -9,15 +9,23 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface RecurringTransactionDao {
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(recurringTransaction: RecurringTransactionEntity)
 
-    @Query("SELECT * FROM recurring_transactions ORDER BY startDate DESC")
-    fun getAllRecurringTransactions(): Flow<List<RecurringTransactionEntity>>
+    // Get all recurring transactions for a specific user
+    @Query("SELECT * FROM recurring_transactions WHERE userId = :userId ORDER BY startDate DESC")
+    fun getAllRecurringTransactions(userId: String): Flow<List<RecurringTransactionEntity>>
 
-    @Query("DELETE FROM recurring_transactions WHERE category = :category")
-    suspend fun delete(category: String)
+    // Delete a specific recurring transaction for a user
+    @Query("DELETE FROM recurring_transactions WHERE userId = :userId AND category = :category")
+    suspend fun delete(userId: String, category: String)
 
-    @Query("DELETE FROM recurring_transactions")
-    suspend fun deleteAll()
+    // Delete by ID (more precise)
+    @Query("DELETE FROM recurring_transactions WHERE id = :id")
+    suspend fun deleteById(id: Int)
+
+    // Delete all for a user (useful for logout)
+    @Query("DELETE FROM recurring_transactions WHERE userId = :userId")
+    suspend fun deleteAllForUser(userId: String)
 }

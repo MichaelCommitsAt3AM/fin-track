@@ -1,11 +1,13 @@
 package com.example.fintrack.presentation.settings
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fintrack.core.domain.model.Category
 import com.example.fintrack.core.domain.model.CategoryType
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,16 +23,19 @@ data class CategoryDetailState(
     val type: CategoryType = CategoryType.EXPENSE,
     val isLoading: Boolean = false,
     val isEditMode: Boolean = false,
-    val originalName: String? = null
+    val originalName: String? = null,
+    val error: String? = null // ADD THIS
 )
 
 sealed class CategoryDetailEvent {
     object NavigateBack : CategoryDetailEvent()
+    data class ShowError(val message: String) : CategoryDetailEvent() // ADD THIS
 }
 
 @HiltViewModel
 class CategoryDetailViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
+    private val firebaseAuth: FirebaseAuth,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -40,36 +45,16 @@ class CategoryDetailViewModel @Inject constructor(
     private val _eventChannel = Channel<CategoryDetailEvent>()
     val events = _eventChannel.receiveAsFlow()
 
-    // --- ICONS TAILORED FOR EXPENSES ---
     val expenseIcons = listOf(
-        "shopping_cart",    // Groceries
-        "restaurant",       // Dining
-        "directions_bus",   // Transport (commute)
-        "home",             // Rent
-        "receipt_long",     // Bills
-        "movie",            // Entertainment
-        "fitness_center",   // Health/Gym
-        "flight",           // Travel
-        "school",           // Education
-        "pets",             // Pets
-        "local_gas_station",// Fuel
-        "build"             // Maintenance
+        "shopping_cart", "restaurant", "directions_bus", "home",
+        "receipt_long", "movie", "fitness_center", "flight",
+        "school", "pets", "local_gas_station", "build"
     )
 
-    // --- ICONS TAILORED FOR INCOME ---
     val incomeIcons = listOf(
-        "paid",             // Salary
-        "savings",          // Savings
-        "trending_up",      // Investments
-        "work",             // Freelance/Job
-        "card_giftcard",    // Gifts
-        "sell",             // Selling items
-        "account_balance",  // Bank interest
-        "request_quote",    // Invoices
-        "currency_exchange",// Dividends/Exchange
-        "wallet",           // General
-        "redeem",           // Bonus
-        "add_business"      // Side hustle
+        "paid", "savings", "trending_up", "work",
+        "card_giftcard", "sell", "account_balance", "request_quote",
+        "currency_exchange", "wallet", "redeem", "add_business"
     )
 
     val availableColors = listOf(
@@ -86,28 +71,32 @@ class CategoryDetailViewModel @Inject constructor(
 
     private fun loadCategory(name: String) {
         viewModelScope.launch {
-            categoryRepository.getAllCategories().collect { list ->
-                val category = list.find { it.name == name }
-                if (category != null) {
-                    _state.value = _state.value.copy(
-                        name = category.name,
-                        selectedIcon = category.iconName,
-                        selectedColor = category.colorHex,
-                        type = category.type,
-                        isEditMode = true,
-                        originalName = category.name
-                    )
+            try {
+                categoryRepository.getAllCategories().collect { list ->
+                    val category = list.find { it.name == name }
+                    if (category != null) {
+                        _state.value = _state.value.copy(
+                            name = category.name,
+                            selectedIcon = category.iconName,
+                            selectedColor = category.colorHex,
+                            type = category.type,
+                            isEditMode = true,
+                            originalName = category.name
+                        )
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("CategoryDetailVM", "Error loading category: ${e.message}")
+                _eventChannel.send(CategoryDetailEvent.ShowError("Failed to load category"))
             }
         }
     }
 
     fun onNameChange(name: String) {
-        _state.value = _state.value.copy(name = name)
+        _state.value = _state.value.copy(name = name, error = null)
     }
 
     fun onTypeChange(type: CategoryType) {
-        // When switching type, reset to a safe default icon for that type
         val defaultIcon = if (type == CategoryType.EXPENSE) expenseIcons.first() else incomeIcons.first()
         _state.value = _state.value.copy(type = type, selectedIcon = defaultIcon)
     }
@@ -122,28 +111,70 @@ class CategoryDetailViewModel @Inject constructor(
 
     fun onSaveCategory() {
         val currentState = _state.value
-        if (currentState.name.isBlank()) return
+
+        // Validate name
+        if (currentState.name.isBlank()) {
+            viewModelScope.launch {
+                _eventChannel.send(CategoryDetailEvent.ShowError("Please enter a category name"))
+            }
+            return
+        }
+
+        // Get userId
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId == null) {
+            Log.e("CategoryDetailVM", "User not logged in!")
+            viewModelScope.launch {
+                _eventChannel.send(CategoryDetailEvent.ShowError("User not logged in. Please log in again."))
+            }
+            return
+        }
+
+        Log.d("CategoryDetailVM", "Saving category: ${currentState.name} for user: $userId")
 
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            try {
+                _state.value = _state.value.copy(isLoading = true, error = null)
 
-            if (currentState.isEditMode && currentState.originalName != currentState.name && currentState.originalName != null) {
-                // In a real app, handle renaming (delete old, create new) here
-                // For now, we just insert the new version
+                // If editing and name changed, delete old category
+                if (currentState.isEditMode &&
+                    currentState.originalName != currentState.name &&
+                    currentState.originalName != null) {
+
+                    Log.d("CategoryDetailVM", "Deleting old category: ${currentState.originalName}")
+                    val oldCategory = Category(
+                        name = currentState.originalName,
+                        userId = userId,
+                        iconName = currentState.selectedIcon,
+                        colorHex = currentState.selectedColor,
+                        type = currentState.type,
+                        isDefault = false
+                    )
+                    categoryRepository.deleteCategory(oldCategory)
+                }
+
+                // Save new/updated category
+                val category = Category(
+                    name = currentState.name,
+                    userId = userId,
+                    iconName = currentState.selectedIcon,
+                    colorHex = currentState.selectedColor,
+                    type = currentState.type,
+                    isDefault = false
+                )
+
+                Log.d("CategoryDetailVM", "Inserting category: $category")
+                categoryRepository.insertCategory(category)
+
+                _state.value = _state.value.copy(isLoading = false)
+                Log.d("CategoryDetailVM", "Category saved successfully!")
+                _eventChannel.send(CategoryDetailEvent.NavigateBack)
+
+            } catch (e: Exception) {
+                Log.e("CategoryDetailVM", "Error saving category: ${e.message}", e)
+                _state.value = _state.value.copy(isLoading = false)
+                _eventChannel.send(CategoryDetailEvent.ShowError("Failed to save category: ${e.message}"))
             }
-
-            val category = Category(
-                name = currentState.name,
-                iconName = currentState.selectedIcon,
-                colorHex = currentState.selectedColor,
-                type = currentState.type,
-                isDefault = false
-            )
-
-            categoryRepository.insertCategory(category)
-
-            _state.value = _state.value.copy(isLoading = false)
-            _eventChannel.send(CategoryDetailEvent.NavigateBack)
         }
     }
 }

@@ -1,6 +1,9 @@
 package com.example.fintrack.presentation.auth
 
+import android.app.Activity
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -26,7 +29,12 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.fintrack.R
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.GoogleAuthProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +88,7 @@ fun RegistrationScreen(
                         isLoading = state.isLoading,
                         onEmailChange = { viewModel.onEvent(AuthUiEvent.EmailChanged(it)) },
                         onNext = { viewModel.onEvent(AuthUiEvent.CheckEmail) },
-                        onGoogleSignIn = { /* TODO: Handle Google Sign In */ }
+                        viewModel = viewModel
                     )
                     RegistrationStep.Password -> RegisterPasswordStep(
                         email = state.email,
@@ -124,11 +132,32 @@ fun RegisterEmailStep(
     isLoading: Boolean,
     onEmailChange: (String) -> Unit,
     onNext: () -> Unit,
-    onGoogleSignIn: () -> Unit
+    viewModel: AuthViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+
+    // Google Sign-In launcher
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                viewModel.onEvent(AuthUiEvent.SignInWithGoogle(credential))
+            } catch (e: ApiException) {
+                Toast.makeText(
+                    context,
+                    "Google Sign-In failed: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
     Column(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(32.dp))
@@ -154,12 +183,19 @@ fun RegisterEmailStep(
             text = "Email Address",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
         )
         OutlinedTextField(
             value = email,
             onValueChange = onEmailChange,
-            placeholder = { Text("Enter your email", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = {
+                Text(
+                    "Enter your email",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Email,
@@ -186,7 +222,9 @@ fun RegisterEmailStep(
         } else {
             Button(
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FinTrackGreen)
             ) {
@@ -195,17 +233,28 @@ fun RegisterEmailStep(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Divider(modifier = Modifier.fillMaxWidth(0.8f))
+
+        HorizontalDivider(modifier = Modifier.fillMaxWidth(0.8f))
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Google Sign In
+        // Google Sign In Button
         OutlinedButton(
-            onClick = onGoogleSignIn,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            onClick = {
+                // Trigger Google Sign-In
+                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestIdToken(context.getString(R.string.default_web_client_id))
+                    .requestEmail()
+                    .build()
+                val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                launcher.launch(googleSignInClient.signInIntent)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         ) {
-            // Add Google Icon here
             Text(
                 "Sign up with Google",
                 fontSize = 18.sp,
@@ -225,7 +274,6 @@ fun RegisterPasswordStep(
     onConfirmPasswordChange: (String) -> Unit,
     onCreateAccount: () -> Unit,
     minPasswordLength: Int = 6
-
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
@@ -234,13 +282,11 @@ fun RegisterPasswordStep(
     val isConfirmPasswordValid = confirmPassword.length >= minPasswordLength
     val doPasswordsMatch = password == confirmPassword
 
-
     Column(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp)) // moved headline up
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Headline Text
         Text(
@@ -263,12 +309,19 @@ fun RegisterPasswordStep(
             text = "Password",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
         )
         OutlinedTextField(
             value = password,
             onValueChange = onPasswordChange,
-            placeholder = { Text("Enter your password", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = {
+                Text(
+                    "Enter your password",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Lock,
@@ -299,7 +352,9 @@ fun RegisterPasswordStep(
                 text = "Password must be at least $minPasswordLength characters",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.align(Alignment.Start).padding(top = 4.dp)
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(top = 4.dp)
             )
         }
 
@@ -310,12 +365,19 @@ fun RegisterPasswordStep(
             text = "Confirm Password",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
         )
         OutlinedTextField(
             value = confirmPassword,
             onValueChange = onConfirmPasswordChange,
-            placeholder = { Text("Confirm your password", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = {
+                Text(
+                    "Confirm your password",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Lock,
@@ -339,17 +401,21 @@ fun RegisterPasswordStep(
             ),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            isError = confirmPassword.isNotEmpty() && (!isConfirmPasswordValid || !doPasswordsMatch )
+            isError = confirmPassword.isNotEmpty() && (!isConfirmPasswordValid || !doPasswordsMatch)
         )
-        // Length error message (Must be 6 characters)
+
+        // Length error message
         if (!isConfirmPasswordValid && confirmPassword.isNotEmpty()) {
             Text(
                 text = "Confirm password must be at least $minPasswordLength characters",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.align(Alignment.Start).padding(top = 4.dp)
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(top = 4.dp)
             )
-        } // If length is okay but mismatch → show mismatch error
+        }
+        // Mismatch error message
         else if (confirmPassword.isNotEmpty() && !doPasswordsMatch) {
             Text(
                 text = "Passwords do not match",
@@ -370,7 +436,9 @@ fun RegisterPasswordStep(
             Button(
                 onClick = onCreateAccount,
                 enabled = isPasswordValid && isConfirmPasswordValid && doPasswordsMatch,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FinTrackGreen)
             ) {
@@ -379,4 +447,3 @@ fun RegisterPasswordStep(
         }
     }
 }
-

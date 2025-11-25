@@ -9,6 +9,7 @@ import com.example.fintrack.core.domain.model.TransactionType
 fun Transaction.toEntity(): TransactionEntity {
     return TransactionEntity(
         id = this.id,
+        userId = this.userId,
         type = this.type.name, // Convert Enum to String
         amount = this.amount,
         category = this.category,
@@ -22,6 +23,7 @@ fun Transaction.toEntity(): TransactionEntity {
 fun TransactionEntity.toDomain(): Transaction {
     return Transaction(
         id = this.id,
+        userId = this.userId,
         type = TransactionType.valueOf(this.type), // Convert String to Enum
         amount = this.amount,
         category = this.category,

@@ -21,21 +21,25 @@ interface TransactionDao {
 
     // Get all transactions, ordered by date (newest first)
     // Flow allows the UI to automatically update when data changes
-    @Query("SELECT * FROM transactions ORDER BY date DESC")
-    fun getAllTransactions(): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY date DESC")
+    fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
 
     // Get all transactions within a specific date range
-    @Query("SELECT * FROM transactions WHERE date BETWEEN :startDate AND :endDate")
-    fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE userId  = :userId AND date BETWEEN :startDate AND :endDate")
+    fun getTransactionsByDateRange(userId: String, startDate: Long, endDate: Long): Flow<List<TransactionEntity>>
 
     // Get transactions by type (e.g., "INCOME" or "EXPENSE")
-    @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date DESC")
-    fun getTransactionsByType(type: String): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND type = :type ORDER BY date DESC")
+    fun getTransactionsByType(userId: String, type: String): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions ORDER BY date DESC LIMIT :limit")
-    fun getRecentTransactions(limit: Int): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY date DESC LIMIT :limit")
+    fun getRecentTransactions(userId: String, limit: Int): Flow<List<TransactionEntity>>
 
     // For batch insertion
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(transactions: List<TransactionEntity>)
+
+    // Delete all transactions for a user (useful for logout)
+    @Query("DELETE FROM transactions WHERE userId = :userId")
+    suspend fun deleteAllForUser(userId:String)
 }

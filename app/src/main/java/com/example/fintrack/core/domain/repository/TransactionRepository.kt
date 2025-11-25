@@ -29,4 +29,6 @@ interface TransactionRepository {
 
     suspend fun syncTransactionsFromCloud()
 
+    suspend fun syncRecurringTransactionsFromCloud() // ADD THIS
+
 }

@@ -6,6 +6,11 @@ import com.example.fintrack.core.data.local.FinanceDatabase
 import com.example.fintrack.core.data.local.dao.BudgetDao
 import com.example.fintrack.core.data.local.dao.CategoryDao
 import com.example.fintrack.core.data.local.dao.TransactionDao
+import com.example.fintrack.core.data.local.dao.UserDao
+import com.example.fintrack.core.domain.repository.UserRepository
+import com.example.fintrack.core.data.repository.UserRepositoryImpl
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -50,5 +55,21 @@ object DatabaseModule {
     @Singleton
     fun provideBudgetDao(database: FinanceDatabase): BudgetDao {
         return database.budgetDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserDao(database: FinanceDatabase): UserDao {
+        return database.userDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserRepository(
+        userDao: UserDao,
+        firebaseAuth: FirebaseAuth,
+        firestore: FirebaseFirestore
+    ): UserRepository {
+        return UserRepositoryImpl(userDao, firebaseAuth, firestore)
     }
 }

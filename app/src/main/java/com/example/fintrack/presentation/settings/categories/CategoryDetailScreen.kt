@@ -1,5 +1,7 @@
 package com.example.fintrack.presentation.settings
 
+import android.widget.Toast
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,15 +38,20 @@ fun CategoryDetailScreen(
     viewModel: CategoryDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current // ADD THIS
     val availableColors = viewModel.availableColors
 
     // Dynamically select which list of icons to show
     val displayedIcons = if (state.type == CategoryType.EXPENSE) viewModel.expenseIcons else viewModel.incomeIcons
 
+    // COMBINED EVENT HANDLING - Remove duplicate LaunchedEffect
     LaunchedEffect(key1 = true) {
         viewModel.events.collect { event ->
             when (event) {
                 is CategoryDetailEvent.NavigateBack -> onNavigateBack()
+                is CategoryDetailEvent.ShowError -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -83,7 +92,7 @@ fun CategoryDetailScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     if (state.isLoading) {
-                        CircularProgressIndicator(color = Color.White)
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     } else {
                         Text(
                             text = if (state.isEditMode) "Save Changes" else "Save Category",
@@ -106,8 +115,6 @@ fun CategoryDetailScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // --- Type Toggle ---
-            // We allow changing type only if NOT in edit mode to avoid data issues,
-            // or we can allow it if your backend handles it. Let's allow it for flexibility.
             CategoryTypeToggle(
                 selectedType = state.type,
                 onTypeSelected = { viewModel.onTypeChange(it) }
@@ -223,37 +230,80 @@ fun CategoryTypeToggle(
     selectedType: CategoryType,
     onTypeSelected: (CategoryType) -> Unit
 ) {
-    Row(
+    val expenseColor = Color(0xFFE53935)
+    val incomeColor = MaterialTheme.colorScheme.primary
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
+    var boxWidthPx by remember { mutableStateOf(0) }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(48.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(4.dp)
+            .onSizeChanged { boxWidthPx = it.width }
     ) {
-        val expenseColor = if (selectedType == CategoryType.EXPENSE) MaterialTheme.colorScheme.primary else Color.Transparent
-        val expenseTextColor = if (selectedType == CategoryType.EXPENSE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        val highlightX by animateDpAsState(
+            targetValue = if (selectedType == CategoryType.EXPENSE) {
+                0.dp
+            } else {
+                with(density) { (boxWidthPx / 2f).toDp() }
+            },
+            label = "highlight"
+        )
 
-        val incomeColor = if (selectedType == CategoryType.INCOME) MaterialTheme.colorScheme.primary else Color.Transparent
-        val incomeTextColor = if (selectedType == CategoryType.INCOME) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        // Sliding highlight
+        Box(
+            modifier = Modifier
+                .offset(x = highlightX)
+                .fillMaxWidth(0.5f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (selectedType == CategoryType.EXPENSE)
+                        expenseColor
+                    else incomeColor
+                )
+        )
 
-        Button(
-            onClick = { onTypeSelected(CategoryType.EXPENSE) },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = expenseColor, contentColor = expenseTextColor),
-            shape = RoundedCornerShape(8.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        ) {
-            Text("Expense", fontWeight = FontWeight.SemiBold)
-        }
+        Row(modifier = Modifier.fillMaxSize()) {
+            // EXPENSE
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onTypeSelected(CategoryType.EXPENSE) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Expense",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedType == CategoryType.EXPENSE)
+                        Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-        Button(
-            onClick = { onTypeSelected(CategoryType.INCOME) },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = incomeColor, contentColor = incomeTextColor),
-            shape = RoundedCornerShape(8.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        ) {
-            Text("Income", fontWeight = FontWeight.SemiBold)
+            // INCOME
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onTypeSelected(CategoryType.INCOME) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Income",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedType == CategoryType.INCOME)
+                        Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -266,10 +316,8 @@ fun parseColor(hex: String): Color {
     }
 }
 
-// Updated Icon Mapper with ALL icons
 fun getIconByName(name: String): ImageVector {
     return when (name) {
-        // Expense Icons
         "shopping_cart" -> Icons.Default.ShoppingCart
         "restaurant" -> Icons.Default.Restaurant
         "commute", "directions_bus" -> Icons.Default.DirectionsBus
@@ -284,21 +332,17 @@ fun getIconByName(name: String): ImageVector {
         "redeem" -> Icons.Default.Redeem
         "local_gas_station" -> Icons.Default.LocalGasStation
         "build" -> Icons.Default.Build
-
-        // Income Icons
         "paid" -> Icons.Default.Paid
         "savings" -> Icons.Default.Savings
         "trending_up" -> Icons.Default.TrendingUp
         "work" -> Icons.Default.Work
         "card_giftcard" -> Icons.Default.CardGiftcard
         "sell" -> Icons.Default.Sell
-        "account_balance", "account_balance_wallet" -> Icons.Default.AccountBalanceWallet // Using Wallet for general balance
+        "account_balance", "account_balance_wallet" -> Icons.Default.AccountBalanceWallet
         "request_quote" -> Icons.Default.RequestQuote
         "currency_exchange" -> Icons.Default.CurrencyExchange
         "wallet" -> Icons.Default.AccountBalanceWallet
         "add_business" -> Icons.Default.AddBusiness
-
-        // Fallback
         else -> Icons.Default.Category
     }
 }

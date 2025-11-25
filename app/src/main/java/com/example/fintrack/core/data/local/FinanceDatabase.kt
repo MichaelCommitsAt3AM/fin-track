@@ -11,6 +11,8 @@ import com.example.fintrack.core.data.local.model.CategoryEntity
 import com.example.fintrack.core.data.local.model.TransactionEntity
 import com.example.fintrack.data.local.model.RecurringTransactionEntity
 import com.example.fintrack.data.local.dao.RecurringTransactionDao
+import com.example.fintrack.core.data.local.model.UserEntity
+import com.example.fintrack.core.data.local.dao.UserDao
 
 // This annotation defines the database
 @Database(
@@ -18,9 +20,10 @@ import com.example.fintrack.data.local.dao.RecurringTransactionDao
         TransactionEntity::class,
         CategoryEntity::class,
         BudgetEntity::class,
-        RecurringTransactionEntity::class
+        RecurringTransactionEntity::class,
+        UserEntity::class
     ],
-    version = 3 // Increment this number if you change the schema
+    version = 4 // Increment this number if you change the schema
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -30,6 +33,8 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun budgetDao(): BudgetDao
     abstract fun recurringTransactionDao(): RecurringTransactionDao
+    abstract fun userDao(): UserDao
+
 
 
     // This is often used for creating a Singleton instance

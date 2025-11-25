@@ -6,9 +6,9 @@ import com.example.fintrack.core.domain.model.Category
 import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.TransactionType
-import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
+import com.google.firebase.auth.FirebaseAuth // ADD THIS
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,7 +52,8 @@ sealed class EditRecurringTransactionEvent {
 @HiltViewModel
 class EditRecurringTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
-    private val getCategoriesUseCase: GetCategoriesUseCase
+    private val getCategoriesUseCase: GetCategoriesUseCase,
+    private val firebaseAuth: FirebaseAuth // ADD THIS
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditRecurringTransactionUiState())
@@ -79,7 +80,7 @@ class EditRecurringTransactionViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val transactions = transactionRepository.getAllRecurringTransactions().first()
-                val transaction = transactions.find { it.category == transactionId }
+                val transaction = transactions.find { it.id.toString() == transactionId }
 
                 if (transaction != null) {
                     originalTransaction = transaction
@@ -118,7 +119,12 @@ class EditRecurringTransactionViewModel @Inject constructor(
     private fun saveTransaction() {
         val state = _uiState.value
         val amountDouble = state.amount.toDoubleOrNull()
+        val userId = firebaseAuth.currentUser?.uid // ADD THIS
 
+        if (userId == null) {
+            _uiState.value = _uiState.value.copy(error = "User not logged in")
+            return
+        }
         if (state.selectedCategory == null) {
             _uiState.value = _uiState.value.copy(error = "Please select a category")
             return
@@ -139,6 +145,8 @@ class EditRecurringTransactionViewModel @Inject constructor(
 
                 // Insert updated transaction
                 val updatedTransaction = RecurringTransaction(
+                    id = originalTransaction?.id ?: 0,
+                    userId = userId, // ADD THIS
                     type = state.transactionType,
                     amount = amountDouble,
                     category = state.selectedCategory,

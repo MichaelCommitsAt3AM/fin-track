@@ -26,6 +26,7 @@ import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
 import com.example.fintrack.presentation.navigation.BottomNavItem
+import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
 import com.example.fintrack.presentation.transactions.TransactionListScreen
 import com.example.fintrack.presentation.setup.SetupScreen // Add this import
 
@@ -48,7 +49,7 @@ fun NavGraph(
             exitTransition = { slideOutHorizontally(targetOffsetX = { -1000 }, animationSpec = tween(300)) }
         ) {
             LoginScreen(
-                onNavigateToHome = {
+                onNavigateToSetup = {
                     // Navigate to setup screen instead of home
                     navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
@@ -73,7 +74,7 @@ fun NavGraph(
             RegistrationScreen(
                 onNavigateToHome = {
                     // For new signups, go directly to home (they have no data to sync)
-                    navController.navigate(BottomNavItem.Home.route) {
+                    navController.navigate(AppRoutes.ProfileSetup.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
                 },
@@ -92,8 +93,14 @@ fun NavGraph(
 
         composable(AppRoutes.VerifyEmail.route) {
             EmailVerificationScreen(
-                onNavigateToHome = {
-                    // After email verification, go to setup for existing users
+                onNavigateToProfileSetup = {
+                    // New users → Profile Setup
+                    navController.navigate(AppRoutes.ProfileSetup.route) {
+                        popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
+                    }
+                },
+                onNavigateToSetup = {
+                    // Existing users → Setup (data sync)
                     navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
@@ -102,7 +109,25 @@ fun NavGraph(
             )
         }
 
-        // --- Setup Screen (New) ---
+        // --- Profile Setup Screen (New Users) ---
+        composable(
+            route = AppRoutes.ProfileSetup.route,
+            enterTransition = { fadeIn(animationSpec = tween(300)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
+            ProfileSetupScreen(
+                onNavigateToHome = {
+                    // After profile setup → Setup (data sync) → Home
+                    navController.navigate(AppRoutes.Setup.route) {
+                        popUpTo(AppRoutes.ProfileSetup.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+
+
+        // --- Setup Screen (Data sync for existing users) ---
         composable(
             route = AppRoutes.Setup.route,
             enterTransition = { fadeIn(animationSpec = tween(300)) },

@@ -59,7 +59,6 @@ class MainActivity : ComponentActivity() {
                     AppRoutes.Settings.route
                 )
 
-                // FIX: Use a consistent variable name
                 val showBottomNav = currentRoute in mainTabRoutes
 
                 Scaffold(
@@ -75,7 +74,6 @@ class MainActivity : ComponentActivity() {
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                                 shape = CircleShape
-                                // FIX: Removed Modifier.offset(y = 45.dp) so it sits correctly at the bottom right
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,

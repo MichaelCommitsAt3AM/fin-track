@@ -2,10 +2,12 @@ package com.example.fintrack.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.domain.model.User
 import com.example.fintrack.core.domain.repository.AuthRepository
 import com.example.fintrack.core.domain.repository.AuthResult
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
+import com.example.fintrack.core.domain.repository.UserRepository
 import com.example.fintrack.util.EmailVerificationRateLimiter // Assuming util is now in core
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseUser
@@ -30,7 +32,8 @@ enum class RegistrationStep {
 class AuthViewModel @Inject constructor(
     private val repository: AuthRepository,
     private val categoryRepository: CategoryRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     // Holds the current user (null if logged out)
@@ -160,13 +163,15 @@ class AuthViewModel @Inject constructor(
     private fun syncUserData() {
         viewModelScope.launch {
             // Launch in parallel for speed
-            val job1 = launch { categoryRepository.syncCategoriesFromCloud() }
-            val job2 = launch { transactionRepository.syncTransactionsFromCloud() }
+            val job1 = launch { userRepository.syncUserFromCloud() }
+            val job2 = launch { categoryRepository.syncCategoriesFromCloud() }
+            val job3 = launch { transactionRepository.syncTransactionsFromCloud() }
             // You can also add syncBudgetsFromCloud() here later
 
             // Wait for both to finish (optional, but good if you want to show a loading spinner)
             job1.join()
             job2.join()
+            job3.join()
         }
     }
 
@@ -191,6 +196,23 @@ class AuthViewModel @Inject constructor(
             val result = repository.signUpWithEmail(email, password)
 
             if (result.user != null) {
+
+                // CREATE USER RECORD IN DATABASE
+                try {
+                    val user = User(
+                        userId = result.user.uid,
+                        fullName = email.substringBefore("@"), // Default name from email
+                        email = email,
+                        phoneNumber = "",
+                        avatarId = 1, // Default avatar
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    userRepository.createUser(user)
+                } catch (e: Exception) {
+                    // Log error but continue
+                    android.util.Log.e("AuthViewModel", "Error creating user record: ${e.message}")
+                }
 
                 // Initialize default categories for the new user
                 categoryRepository.initDefaultCategories()
@@ -331,14 +353,49 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // Check if the user is existing or new
+    suspend fun isNewUser(): Boolean {
+        return try {
+            val user = userRepository.getCurrentUserOnce()
+            // If user exists in database but has default name, they're new
+            // Or if user doesn't exist at all
+            user == null || user.fullName == user.email.substringBefore("@")
+        } catch (e: Exception) {
+            true // Default to new user if error
+        }
+    }
+
     private suspend fun handleAuthResult(result: AuthResult) {
         _uiState.value = _uiState.value.copy(isLoading = false)
         if (result.user != null) {
+            // CREATE USER RECORD if it doesn't exist
+            try {
+                val existingUser = userRepository.getCurrentUserOnce()
+                if (existingUser == null) {
+                    val newUser = User(
+                        userId = result.user.uid,
+                        fullName = result.user.displayName ?: result.user.email?.substringBefore("@") ?: "User",
+                        email = result.user.email ?: "",
+                        phoneNumber = result.user.phoneNumber ?: "",
+                        avatarId = 1,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    userRepository.createUser(newUser)
+
+                    // Initialize default categories
+                    categoryRepository.initDefaultCategories()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AuthViewModel", "Error creating user: ${e.message}")
+            }
+
             _authEventChannel.send(AuthEvent.NavigateToHome)
         } else {
             _uiState.value = _uiState.value.copy(error = result.error ?: "Authentication failed")
         }
     }
+
 
     fun signOut() {
         repository.signOut()

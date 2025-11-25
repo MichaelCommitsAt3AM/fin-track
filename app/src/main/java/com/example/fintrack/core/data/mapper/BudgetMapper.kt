@@ -8,6 +8,7 @@ import com.example.fintrack.core.domain.model.Budget
 fun Budget.toEntity(): BudgetEntity {
     return BudgetEntity(
         categoryName = this.categoryName,
+        userId = this.userId,
         amount = this.amount,
         month = this.month,
         year = this.year
@@ -17,6 +18,7 @@ fun Budget.toEntity(): BudgetEntity {
 fun BudgetEntity.toDomain(): Budget {
     return Budget(
         categoryName = this.categoryName,
+        userId = this.userId,
         amount = this.amount,
         month = this.month,
         year = this.year

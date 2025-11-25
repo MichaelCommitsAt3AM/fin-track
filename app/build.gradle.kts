@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore)
     implementation(libs.litert.support.api)
+    implementation(libs.androidx.compose.animation.core)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
 
@@ -86,6 +87,9 @@ dependencies {
     // Coil
     implementation(libs.coil)
     implementation(libs.coil.compose)
+
+    // Google sign in
+    implementation(libs.google.play.services.auth)
 
 
 

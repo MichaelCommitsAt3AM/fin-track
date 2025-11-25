@@ -201,8 +201,12 @@ class BudgetsViewModel @Inject constructor(
     private fun deleteBudget(budget: BudgetItem) {
         viewModelScope.launch {
             try {
-                // TODO: Add delete method to repository
-                // budgetRepository.deleteBudget(budget)
+                // Get current month and year
+                val calendar = Calendar.getInstance()
+                val currentMonth = calendar.get(Calendar.MONTH) + 1
+                val currentYear = calendar.get(Calendar.YEAR)
+
+                budgetRepository.deleteBudget(budget.category, currentMonth, currentYear)
 
                 loadBudgets() // Reload list
                 _eventChannel.send(BudgetEvent.ShowSuccess("Budget deleted"))
@@ -233,8 +237,15 @@ class BudgetsViewModel @Inject constructor(
     private fun saveBudget() {
         val state = _addBudgetState.value
         val amountDouble = state.amount.toDoubleOrNull()
+        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid // ADD THIS
 
         // Validation
+        if (userId == null) {
+            viewModelScope.launch {
+                _eventChannel.send(BudgetEvent.ShowError("User not logged in"))
+            }
+            return
+        }
         if (state.selectedCategory == null) {
             viewModelScope.launch {
                 _eventChannel.send(BudgetEvent.ShowError("Please select a category"))
@@ -270,6 +281,7 @@ class BudgetsViewModel @Inject constructor(
                 // Create budget object
                 val budget = Budget(
                     categoryName = state.selectedCategory!!,
+                    userId = userId, // ADD THIS
                     amount = amountDouble,
                     month = monthYear.first,
                     year = monthYear.second

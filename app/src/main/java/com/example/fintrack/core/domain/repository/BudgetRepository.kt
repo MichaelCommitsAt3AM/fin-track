@@ -11,4 +11,8 @@ interface BudgetRepository {
     fun getBudget(categoryName: String, month: Int, year: Int): Flow<Budget?>
 
     fun getAllBudgetsForMonth(month: Int, year: Int): Flow<List<Budget>>
+
+    suspend fun deleteBudget(categoryName: String, month: Int, year: Int) // ADD THIS
+
+    suspend fun syncBudgetsFromCloud() // ADD THIS
 }

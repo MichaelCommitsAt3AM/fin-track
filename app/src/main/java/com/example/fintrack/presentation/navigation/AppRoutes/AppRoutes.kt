@@ -10,7 +10,8 @@ sealed class AppRoutes(val route: String) {
     object Register : AppRoutes("registration_screen")
     object ForgotPassword : AppRoutes("forgot_password_screen")
     object VerifyEmail : AppRoutes("verify_email_screen")
-    object Setup : AppRoutes("setup_screen") // Add this
+    object ProfileSetup : AppRoutes("profile_setup_screen")
+    object Setup : AppRoutes("setup_screen")
 
     // --- Main App (Bottom Bar) Flow ---
     object Home : AppRoutes("home_screen")

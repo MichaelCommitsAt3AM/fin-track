@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
 data class TransactionEntity(
     @PrimaryKey
     val id: String = "",
-    val type: String, // "INCOMaE" or "EXPENSE"
+    val userId: String,
+    val type: String, // "INCOME" or "EXPENSE"
     val amount: Double,
     val category: String,
     val date: Long, // Store as a timestamp for easy sorting/filtering

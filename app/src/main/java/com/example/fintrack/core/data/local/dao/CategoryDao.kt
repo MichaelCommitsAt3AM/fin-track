@@ -19,10 +19,14 @@ interface CategoryDao {
     suspend fun insertAll(categories: List<CategoryEntity>)
 
     // Get all categories, ordered by name
-    @Query("SELECT * FROM categories ORDER BY name ASC")
-    fun getAllCategories(): Flow<List<CategoryEntity>>
+    @Query("SELECT * FROM categories WHERE userId = :userId ORDER BY name ASC")
+    fun getAllCategories(userId: String): Flow<List<CategoryEntity>>
 
-    // Delete a category from the db
-    @Query("DELETE FROM categories WHERE name = :name")
-    suspend fun deleteCategory(name: String)
+    // Delete a category for a specific user
+    @Query("DELETE FROM categories WHERE name = :name AND userId = :userId")
+    suspend fun deleteCategory(name: String, userId: String)
+
+    // Delete all categories for a user (logout)
+    @Query("DELETE FROM categories WHERE userId = :userId")
+    suspend fun deleteAllForUser(userId: String)
 }

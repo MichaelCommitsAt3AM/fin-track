@@ -27,7 +27,7 @@ import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 
 @Composable
 fun LoginScreen(
-    onNavigateToHome: () -> Unit,
+    onNavigateToSetup: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToLogin: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
@@ -60,10 +60,10 @@ fun LoginScreen(
     LaunchedEffect(key1 = true) {
         viewModel.authEvent.collect { event ->
             when (event) {
-                is AuthEvent.NavigateToHome -> onNavigateToHome()
-                is AuthEvent.NavigateToSetup -> onNavigateToHome()
+                is AuthEvent.NavigateToSetup -> onNavigateToSetup()
                 is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
                 AuthEvent.NavigateToLogin -> onNavigateToLogin()
+                else -> {}
             }
         }
     }

@@ -9,6 +9,7 @@ import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,8 +100,14 @@ class AddTransactionViewModel @Inject constructor(
     private fun saveTransaction() {
         val state = _uiState.value
         val amountDouble = state.amount.toDoubleOrNull()
+        val userId = FirebaseAuth.getInstance().currentUser?.uid // ADD THIS
+
 
         // --- Validation ---
+        if (userId == null) {
+            _uiState.value = _uiState.value.copy(error = "User not logged in")
+            return
+        }
         if (state.selectedCategory == null) {
             _uiState.value = _uiState.value.copy(error = "Please select a category")
             return
@@ -121,6 +128,7 @@ class AddTransactionViewModel @Inject constructor(
             // 1. Save Immediate Transaction
             val transaction = Transaction(
                 id = "",
+                userId = userId,
                 type = state.transactionType,
                 amount = amountDouble,
                 category = state.selectedCategory,
@@ -133,8 +141,11 @@ class AddTransactionViewModel @Inject constructor(
 
             // 2. Save Recurring Rule (If enabled)
             if (state.isRecurring) {
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+
                 val recurringRule = RecurringTransaction(
                     type = state.transactionType,
+                    userId = userId,
                     amount = amountDouble,
                     category = state.selectedCategory,
                     startDate = state.date,

@@ -17,7 +17,8 @@ import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 
 @Composable
 fun EmailVerificationScreen(
-    onNavigateToHome: () -> Unit,
+    onNavigateToProfileSetup: () -> Unit,
+    onNavigateToSetup: () -> Unit,
     onNavigateToLogin: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -35,7 +36,14 @@ fun EmailVerificationScreen(
     LaunchedEffect(key1 = true) {
         viewModel.authEvent.collect { event ->
             when (event) {
-                is AuthEvent.NavigateToHome -> onNavigateToHome()
+                is AuthEvent.NavigateToHome -> {
+                    val isNew = viewModel.isNewUser()
+                    if (isNew) {
+                        onNavigateToProfileSetup()
+                    } else {
+                        onNavigateToSetup()
+                    }
+                }
                 is AuthEvent.NavigateToLogin -> onNavigateToLogin()
                 is AuthEvent.NavigateToEmailVerification -> {}
                 else -> {}

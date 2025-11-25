@@ -30,10 +30,12 @@ class CategoryRepositoryImpl @Inject constructor(
 
     // --- Initialize Default categories ---
     override suspend fun initDefaultCategories() {
+        val userId = getUserId() ?: throw IllegalStateException("User is not logged in")
+
         val defaults = listOf(
-            Category("Food", "restaurant", "#F39C12", CategoryType.EXPENSE, isDefault = true),
-            Category("Rent", "house", "#8B5CF6", CategoryType.EXPENSE, isDefault = true),
-            Category("Transport", "directions_bus", "#3498DB", CategoryType.EXPENSE, isDefault = true)
+            Category("Food",userId = userId, "restaurant", "#F39C12", CategoryType.EXPENSE, isDefault = true),
+            Category("Rent", userId = userId, "house", "#8B5CF6", CategoryType.EXPENSE, isDefault = true),
+            Category("Transport", userId = userId, "directions_bus", "#3498DB", CategoryType.EXPENSE, isDefault = true)
         )
         // Insert locally and to cloud
         insertAllCategories(defaults)
@@ -50,6 +52,8 @@ class CategoryRepositoryImpl @Inject constructor(
         getUserId()?.let {
             try {
                 val firestoreData = hashMapOf(
+                    "name" to entity.name,
+                    "userId" to entity.userId,
                     "icon" to entity.iconName,  // Map iconName to icon
                     "color" to entity.colorHex,  // Map colorHex to color
                     "type" to entity.type,
@@ -70,8 +74,10 @@ class CategoryRepositoryImpl @Inject constructor(
 
     // --- Delete Category ---
     override suspend fun deleteCategory(category: Category) {
+        val userId = getUserId() ?: return
+
         // 1. Delete locally
-        categoryDao.deleteCategory(category.name)
+        categoryDao.deleteCategory(category.name, userId)
 
         // 2. Delete from Cloud
         getUserId()?.let {
@@ -98,6 +104,14 @@ class CategoryRepositoryImpl @Inject constructor(
 
                 categories.forEach { category ->
                     val docRef = collectionRef.document(category.name)
+                    val categoryData = hashMapOf(
+                        "name" to category.name,
+                        "userId" to category.userId, // ADD THIS
+                        "icon" to category.iconName,
+                        "color" to category.colorHex,
+                        "type" to category.type.name,
+                        "isDefault" to category.isDefault
+                    )
                     batch.set(docRef, category)
                 }
                 batch.commit().await()
@@ -108,7 +122,8 @@ class CategoryRepositoryImpl @Inject constructor(
     }
 
     override fun getAllCategories(): Flow<List<Category>> {
-        return categoryDao.getAllCategories().map { entityList ->
+        val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return categoryDao.getAllCategories(userId).map { entityList ->
             entityList.map { it.toDomain() }
         }
     }
@@ -125,6 +140,7 @@ class CategoryRepositoryImpl @Inject constructor(
                     try {
                         val entity = CategoryEntity(
                             name = doc.id,
+                            userId = userId,
                             iconName = doc.getString("icon") ?: doc.getString("iconName") ?: "", // Handle both field names
                             colorHex = doc.getString("color") ?: doc.getString("colorHex") ?: "",
                             type = doc.getString("type") ?: "",

@@ -9,6 +9,7 @@ import com.example.fintrack.core.domain.model.CategoryType
 fun Category.toEntity(): CategoryEntity {
     return CategoryEntity(
         name = this.name,
+        userId = this.userId,
         iconName = this.iconName,
         colorHex = this.colorHex,
         type = this.type.name,
@@ -19,6 +20,7 @@ fun Category.toEntity(): CategoryEntity {
 fun CategoryEntity.toDomain(): Category {
     return Category(
         name = this.name,
+        userId = this.userId,
         iconName = this.iconName,
         colorHex = this.colorHex,
         type = CategoryType.valueOf(this.type),
