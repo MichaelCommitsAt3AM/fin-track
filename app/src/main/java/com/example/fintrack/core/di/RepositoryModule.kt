@@ -3,10 +3,12 @@ package com.example.fintrack.core.di
 import com.example.fintrack.core.data.repository.AuthRepositoryImpl
 import com.example.fintrack.core.data.repository.BudgetRepositoryImpl
 import com.example.fintrack.core.data.repository.CategoryRepositoryImpl
+import com.example.fintrack.core.data.repository.NetworkRepositoryImpl
 import com.example.fintrack.core.data.repository.TransactionRepositoryImpl
 import com.example.fintrack.core.domain.repository.AuthRepository
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.repository.NetworkRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -42,4 +44,10 @@ abstract class RepositoryModule {
         // Create this class first, following the pattern from the others
         budgetRepositoryImpl: BudgetRepositoryImpl
     ): BudgetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNetworkRepository(
+        networkRepositoryImpl: NetworkRepositoryImpl
+    ): NetworkRepository
 }

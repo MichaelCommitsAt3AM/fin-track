@@ -170,7 +170,7 @@ fun RowScope.FilterTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
 @Composable
 fun TransactionListItem(item: TransactionItemData) {
     val amountColor = if (item.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
-    val amountString = if (item.amount > 0) "+$${"%.2f".format(item.amount)}" else "-$${"%.2f".format(kotlin.math.abs(item.amount))}"
+    val amountString = if (item.amount > 0) "+Ksh ${"%.2f".format(item.amount)}" else "-Ksh ${"%.2f".format(kotlin.math.abs(item.amount))}"
 
     Row(
         modifier = Modifier

@@ -1,5 +1,8 @@
 package com.example.fintrack.presentation.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,45 +43,111 @@ fun HomeScreen(
 ) {
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val spendingCategories by viewModel.spendingCategories.collectAsState()
-    //val (amountSpent, lastWeekSpent) by viewModel.weeklySpending.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
+    var showOfflineBanner by remember { mutableStateOf(true) }
 
+    // Wrap everything in a Box
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item { HomeHeader(user = currentUser) }
+            item { WeeklySpendingCard() }
+            item {
+                SpendingSection(
+                    categories = spendingCategories,
+                    isEmpty = spendingCategories.isEmpty()
+                )
+            }
+            item {
+                TransactionsSection(
+                    transactions = recentTransactions,
+                    onViewAllClick = {
+                        navController.navigate(AppRoutes.TransactionList.route)
+                    }
+                )
+            }
+        }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(paddingValues)
-            .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(bottom = 32.dp)
-    ) {
-        item { HomeHeader() }
-        item { WeeklySpendingCard() }
-        // Uncomment 42 and below to use real values from the db
-        // and comment the top
-
-//        item { WeeklySpendingCard(
-//            amountSpent = amountSpent,
-//            lastWeekSpent = lastWeekSpent
-//        )}
-        item {
-            SpendingSection(
-                categories = spendingCategories,
-                isEmpty = spendingCategories.isEmpty()
+        // Offline Banner
+        AnimatedVisibility(
+            visible = !isOnline && showOfflineBanner,
+            enter = slideInVertically(initialOffsetY = { -it }),
+            exit = slideOutVertically(targetOffsetY = { -it }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+        ) {
+            OfflineBanner(
+                onDismiss = { showOfflineBanner = false }
             )
         }
-        item {
-            TransactionsSection(
-                transactions = recentTransactions,
-                onViewAllClick = {
-                    navController.navigate(AppRoutes.TransactionList.route)
-                }
-            )
+    }
+
+    // Reset banner visibility when coming back online
+    LaunchedEffect(isOnline) {
+        if (isOnline) {
+            showOfflineBanner = true
         }
     }
 }
 
 @Composable
-fun HomeHeader() {
+fun OfflineBanner(onDismiss: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFEF3C7), // Yellow-100 equivalent
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = "Offline",
+                    tint = Color(0xFF92400E), // Yellow-800
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "You are offline. Features may be limited.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF92400E) // Yellow-800
+                )
+            }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Dismiss",
+                    tint = Color(0xFF92400E), // Yellow-800
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeHeader(user: UserUiModel?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -87,9 +156,16 @@ fun HomeHeader() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Generate initials for placeholder
+            val initials = user?.fullName
+                ?.split(" ")
+                ?.mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                ?.take(2)
+                ?.joinToString("") ?: "JD"
+
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data("https://placehold.co/100x100/2ECC71/FFFFFF?text=JD")
+                    .data(user?.avatarUrl ?: "https://placehold.co/100x100/2ECC71/FFFFFF?text=$initials")
                     .crossfade(true)
                     .build(),
                 contentDescription = "User Avatar",
@@ -106,7 +182,7 @@ fun HomeHeader() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "John Doe",
+                    text = user?.fullName ?: "Loading...",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -124,38 +200,6 @@ fun HomeHeader() {
                 contentDescription = "Notifications",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-fun BalanceCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-    ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text(
-                text = "Total Balance",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-            )
-            Text(
-                text = "Ksh 12,345.67",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                BalanceAction(text = "Add Money", icon = Icons.Default.Add, modifier = Modifier.weight(1f))
-                BalanceAction(text = "Send", icon = Icons.Default.ArrowUpward, modifier = Modifier.weight(1f))
-                BalanceAction(text = "Transfer", icon = Icons.Default.SyncAlt, modifier = Modifier.weight(1f))
-            }
         }
     }
 }
@@ -228,19 +272,18 @@ fun WeeklySpendingCard(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // CHANGE HERE: Replace "$" with "Ksh"
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Ksh",  // Changed from "$"
+                            text = "Ksh",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "%,.2f".format(amountSpent),  // Added comma formatting
+                            text = "%,.2f".format(amountSpent),
                             style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -255,9 +298,8 @@ fun WeeklySpendingCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // CHANGE HERE: Replace "$" with "Ksh"
                         Text(
-                            text = "vs. last week (Ksh %,.2f)".format(lastWeekSpent),  // Changed from "$%.2f"
+                            text = "vs. last week (Ksh %,.2f)".format(lastWeekSpent),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFFD8B4FE)
@@ -293,31 +335,6 @@ fun WeeklySpendingCard(
     }
 }
 
-
-
-
-@Composable
-fun BalanceAction(text: String, icon: ImageVector, modifier: Modifier = Modifier) {
-    Button(
-        onClick = { /* TODO */ },
-        modifier = modifier.height(60.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White.copy(alpha = 0.2f),
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        )
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(imageVector = icon, contentDescription = text, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(text = text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
 @Composable
 fun SpendingSection(
     categories: List<SpendingCategoryUiModel>,
@@ -327,7 +344,6 @@ fun SpendingSection(
         SectionHeader(title = "Spending", onViewAllClick = { /* TODO */ })
 
         if (isEmpty) {
-            // Empty state
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
