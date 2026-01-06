@@ -13,6 +13,11 @@ sealed class AppRoutes(val route: String) {
     object ProfileSetup : AppRoutes("profile_setup_screen")
     object Setup : AppRoutes("setup_screen")
 
+    // --- Biometric & Security Flow ---
+    object BiometricLock : AppRoutes("biometric_lock_screen")
+    object BiometricSetup : AppRoutes("biometric_setup_screen") // For creating PIN/Enabling
+    object FingerprintSetup : AppRoutes("fingerprint_setup_screen") // <--- NEW
+
     // --- Main App (Bottom Bar) Flow ---
     object Home : AppRoutes("home_screen")
     object Reports : AppRoutes("reports_screen")
@@ -26,7 +31,7 @@ sealed class AppRoutes(val route: String) {
 
     object ManageCategories : AppRoutes("manage_categories_screen")
     object AddCategory : AppRoutes("add_category_screen")
-    object EditCategory : AppRoutes("edit_category_screen/{categoryName}"){
+    object EditCategory : AppRoutes("edit_category_screen/{categoryName}") {
         fun createRoute(name: String) = "edit_category_screen/$name"
     }
 
@@ -38,6 +43,4 @@ sealed class AppRoutes(val route: String) {
     object EditRecurringTransaction : AppRoutes("edit_recurring_transaction/{transactionId}") {
         fun createRoute(transactionId: String) = "edit_recurring_transaction/$transactionId"
     }
-
-
 }

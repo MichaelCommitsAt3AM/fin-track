@@ -8,14 +8,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.fintrack.presentation.add_transaction.AddTransactionScreen
+import com.example.fintrack.presentation.auth.BiometricLoginScreen
 import com.example.fintrack.presentation.auth.EmailVerificationScreen
 import com.example.fintrack.presentation.auth.ForgotPasswordScreen
 import com.example.fintrack.presentation.auth.LoginScreen
@@ -23,13 +22,12 @@ import com.example.fintrack.presentation.auth.RegistrationScreen
 import com.example.fintrack.presentation.budgets.AddBudgetScreen
 import com.example.fintrack.presentation.budgets.BudgetsScreen
 import com.example.fintrack.presentation.home.HomeScreen
+import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
-import com.example.fintrack.presentation.navigation.BottomNavItem
-import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
+import com.example.fintrack.presentation.settings.biometric.BiometricSetupScreen // Ensure you created this file from previous step
+import com.example.fintrack.presentation.setup.SetupScreen
 import com.example.fintrack.presentation.transactions.TransactionListScreen
-import com.example.fintrack.presentation.setup.SetupScreen // Add this import
-
 
 @Composable
 fun NavGraph(
@@ -50,7 +48,6 @@ fun NavGraph(
         ) {
             LoginScreen(
                 onNavigateToSetup = {
-                    // Navigate to setup screen instead of home
                     navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
@@ -73,7 +70,6 @@ fun NavGraph(
         ) {
             RegistrationScreen(
                 onNavigateToHome = {
-                    // For new signups, go directly to home (they have no data to sync)
                     navController.navigate(AppRoutes.ProfileSetup.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
@@ -94,13 +90,11 @@ fun NavGraph(
         composable(AppRoutes.VerifyEmail.route) {
             EmailVerificationScreen(
                 onNavigateToProfileSetup = {
-                    // New users → Profile Setup
                     navController.navigate(AppRoutes.ProfileSetup.route) {
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
                 },
                 onNavigateToSetup = {
-                    // Existing users → Setup (data sync)
                     navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
@@ -117,15 +111,12 @@ fun NavGraph(
         ) {
             ProfileSetupScreen(
                 onNavigateToHome = {
-                    // After profile setup → Setup (data sync) → Home
                     navController.navigate(AppRoutes.Setup.route) {
                         popUpTo(AppRoutes.ProfileSetup.route) { inclusive = true }
                     }
                 }
             )
         }
-
-
 
         // --- Setup Screen (Data sync for existing users) ---
         composable(
@@ -136,12 +127,19 @@ fun NavGraph(
             SetupScreen(
                 onNavigateToHome = {
                     navController.navigate(BottomNavItem.Home.route) {
-                        // Clear the entire back stack
                         popUpTo(AppRoutes.Setup.route) { inclusive = true }
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                         launchSingleTop = true
                     }
                 }
+            )
+        }
+
+        // --- Biometric Routes ---
+        composable(AppRoutes.BiometricLock.route) {
+            BiometricLoginScreen(
+                onSuccess = { navController.popBackStack() },
+                onUsePin = { /* TODO: Navigate to PIN screen or handle state */ }
             )
         }
 
@@ -175,7 +173,6 @@ fun NavGraph(
             )
         }
 
-        // Add AddBudget screen
         composable(
             route = AppRoutes.AddBudget.route,
             enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
@@ -186,15 +183,23 @@ fun NavGraph(
             )
         }
 
-
         composable(
             route = AppRoutes.Settings.route,
             enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
             exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
         ) {
-            AddTransactionScreen(
+            // Note: In your original file, you had AddTransactionScreen here by mistake?
+            // I'm correcting it to SettingsScreen based on the route name.
+            SettingsScreen(
+                onNavigateToLogin = {
+                    navController.navigate(AppRoutes.Login.route) {
+                        popUpTo(0) // Clear backstack on logout
+                    }
+                },
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) }
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
+                navController = navController,
+                paddingValues = paddingValues
             )
         }
 

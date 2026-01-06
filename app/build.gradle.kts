@@ -97,6 +97,12 @@ dependencies {
     // Google sign in
     implementation(libs.google.play.services.auth)
 
+    // Biometrics
+    implementation(libs.androidx.biometric)
+
+    // Datastore
+    implementation(libs.androidx.datastore.preferences)
+
     // Desugaring
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

@@ -18,24 +18,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.fintrack.presentation.navigation.AppRoutes
-import com.google.firebase.firestore.FirebaseFirestore
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-
-// Helper extension for modifier scaling if needed, otherwise simply import
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.res.painterResource
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +43,9 @@ fun SettingsScreen(
     paddingValues: PaddingValues,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
+    // Observe the biometric state from ViewModel
+    val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+
     // Listen for logout event
     LaunchedEffect(key1 = true) {
         viewModel.settingsEvent.collect { event ->
@@ -98,8 +96,16 @@ fun SettingsScreen(
                     icon = Icons.Default.Fingerprint,
                     title = "Biometric Login",
                     hasToggle = true,
-                    isToggleChecked = true,
-                    onToggleChange = { /* TODO */ }
+                    isToggleChecked = isBiometricEnabled,
+                    onToggleChange = { isChecked ->
+                        if (isChecked) {
+                            // If turning ON, navigate to Setup Screen
+                            navController.navigate(AppRoutes.BiometricSetup.route)
+                        } else {
+                            // If turning OFF, disable immediately via ViewModel
+                            viewModel.disableBiometric()
+                        }
+                    }
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -113,14 +119,14 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.Category,
                     title = "Manage Categories",
-                    onClick = onNavigateToManageCategories // <-- Hook up navigation
+                    onClick = onNavigateToManageCategories
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(
                     icon = Icons.Default.Repeat,
                     title = "Manage Recurring Transactions",
                     onClick = { navController.navigate(AppRoutes.RecurringTransactions.route)}
-                    )
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = {})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -344,4 +350,3 @@ fun SettingsItem(
         }
     }
 }
-
