@@ -22,6 +22,8 @@ litertSupportApi = "1.4.1"
 material = "1.12.0"
 googlePlayServicesAuth = "21.2.0"
 animationCore = "1.9.5"
+vico = "2.1.0"
+desugar_jdk_libs = "2.1.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -44,7 +46,10 @@ coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 coil-compose-core = { module = "io.coil-kt:coil-compose-core", version.ref = "coil" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 google-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googlePlayServicesAuth" }
-
+vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
+vico-core = { group = "com.patrykandpatrick.vico", name = "core", version.ref = "vico" }
+desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 
 # --- Navigation ---
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }

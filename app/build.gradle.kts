@@ -33,6 +33,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -88,10 +89,16 @@ dependencies {
     implementation(libs.coil)
     implementation(libs.coil.compose)
 
+    // Vico (Charts)
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+    implementation(libs.vico.core)
+
     // Google sign in
     implementation(libs.google.play.services.auth)
 
-
+    // Desugaring
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // --- Testing (Standard) ---
     testImplementation(libs.junit)
