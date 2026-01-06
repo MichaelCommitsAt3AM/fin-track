@@ -1,5 +1,6 @@
 package com.example.fintrack.presentation.reports
 
+import android.content.Intent
 import android.graphics.Paint
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +64,23 @@ fun ReportsScreen(
     viewModel: ReportsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+
+    // Observe Export Events
+    LaunchedEffect(key1 = true) {
+        viewModel.exportEvent.collect { uri ->
+            if (uri != null) {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    putExtra(Intent.EXTRA_SUBJECT, "FinTrack Data Export")
+                    putExtra(Intent.EXTRA_TEXT, "Here is my transaction history from FinTrack.")
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "Export Data"))
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -99,7 +118,7 @@ fun ReportsScreen(
                 )
             }
 
-            // 3. Spending Trends (Updated Custom Chart)
+            // 3. Spending Trends
             if (state.monthlyTrends.isNotEmpty()) {
                 item {
                     SpendingTrendsSection(monthlyData = state.monthlyTrends)
@@ -121,7 +140,7 @@ fun ReportsScreen(
 
             // 6. Export Button
             item {
-                ExportButtonSection()
+                ExportButtonSection(onExportClick = { viewModel.exportData() })
             }
         }
     }
@@ -249,7 +268,7 @@ fun SummaryCard(title: String, amount: Double, isIncome: Boolean, modifier: Modi
                 )
             }
             Text(
-                text = "${if (isIncome && amount > 0) "+" else ""}$${
+                text = "${if (isIncome && amount > 0) "+" else ""}Ksh ${
                     String.format(
                         Locale.US,
                         "%,.0f",
@@ -264,18 +283,35 @@ fun SummaryCard(title: String, amount: Double, isIncome: Boolean, modifier: Modi
 }
 
 // -------------------------------------------------------------------------
-// NEW: Spending Trends Section matching the image
+// Spending Trends Section with Real Data
 // -------------------------------------------------------------------------
 
 @Composable
 fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
     // 1. Calculations
     val totalExpense = monthlyData.sumOf { it.expense }
-    val days = if (monthlyData.isNotEmpty()) monthlyData.size else 1
-    val dailyAvg = if (days > 0) totalExpense / days else 0.0
+    val count = monthlyData.size
+    val monthlyAvg = if (count > 0) totalExpense / count else 0.0
 
     // Extract strictly the expense data points
     val dataPoints = monthlyData.map { it.expense.toFloat() }
+    val labels = monthlyData.map { it.month }
+
+    // 2. Calculate Percentage Difference (Current Month vs Previous Month)
+    val (percentageDiff, isIncrease) = remember(monthlyData) {
+        if (monthlyData.size < 2) {
+            0.0 to false
+        } else {
+            val current = monthlyData.last().expense
+            val previous = monthlyData[monthlyData.size - 2].expense
+            if (previous == 0.0) {
+                0.0 to (current > 0)
+            } else {
+                val diff = ((current - previous) / previous) * 100
+                diff to (diff >= 0)
+            }
+        }
+    }
 
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Card(
@@ -298,7 +334,7 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Daily average: $${String.format("%.2f", dailyAvg)}",
+                            text = "Monthly average: Ksh ${String.format(Locale.US, "%,.2f", monthlyAvg)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
@@ -306,8 +342,11 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
                     }
 
                     // Percentage Badge
+                    val badgeColor = if (isIncrease) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    val badgeIcon = if (isIncrease) Icons.Default.TrendingUp else Icons.Default.TrendingDown
+
                     Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        color = badgeColor.copy(alpha = 0.1f),
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Row(
@@ -315,16 +354,16 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowUpward,
+                                imageVector = badgeIcon,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = badgeColor,
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
-                                text = "12%", // In a real app, calculate this percentage diff
+                                text = "${String.format(Locale.US, "%.1f", kotlin.math.abs(percentageDiff))}%",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = badgeColor
                             )
                         }
                     }
@@ -339,7 +378,7 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
                         .fillMaxWidth()
                         .height(180.dp),
                     graphColor = MaterialTheme.colorScheme.primary,
-                    labels = listOf("Oct 1", "Oct 8", "Oct 15", "Oct 22", "Today") // Replace with real date logic if needed
+                    labels = labels
                 )
             }
         }
@@ -367,12 +406,11 @@ fun TrendChart(
         // 1. Data Normalization
         val maxVal = data.maxOrNull() ?: 1f
         val minVal = data.minOrNull() ?: 0f
-        val range = (maxVal - minVal).coerceAtLeast(1f) // Avoid divide by zero
+        val range = (maxVal - minVal).coerceAtLeast(1f)
 
         // Helper to get Y coordinate (inverted because Canvas Y=0 is top)
         fun getY(value: Float): Float {
             val normalized = (value - minVal) / range
-            // Leave some padding top/bottom so points aren't cut off
             val verticalPadding = 20.dp.toPx()
             val availableHeight = chartHeight - (verticalPadding * 2)
             return chartHeight - (normalized * availableHeight) - verticalPadding
@@ -398,7 +436,7 @@ fun TrendChart(
 
         // 3. Create Smooth Bezier Path
         val path = Path()
-        val fillPath = Path() // For the gradient area
+        val fillPath = Path()
 
         if (data.isNotEmpty()) {
             val firstX = getX(0)
@@ -412,8 +450,6 @@ fun TrendChart(
                 val x2 = getX(i + 1)
                 val y2 = getY(data[i + 1])
 
-                // Calculate control points for smooth curve (Catmull-Rom or simple cubic)
-                // Simple Cubic approach: Control points are halfway horizontally, same Y
                 val cx1 = (x1 + x2) / 2
                 val cy1 = y1
                 val cx2 = (x1 + x2) / 2
@@ -459,22 +495,22 @@ fun TrendChart(
             val radius = 6.dp.toPx()
             val strokeWidth = 3.dp.toPx()
 
-            // Draw circle background (to hide the line behind it)
+            // Draw circle background
             drawCircle(
-                color = surfaceColor, // Matches card background
+                color = surfaceColor,
                 radius = radius,
                 center = Offset(x, y)
             )
-            // Draw circle border (The "Hollow" look)
+            // Draw circle border
             drawCircle(
                 color = graphColor,
                 radius = radius,
                 center = Offset(x, y),
                 style = Stroke(width = strokeWidth)
             )
-            // Draw inner fill (Dark center)
+            // Draw inner fill
             drawCircle(
-                color = surfaceColor, // Or a very dark version of primary
+                color = surfaceColor,
                 radius = radius - strokeWidth,
                 center = Offset(x, y),
                 style = Fill
@@ -482,7 +518,6 @@ fun TrendChart(
         }
 
         // 7. Draw Text Labels
-        // Note: We use nativeCanvas for text in generic Canvas
         val textPaint = Paint().apply {
             color = onSurface.copy(alpha = 0.6f).toArgb()
             textSize = 10.sp.toPx()
@@ -490,11 +525,9 @@ fun TrendChart(
             isAntiAlias = true
         }
 
-        // Distribute labels evenly
         val labelSpacing = width / (labels.size - 1).coerceAtLeast(1)
         labels.forEachIndexed { index, label ->
             val x = index * labelSpacing
-            // Ensure first and last don't get clipped too much
             val adjustedX = when(index) {
                 0 -> x + 10.dp.toPx()
                 labels.lastIndex -> x - 10.dp.toPx()
@@ -504,13 +537,12 @@ fun TrendChart(
             drawContext.canvas.nativeCanvas.drawText(
                 label,
                 adjustedX,
-                height, // Draw at very bottom
+                height,
                 textPaint
             )
         }
     }
 }
-
 
 @Composable
 fun CategoryBreakdownSection(categories: List<CategoryReportData>, totalExpense: Double) {
@@ -680,7 +712,7 @@ fun CategoryProgressItem(category: CategoryReportData, showDivider: Boolean) {
             }
 
             Text(
-                text = "$${String.format(Locale.US, "%,.0f", category.amount)}",
+                text = "Ksh ${String.format(Locale.US, "%,.0f", category.amount)}",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -706,12 +738,12 @@ fun CategoryProgressItem(category: CategoryReportData, showDivider: Boolean) {
 }
 
 @Composable
-fun ExportButtonSection() {
+fun ExportButtonSection(onExportClick: () -> Unit) {
     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { /* Handle Export */ },
+                .clickable { onExportClick() },
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surface,
             border = getCardBorder(),
@@ -744,7 +776,7 @@ fun ExportButtonSection() {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Export as PDF, Excel, or CSV",
+                            text = "Export as CSV",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

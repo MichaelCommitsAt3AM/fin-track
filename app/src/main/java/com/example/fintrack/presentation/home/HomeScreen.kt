@@ -45,9 +45,12 @@ fun HomeScreen(
     val spendingCategories by viewModel.spendingCategories.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
+
+    // 1. COLLECT THE WEEKLY SPENDING STATE HERE
+    val weeklySpending by viewModel.weeklySpending.collectAsState()
+
     var showOfflineBanner by remember { mutableStateOf(true) }
 
-    // Wrap everything in a Box
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
@@ -58,7 +61,15 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             item { HomeHeader(user = currentUser) }
-            item { WeeklySpendingCard() }
+
+            // 2. PASS THE DATA TO THE CARD
+            item {
+                WeeklySpendingCard(
+                    amountSpent = weeklySpending.first,   // This Week
+                    lastWeekSpent = weeklySpending.second // Last Week
+                )
+            }
+
             item {
                 SpendingSection(
                     categories = spendingCategories,

@@ -1,5 +1,6 @@
 package com.example.fintrack.presentation.reports
 
+import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,12 +8,19 @@ import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
+import com.example.fintrack.core.utils.CsvExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
@@ -22,10 +30,15 @@ import javax.inject.Inject
 class ReportsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val budgetRepository: BudgetRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val csvExporter: CsvExporter
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
+
+    // SharedFlow for one-time events (like triggering the share sheet)
+    private val _exportEvent = MutableSharedFlow<Uri?>()
+    val exportEvent = _exportEvent.asSharedFlow()
 
     val state: StateFlow<ReportsUiState> = combine(
         transactionRepository.getAllTransactions(),
@@ -68,7 +81,6 @@ class ReportsViewModel @Inject constructor(
         // 3. Prepare Bar Chart Data (Last 6 Months Trends)
         val sixMonthsAgo = currentMonth.minusMonths(5)
 
-        // --- FIXED LOGIC START ---
         val trendData = transactions
             .filter {
                 val date = Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -79,16 +91,15 @@ class ReportsViewModel @Inject constructor(
                 YearMonth.from(Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate())
             }
             .entries
-            .sortedBy { it.key } // Sort by YearMonth (Key) BEFORE mapping to strings
+            .sortedBy { it.key }
             .map { (ym, txs) ->
                 MonthlyFinancials(
-                    month = ym.month.name.take(3), // Now we can safely truncate to "Jan", "Feb"
+                    month = ym.month.name.take(3),
                     year = ym.year,
                     income = txs.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
                     expense = txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
                 )
             }
-        // --- FIXED LOGIC END ---
 
         ReportsUiState(
             isLoading = false,
@@ -110,6 +121,21 @@ class ReportsViewModel @Inject constructor(
 
     fun nextMonth() {
         _currentMonth.value = _currentMonth.value.plusMonths(1)
+    }
+
+    fun exportData() {
+        viewModelScope.launch {
+            // Fetch all transactions to export
+            val transactions = transactionRepository.getAllTransactions().first()
+
+            // Generate CSV (IO operation)
+            val uri = withContext(Dispatchers.IO) {
+                csvExporter.generateTransactionCsv(transactions)
+            }
+
+            // Emit the result to the UI
+            _exportEvent.emit(uri)
+        }
     }
 }
 
