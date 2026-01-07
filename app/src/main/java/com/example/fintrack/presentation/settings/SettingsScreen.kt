@@ -31,6 +31,7 @@ import androidx.navigation.NavController
 import com.example.fintrack.presentation.navigation.AppRoutes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.fintrack.R
 import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -200,18 +201,12 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
 fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
-
-    // Load avatar ID from Firestore or use default
     var avatarId by remember { mutableStateOf(1) }
 
     LaunchedEffect(key1 = currentUser?.uid) {
         currentUser?.uid?.let { uid ->
             try {
-                val userDoc = FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(uid)
-                    .get()
-                    .await()
+                val userDoc = FirebaseFirestore.getInstance().collection("users").document(uid).get().await()
                 avatarId = userDoc.getLong("avatarId")?.toInt() ?: 1
             } catch (e: Exception) {
                 avatarId = 1
@@ -223,27 +218,24 @@ fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
+        // --- FIXED CRASH HERE ---
+        // Replaced getIdentifier with safe helper function
         Image(
-            painter = painterResource(
-                id = context.resources.getIdentifier(
-                    "avatar_$avatarId",
-                    "drawable",
-                    context.packageName
-                )
-            ),
+            painter = painterResource(id = getAvatarResource(avatarId)),
             contentDescription = "Profile Picture",
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)
         )
+        // ------------------------
+
         Spacer(modifier = Modifier.width(16.dp))
         Column {
             Text(
                 text = currentUser?.displayName ?: "User",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                fontWeight = FontWeight.Bold
             )
             Text(
                 text = currentUser?.email ?: "",
@@ -348,5 +340,17 @@ fun SettingsItem(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+// Helper Function
+fun getAvatarResource(avatarId: Int): Int {
+    return when (avatarId) {
+        1 -> R.drawable.avatar_default
+        2 -> R.drawable.avatar_female
+        3 -> R.drawable.avatar_male
+        4 -> R.drawable.avatar_grandpa
+        5 -> R.drawable.avatar_girl
+        else -> R.drawable.avatar_default
     }
 }

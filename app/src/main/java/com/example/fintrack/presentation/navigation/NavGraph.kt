@@ -183,25 +183,25 @@ fun NavGraph(
             )
         }
 
-        composable(
-            route = AppRoutes.Settings.route,
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
-        ) {
-            // Note: In your original file, you had AddTransactionScreen here by mistake?
-            // I'm correcting it to SettingsScreen based on the route name.
-            SettingsScreen(
-                onNavigateToLogin = {
-                    navController.navigate(AppRoutes.Login.route) {
-                        popUpTo(0) // Clear backstack on logout
-                    }
-                },
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
-                navController = navController,
-                paddingValues = paddingValues
-            )
-        }
+//        composable(
+//            route = AppRoutes.Settings.route,
+//            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
+//            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+//        ) {
+//            // Note: In your original file, you had AddTransactionScreen here by mistake?
+//            // I'm correcting it to SettingsScreen based on the route name.
+//            SettingsScreen(
+//                onNavigateToLogin = {
+//                    navController.navigate(AppRoutes.Login.route) {
+//                        popUpTo(0) // Clear backstack on logout
+//                    }
+//                },
+//                onNavigateBack = { navController.popBackStack() },
+//                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
+//                navController = navController,
+//                paddingValues = paddingValues
+//            )
+//        }
 
         settingsNavGraph(
             navController = navController,

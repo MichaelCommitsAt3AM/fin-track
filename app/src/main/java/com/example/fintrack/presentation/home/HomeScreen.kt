@@ -3,7 +3,9 @@ package com.example.fintrack.presentation.home
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -167,24 +170,22 @@ fun HomeHeader(user: UserUiModel?) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Generate initials for placeholder
-            val initials = user?.fullName
-                ?.split(" ")
-                ?.mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                ?.take(2)
-                ?.joinToString("") ?: "JD"
 
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(user?.avatarUrl ?: "https://placehold.co/100x100/2ECC71/FFFFFF?text=$initials")
-                    .crossfade(true)
-                    .build(),
+            // --- UPDATED IMAGE LOADING ---
+            //
+            Image(
+                painter = painterResource(
+                    id = com.example.fintrack.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
+                ),
                 contentDescription = "User Avatar",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp) // Increased slightly for better look
                     .clip(CircleShape)
+                    //.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape)
             )
+            // -----------------------------
+
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(

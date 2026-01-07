@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 data class UserUiModel(
     val fullName: String,
     val email: String,
-    val avatarUrl: String?
+    val avatarId: Int
 )
 
 data class TransactionUiModel(

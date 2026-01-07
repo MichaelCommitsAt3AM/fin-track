@@ -5,7 +5,7 @@ data class ProfileUiState(
     val email: String = "",
     val phoneNumber: String = "",
     val avatarId: Int = 1,
-    val availableAvatars: List<Int> = (1..6).toList(),
+    val availableAvatars: List<Int> = listOf(1, 2, 3, 4, 5),
     val isLoading: Boolean = false
 )
 
