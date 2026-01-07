@@ -18,14 +18,13 @@ import com.example.fintrack.presentation.auth.BiometricLoginScreen
 import com.example.fintrack.presentation.auth.EmailVerificationScreen
 import com.example.fintrack.presentation.auth.ForgotPasswordScreen
 import com.example.fintrack.presentation.auth.LoginScreen
+import com.example.fintrack.presentation.auth.pin.PinLoginScreen
 import com.example.fintrack.presentation.auth.RegistrationScreen
 import com.example.fintrack.presentation.budgets.AddBudgetScreen
 import com.example.fintrack.presentation.budgets.BudgetsScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
-import com.example.fintrack.presentation.settings.SettingsScreen
-import com.example.fintrack.presentation.settings.biometric.BiometricSetupScreen // Ensure you created this file from previous step
 import com.example.fintrack.presentation.setup.SetupScreen
 import com.example.fintrack.presentation.transactions.TransactionListScreen
 
@@ -135,11 +134,40 @@ fun NavGraph(
             )
         }
 
-        // --- Biometric Routes ---
+        // Biometric Screen (Updated onUsePin)
         composable(AppRoutes.BiometricLock.route) {
             BiometricLoginScreen(
-                onSuccess = { navController.popBackStack() },
-                onUsePin = { /* TODO: Navigate to PIN screen or handle state */ }
+                onSuccess = {
+                    navController.popBackStack() // Or navigate to Home
+                },
+                onUsePin = {
+                    navController.navigate(AppRoutes.PinLogin.route)
+                }
+            )
+        }
+
+        // New PIN Screen
+        composable(AppRoutes.PinLogin.route) {
+            // Determine if we should show the "Back to Biometrics" button
+            // In a real app, check BiometricManager.from(context).canAuthenticate(...)
+            val hasBiometrics = true
+
+            PinLoginScreen(
+                onPinVerified = {
+                    // Unlock app (pop back to Home/Dashboard)
+                    navController.navigate(BottomNavItem.Home.route) {
+                        popUpTo(AppRoutes.Login.route) { inclusive = true }
+                    }
+                },
+                onUseBiometrics = {
+                    // Go back to the fingerprint scan screen
+                    navController.popBackStack()
+                },
+                onForgotPin = {
+                    // Navigate to forgot password/reset flow
+                    navController.navigate(AppRoutes.ForgotPassword.route)
+                },
+                isBiometricAvailable = hasBiometrics
             )
         }
 

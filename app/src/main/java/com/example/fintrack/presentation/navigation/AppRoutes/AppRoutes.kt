@@ -17,6 +17,7 @@ sealed class AppRoutes(val route: String) {
     object BiometricLock : AppRoutes("biometric_lock_screen")
     object BiometricSetup : AppRoutes("biometric_setup_screen") // For creating PIN/Enabling
     object FingerprintSetup : AppRoutes("fingerprint_setup_screen") // <--- NEW
+    object PinLogin : AppRoutes("pin_login_screen")
 
     // --- Main App (Bottom Bar) Flow ---
     object Home : AppRoutes("home_screen")

@@ -17,25 +17,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import com.example.fintrack.presentation.navigation.AppRoutes
-import kotlinx.coroutines.delay
 
 @Composable
 fun BiometricLoginScreen(
     onSuccess: () -> Unit,
-    onUsePin: () -> Unit // Navigate to a PIN entry screen or toggle state
+    onUsePin: () -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? FragmentActivity
+
+    // Track if we should show biometric prompt
+    var shouldShowBiometric by remember { mutableStateOf(true) }
 
     // Animation State
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -60,17 +58,42 @@ fun BiometricLoginScreen(
     fun launchBiometric() {
         activity?.let { fragmentActivity ->
             val executor = ContextCompat.getMainExecutor(fragmentActivity)
-            val biometricPrompt = BiometricPrompt(fragmentActivity, executor,
+            val biometricPrompt = BiometricPrompt(
+                fragmentActivity,
+                executor,
                 object : BiometricPrompt.AuthenticationCallback() {
                     override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                         super.onAuthenticationSucceeded(result)
                         onSuccess()
                     }
+
                     override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                         super.onAuthenticationError(errorCode, errString)
-                        // Handle error (e.g., show snackbar)
+
+                        // Handle the negative button click (Use PIN)
+                        when (errorCode) {
+                            BiometricPrompt.ERROR_NEGATIVE_BUTTON -> {
+                                // User explicitly clicked "Use PIN"
+                                shouldShowBiometric = false
+                                onUsePin()
+                            }
+                            BiometricPrompt.ERROR_USER_CANCELED -> {
+                                // User canceled by pressing back or tapping outside
+                                shouldShowBiometric = false
+                            }
+                            else -> {
+                                // Other errors (no biometric enrolled, etc.)
+                                shouldShowBiometric = false
+                            }
+                        }
                     }
-                })
+
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                        // Fingerprint recognized but not enrolled - just ignore
+                    }
+                }
+            )
 
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
                 .setTitle("FinTrack Locked")
@@ -82,9 +105,11 @@ fun BiometricLoginScreen(
         }
     }
 
-    // Launch immediately on composition
-    LaunchedEffect(Unit) {
-        launchBiometric()
+    // Launch biometric prompt when screen appears
+    LaunchedEffect(shouldShowBiometric) {
+        if (shouldShowBiometric && activity != null) {
+            launchBiometric()
+        }
     }
 
     Scaffold(
@@ -97,7 +122,6 @@ fun BiometricLoginScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Status Bar Area (Visual spacer to match design)
             Spacer(modifier = Modifier.height(20.dp))
 
             // Header
@@ -113,7 +137,7 @@ fun BiometricLoginScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Lock, // Changed wallet to lock for auth context
+                        imageVector = Icons.Default.Lock,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
@@ -168,7 +192,10 @@ fun BiometricLoginScreen(
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.background)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                        .clickable { launchBiometric() },
+                        .clickable {
+                            shouldShowBiometric = true
+                            launchBiometric()
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -206,7 +233,10 @@ fun BiometricLoginScreen(
 
                 // Use PIN Button
                 OutlinedButton(
-                    onClick = onUsePin,
+                    onClick = {
+                        shouldShowBiometric = false
+                        onUsePin()
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
