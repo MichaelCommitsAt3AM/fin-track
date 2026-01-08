@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
@@ -18,6 +19,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -238,7 +242,7 @@ fun RegisterEmailStep(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Google Sign In Button
+        // Google Sign In Button with Logo
         OutlinedButton(
             onClick = {
                 // Trigger Google Sign-In
@@ -253,12 +257,19 @@ fun RegisterEmailStep(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         ) {
+            // Google Logo
+            GoogleIcon(modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 "Sign up with Google",
                 fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onBackground
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }

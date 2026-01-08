@@ -1,5 +1,7 @@
 package com.example.fintrack.presentation.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,7 +11,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,6 +39,24 @@ fun NavGraph(
     paddingValues: PaddingValues,
     startDestination: String
 ) {
+    // --- Animation Specs ---
+
+    // 1. Auth & Full Screen SLIDE Spec (IntOffset)
+    // Standard easing for entering/exiting setup flows (300ms)
+    val authSlideSpec = remember { tween<IntOffset>(300, easing = FastOutSlowInEasing) }
+
+    // 2. Auth & Full Screen FADE Spec (Float)
+    // Used for screens that don't slide but fade in/out (300ms)
+    val authFadeSpec = remember { tween<Float>(300, easing = FastOutSlowInEasing) }
+
+    // 3. Bottom Nav Crossfade Spec (Float)
+    // Fast 100ms Linear fade for snappy tab switching
+    val tabCrossfadeSpec = remember { tween<Float>(100, easing = LinearEasing) }
+
+    // 4. Modal/Detail Slide Spec (IntOffset)
+    // Slightly faster (250ms) for details popping up/in
+    val detailSlideSpec = remember { tween<IntOffset>(250, easing = FastOutSlowInEasing) }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -43,8 +65,8 @@ fun NavGraph(
         // --- Auth Routes ---
         composable(
             route = AppRoutes.Login.route,
-            popEnterTransition = { slideInHorizontally(initialOffsetX = { -1000 }, animationSpec = tween(300)) },
-            exitTransition = { slideOutHorizontally(targetOffsetX = { -1000 }, animationSpec = tween(300)) }
+            popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }, animationSpec = authSlideSpec) },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { -it }, animationSpec = authSlideSpec) }
         ) {
             LoginScreen(
                 onNavigateToSetup = {
@@ -65,8 +87,8 @@ fun NavGraph(
 
         composable(
             route = AppRoutes.Register.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = authSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = authSlideSpec) }
         ) {
             RegistrationScreen(
                 onNavigateToHome = {
@@ -106,8 +128,8 @@ fun NavGraph(
         // --- Profile Setup Screen (New Users) ---
         composable(
             route = AppRoutes.ProfileSetup.route,
-            enterTransition = { fadeIn(animationSpec = tween(300)) },
-            exitTransition = { fadeOut(animationSpec = tween(300)) }
+            enterTransition = { fadeIn(animationSpec = authFadeSpec) },
+            exitTransition = { fadeOut(animationSpec = authFadeSpec) }
         ) {
             ProfileSetupScreen(
                 onNavigateToHome = {
@@ -118,11 +140,11 @@ fun NavGraph(
             )
         }
 
-        // --- Setup Screen (Data sync for existing users) ---
+        // --- Setup Screen ---
         composable(
             route = AppRoutes.Setup.route,
-            enterTransition = { fadeIn(animationSpec = tween(300)) },
-            exitTransition = { fadeOut(animationSpec = tween(300)) }
+            enterTransition = { fadeIn(animationSpec = authFadeSpec) },
+            exitTransition = { fadeOut(animationSpec = authFadeSpec) }
         ) {
             SetupScreen(
                 onNavigateToHome = {
@@ -135,48 +157,35 @@ fun NavGraph(
             )
         }
 
-        // Biometric Screen (Updated onUsePin)
         composable(AppRoutes.BiometricLock.route) {
             BiometricLoginScreen(
-                onSuccess = {
-                    navController.popBackStack() // Or navigate to Home
-                },
-                onUsePin = {
-                    navController.navigate(AppRoutes.PinLogin.route)
-                }
+                onSuccess = { navController.popBackStack() },
+                onUsePin = { navController.navigate(AppRoutes.PinLogin.route) }
             )
         }
 
-        // New PIN Screen
         composable(AppRoutes.PinLogin.route) {
-            // Determine if we should show the "Back to Biometrics" button
-            // In a real app, check BiometricManager.from(context).canAuthenticate(...)
             val hasBiometrics = true
-
             PinLoginScreen(
                 onPinVerified = {
-                    // Unlock app (pop back to Home/Dashboard)
                     navController.navigate(BottomNavItem.Home.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
+                        launchSingleTop = true
                     }
                 },
-                onUseBiometrics = {
-                    // Go back to the fingerprint scan screen
-                    navController.popBackStack()
-                },
-                onForgotPin = {
-                    // Navigate to forgot password/reset flow
-                    navController.navigate(AppRoutes.ForgotPassword.route)
-                },
+                onUseBiometrics = { navController.popBackStack() },
+                onForgotPin = { navController.navigate(AppRoutes.ForgotPassword.route) },
                 isBiometricAvailable = hasBiometrics
             )
         }
 
-        // --- Main App Routes ---
+        // --- Main App Routes (Bottom Navigation) ---
+        // Using fast crossfade (100ms)
+
         composable(
             route = BottomNavItem.Home.route,
-            enterTransition = { fadeIn(animationSpec = tween(300)) },
-            exitTransition = { fadeOut(animationSpec = tween(300)) }
+            enterTransition = { fadeIn(animationSpec = tabCrossfadeSpec) },
+            exitTransition = { fadeOut(animationSpec = tabCrossfadeSpec) }
         ) {
             HomeScreen(
                 navController = navController,
@@ -184,7 +193,11 @@ fun NavGraph(
             )
         }
 
-        composable(BottomNavItem.Reports.route) {
+        composable(
+            route = BottomNavItem.Reports.route,
+            enterTransition = { fadeIn(animationSpec = tabCrossfadeSpec) },
+            exitTransition = { fadeOut(animationSpec = tabCrossfadeSpec) }
+        ) {
             ReportsScreen(
                 navController = navController,
                 paddingValues = paddingValues
@@ -193,8 +206,8 @@ fun NavGraph(
 
         composable(
             route = BottomNavItem.Budgets.route,
-            enterTransition = { fadeIn(animationSpec = tween(300)) },
-            exitTransition = { fadeOut(animationSpec = tween(300)) }
+            enterTransition = { fadeIn(animationSpec = tabCrossfadeSpec) },
+            exitTransition = { fadeOut(animationSpec = tabCrossfadeSpec) }
         ) {
             BudgetsScreen(
                 paddingValues = paddingValues,
@@ -202,10 +215,13 @@ fun NavGraph(
             )
         }
 
+        // --- Detail / Feature Screens ---
+        // Using slide animations (IntOffset)
+
         composable(
             route = AppRoutes.AddBudget.route,
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
         ) {
             AddBudgetScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -214,8 +230,8 @@ fun NavGraph(
 
         composable(
             route = AppRoutes.Notifications.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
         ) {
             NotificationScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -227,11 +243,10 @@ fun NavGraph(
             paddingValues  = paddingValues
         )
 
-        // Add Transaction
         composable(
             route = AppRoutes.AddTransaction.route,
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
         ) {
             AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -239,11 +254,10 @@ fun NavGraph(
             )
         }
 
-        // --- Transaction List Screen ---
         composable(
             route = AppRoutes.TransactionList.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
         ) {
             TransactionListScreen(
                 onNavigateBack = { navController.popBackStack() }

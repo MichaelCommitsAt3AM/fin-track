@@ -1,6 +1,11 @@
 package com.example.fintrack.presentation.auth
 
+import android.app.Activity
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
@@ -13,6 +18,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -23,7 +30,12 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.fintrack.R
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.GoogleAuthProvider
 
 @Composable
 fun LoginScreen(
@@ -37,6 +49,26 @@ fun LoginScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var passwordVisible by remember { mutableStateOf(false) }
+
+    // 1. Setup Google Sign-In Launcher (Same as RegistrationScreen)
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                viewModel.onEvent(AuthUiEvent.SignInWithGoogle(credential))
+            } catch (e: ApiException) {
+                Toast.makeText(
+                    context,
+                    "Google Sign-In failed: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
 
     if (state.showEmailVerificationDialog) {
         AlertDialog(
@@ -56,7 +88,7 @@ fun LoginScreen(
         )
     }
 
-    // Listen for one-time events (navigation, toasts)
+    // Listen for one-time events
     LaunchedEffect(key1 = true) {
         viewModel.authEvent.collect { event ->
             when (event) {
@@ -68,7 +100,7 @@ fun LoginScreen(
         }
     }
 
-    // Show error toast if needed
+    // Show error toast
     LaunchedEffect(state.error) {
         state.error?.let { error ->
             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
@@ -88,7 +120,6 @@ fun LoginScreen(
         ) {
 
             // Logo
-            // You can replace this with your SVG logo
             Text(
                 text = "FinTrack",
                 style = MaterialTheme.typography.headlineMedium.copy(color = FinTrackGreen, fontSize = 36.sp),
@@ -97,7 +128,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Headline Text
+            // Headline
             Text(
                 text = "Welcome Back!",
                 style = MaterialTheme.typography.headlineMedium,
@@ -207,11 +238,41 @@ fun LoginScreen(
                 ) {
                     Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 2. Google Sign-In Button
+                OutlinedButton(
+                    onClick = {
+                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                            .requestIdToken(context.getString(R.string.default_web_client_id))
+                            .requestEmail()
+                            .build()
+                        val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                        googleLauncher.launch(googleSignInClient.signInIntent)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    // Google Logo (Drawn from SVG paths to avoid needing asset import)
+                    GoogleIcon(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "Login with Google",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Sign Up Link
+            // Create Account Link
             Row {
                 Text(
                     "New to FinTrack? ",
