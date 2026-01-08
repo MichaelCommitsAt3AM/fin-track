@@ -98,7 +98,7 @@ fun BudgetsScreen(
             }
 
             items(state.budgets) { budget ->
-                BudgetCard(budget = budget)
+                BudgetCard(budget = budget, currencySymbol = state.currency.symbol)
             }
         }
     }
@@ -166,7 +166,7 @@ fun EmptyBudgetsState(onAddBudgetClick: () -> Unit) {
 }
 
 @Composable
-fun BudgetCard(budget: BudgetItem) {
+fun BudgetCard(budget: BudgetItem, currencySymbol: String) {
     val progress = (budget.spent / budget.total).toFloat().coerceIn(0f, 1f)
     val remaining = budget.total - budget.spent
     val isNearingBudget = progress >= 0.7f && !budget.isOverBudget
@@ -213,9 +213,9 @@ fun BudgetCard(budget: BudgetItem) {
                         )
                         Text(
                             text = if (budget.isOverBudget) {
-                                "Ksh ${String.format("%.0f", -remaining)} over budget!"
+                                "$currencySymbol ${String.format("%.0f", -remaining)} over budget!"
                             } else {
-                                "Ksh ${String.format("%.0f", remaining)} left of Ksh ${String.format("%.0f", budget.total)}"
+                                "$currencySymbol ${String.format("%.0f", remaining)} left of $currencySymbol ${String.format("%.0f", budget.total)}"
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -224,9 +224,9 @@ fun BudgetCard(budget: BudgetItem) {
                 }
                 Text(
                     text = if (budget.isOverBudget) {
-                        "-Ksh ${String.format("%.0f", -remaining)}"
+                        "-$currencySymbol ${String.format("%.0f", -remaining)}"
                     } else {
-                        "Ksh ${String.format("%.0f", budget.spent)}"
+                        "$currencySymbol ${String.format("%.0f", budget.spent)}"
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,

@@ -5,7 +5,9 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.CategoryType
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.NetworkRepository
@@ -28,7 +30,8 @@ class HomeViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val networkRepository: NetworkRepository,
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     // --- Network Connectivity State ---
@@ -37,6 +40,13 @@ class HomeViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = true
+        )
+
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
         )
 
     // --- Real-time User Data (Firestore Listener) ---
@@ -130,8 +140,9 @@ class HomeViewModel @Inject constructor(
     // --- Spending Categories (Current Month) ---
     val spendingCategories: StateFlow<List<SpendingCategoryUiModel>> = combine(
         transactionRepository.getAllTransactions(),
-        categoryRepository.getAllCategories()
-    ) { transactions, categories ->
+        categoryRepository.getAllCategories(),
+        currencyPreference
+    ) { transactions, categories, currency ->
         val calendar = Calendar.getInstance()
 
         // Calculate Month Start
@@ -173,7 +184,7 @@ class HomeViewModel @Inject constructor(
 
                 SpendingCategoryUiModel(
                     name = categoryName,
-                    amount = "Ksh ${String.format("%.2f", totalAmount)}",
+                    amount = "${currency.symbol} ${String.format("%.2f", totalAmount)}",
                     icon = icon,
                     color = color
                 )

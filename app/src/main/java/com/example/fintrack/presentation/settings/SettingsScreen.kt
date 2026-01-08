@@ -33,6 +33,7 @@ import com.example.fintrack.presentation.navigation.AppRoutes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.fintrack.R
+import com.example.fintrack.core.domain.model.Currency
 import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,8 +49,10 @@ fun SettingsScreen(
     // Observe states from ViewModel
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     val themePreference by viewModel.themePreference.collectAsState()
+    val currencyPreference by viewModel.currencyPreference.collectAsState()
 
     var showThemeSheet by remember { mutableStateOf(false) }
+    var showCurrencySheet by remember { mutableStateOf(false) }
 
     // Listen for logout event
     LaunchedEffect(key1 = true) {
@@ -69,6 +72,17 @@ fun SettingsScreen(
             onThemeSelected = { selectedTheme ->
                 viewModel.setThemePreference(selectedTheme)
                 showThemeSheet = false
+            }
+        )
+    }
+
+    if (showCurrencySheet) {
+        CurrencySelectionSheet(
+            onDismiss = { showCurrencySheet = false },
+            currentCurrency = currencyPreference,
+            onCurrencySelected = { selectedCurrency ->
+                viewModel.setCurrencyPreference(selectedCurrency)
+                showCurrencySheet = false
             }
         )
     }
@@ -146,7 +160,12 @@ fun SettingsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = {})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.Paid, title = "Currency", trailingText = "USD", onClick = {})
+                SettingsItem(
+                    icon = Icons.Default.Paid,
+                    title = "Currency",
+                    trailingText = currencyPreference.name,
+                    onClick = { showCurrencySheet = true }
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 
                 SettingsItem(
@@ -244,6 +263,44 @@ fun ThemeSelectionSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CurrencySelectionSheet(
+    onDismiss: () -> Unit,
+    currentCurrency: Currency,
+    onCurrencySelected: (Currency) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Select Currency",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+            )
+
+            Currency.entries.forEach { currency ->
+                CurrencyOptionItem(
+                    label = currency.label,
+                    symbol = currency.symbol,
+                    isSelected = currentCurrency == currency,
+                    onClick = { onCurrencySelected(currency) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
 @Composable
 fun ThemeOptionItem(
     label: String,
@@ -275,6 +332,58 @@ fun ThemeOptionItem(
                     contentDescription = null,
                     tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CurrencyOptionItem(
+    label: String,
+    symbol: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = symbol,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))

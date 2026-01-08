@@ -79,6 +79,7 @@ fun AddTransactionScreen(
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val currency by viewModel.currencyPreference.collectAsState()
     val context = LocalContext.current
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -170,7 +171,7 @@ fun AddTransactionScreen(
                     onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnAmountChange(it)) },
                     label = "Amount",
                     placeholder = "0.00",
-                    leadingIcon = { Text(" Ksh:", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    leadingIcon = { Text(" ${currency.symbol}:", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
                 )

@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.data.local.LocalAuthManager
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.CategoryRepository
@@ -31,7 +33,8 @@ class ReportsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
-    private val csvExporter: CsvExporter
+    private val csvExporter: CsvExporter,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
@@ -40,11 +43,19 @@ class ReportsViewModel @Inject constructor(
     private val _exportEvent = MutableSharedFlow<Uri?>()
     val exportEvent = _exportEvent.asSharedFlow()
 
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
+        )
+
     val state: StateFlow<ReportsUiState> = combine(
         transactionRepository.getAllTransactions(),
         categoryRepository.getAllCategories(),
-        _currentMonth
-    ) { transactions, categories, currentMonth ->
+        _currentMonth,
+        currencyPreference
+    ) { transactions, categories, currentMonth, currency ->
 
         // 1. Prepare Pie Chart Data
         val currentMonthTransactions = transactions.filter {
@@ -107,7 +118,8 @@ class ReportsViewModel @Inject constructor(
             totalIncome = income,
             totalExpense = totalExpense,
             categoryBreakdown = breakdown,
-            monthlyTrends = trendData
+            monthlyTrends = trendData,
+            currency = currency
         )
     }.stateIn(
         scope = viewModelScope,
@@ -147,7 +159,8 @@ data class ReportsUiState(
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val categoryBreakdown: List<CategoryReportData> = emptyList(),
-    val monthlyTrends: List<MonthlyFinancials> = emptyList()
+    val monthlyTrends: List<MonthlyFinancials> = emptyList(),
+    val currency: Currency = Currency.KSH
 )
 
 data class CategoryReportData(

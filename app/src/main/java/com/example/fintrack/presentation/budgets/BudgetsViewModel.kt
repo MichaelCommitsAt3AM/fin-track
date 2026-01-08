@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
+import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Budget
 import com.example.fintrack.core.domain.model.CategoryType
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
@@ -14,10 +16,7 @@ import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
 import com.example.fintrack.presentation.settings.getIconByName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -26,7 +25,8 @@ import javax.inject.Inject
 // UI State for Budget List Screen
 data class BudgetListUiState(
     val budgets: List<BudgetItem> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val currency: Currency = Currency.KSH
 )
 
 // UI State for Add/Edit Budget Screen
@@ -35,7 +35,8 @@ data class AddBudgetUiState(
     val selectedCategory: String? = null,
     val categories: List<String> = emptyList(),
     val month: String = getCurrentMonth(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val currency: Currency = Currency.KSH
 )
 
 // Events for Add/Edit Screen
@@ -63,7 +64,8 @@ sealed class BudgetEvent {
 class BudgetsViewModel @Inject constructor(
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val budgetRepository: BudgetRepository, // Inject BudgetRepository
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     // State for Budget List Screen
@@ -80,6 +82,14 @@ class BudgetsViewModel @Inject constructor(
     init {
         loadBudgets()
         loadExpenseCategories()
+        observeCurrency()
+    }
+
+    private fun observeCurrency() {
+        localAuthManager.currencyPreference.onEach { currency ->
+            _budgetListState.value = _budgetListState.value.copy(currency = currency)
+            _addBudgetState.value = _addBudgetState.value.copy(currency = currency)
+        }.launchIn(viewModelScope)
     }
 
     // ========== Load Expense Categories ==========

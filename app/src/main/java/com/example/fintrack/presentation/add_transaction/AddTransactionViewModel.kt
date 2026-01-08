@@ -2,7 +2,9 @@ package com.example.fintrack.presentation.add_transaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Category
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
@@ -13,8 +15,10 @@ import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -57,7 +61,8 @@ sealed class AddTransactionEvent {
 @HiltViewModel
 class AddTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
-    private val getCategoriesUseCase: GetCategoriesUseCase
+    private val getCategoriesUseCase: GetCategoriesUseCase,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddTransactionUiState())
@@ -65,6 +70,13 @@ class AddTransactionViewModel @Inject constructor(
 
     private val _eventChannel = Channel<AddTransactionEvent>()
     val events = _eventChannel.receiveAsFlow()
+
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
+        )
 
     init {
         loadCategories()

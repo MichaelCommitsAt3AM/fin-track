@@ -31,6 +31,7 @@ fun TransactionListScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val groupedTransactions by viewModel.uiState.collectAsState()
+    val currency by viewModel.currencyPreference.collectAsState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -140,7 +141,7 @@ fun TransactionListScreen(
                             )
                         }
                         items(transactions) { transaction ->
-                            TransactionListItem(transaction)
+                            TransactionListItem(transaction, currency.symbol)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
@@ -168,9 +169,9 @@ fun RowScope.FilterTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun TransactionListItem(item: TransactionItemData) {
+fun TransactionListItem(item: TransactionItemData, currencySymbol: String) {
     val amountColor = if (item.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
-    val amountString = if (item.amount > 0) "+Ksh ${"%.2f".format(item.amount)}" else "-Ksh ${"%.2f".format(kotlin.math.abs(item.amount))}"
+    val amountString = if (item.amount > 0) "+$currencySymbol ${"%.2f".format(item.amount)}" else "-$currencySymbol ${"%.2f".format(kotlin.math.abs(item.amount))}"
 
     Row(
         modifier = Modifier

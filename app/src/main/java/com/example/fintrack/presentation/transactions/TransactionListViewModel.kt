@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Category
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.CategoryRepository
@@ -25,7 +27,8 @@ import javax.inject.Inject
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -33,6 +36,13 @@ class TransactionListViewModel @Inject constructor(
 
     private val _selectedFilter = MutableStateFlow("All") // "All", "Income", "Expense"
     val selectedFilter: StateFlow<String> = _selectedFilter
+
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
+        )
 
     // We need categories to map icons/colors correctly
     private val categoriesFlow = categoryRepository.getAllCategories()

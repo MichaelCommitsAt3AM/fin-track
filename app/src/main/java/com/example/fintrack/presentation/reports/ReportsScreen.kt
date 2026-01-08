@@ -114,14 +114,18 @@ fun ReportsScreen(
             item {
                 SummaryGridSection(
                     totalExpense = state.totalExpense,
-                    totalIncome = state.totalIncome
+                    totalIncome = state.totalIncome,
+                    currencySymbol = state.currency.symbol
                 )
             }
 
             // 3. Spending Trends
             if (state.monthlyTrends.isNotEmpty()) {
                 item {
-                    SpendingTrendsSection(monthlyData = state.monthlyTrends)
+                    SpendingTrendsSection(
+                        monthlyData = state.monthlyTrends,
+                        currencySymbol = state.currency.symbol
+                    )
                 }
             }
 
@@ -135,7 +139,10 @@ fun ReportsScreen(
 
             // 5. Budget/Category Utilization (Progress Bars)
             item {
-                CategoryUtilizationSection(categories = state.categoryBreakdown)
+                CategoryUtilizationSection(
+                    categories = state.categoryBreakdown,
+                    currencySymbol = state.currency.symbol
+                )
             }
 
             // 6. Export Button
@@ -203,7 +210,7 @@ fun ReportHeader(currentMonth: String, onPrevClick: () -> Unit, onNextClick: () 
 }
 
 @Composable
-fun SummaryGridSection(totalExpense: Double, totalIncome: Double) {
+fun SummaryGridSection(totalExpense: Double, totalIncome: Double, currencySymbol: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -215,6 +222,7 @@ fun SummaryGridSection(totalExpense: Double, totalIncome: Double) {
             title = "Total Spent",
             amount = totalExpense,
             isIncome = false,
+            currencySymbol = currencySymbol,
             modifier = Modifier.weight(1f)
         )
 
@@ -224,13 +232,14 @@ fun SummaryGridSection(totalExpense: Double, totalIncome: Double) {
             title = "Net Income",
             amount = netIncome,
             isIncome = true,
+            currencySymbol = currencySymbol,
             modifier = Modifier.weight(1f)
         )
     }
 }
 
 @Composable
-fun SummaryCard(title: String, amount: Double, isIncome: Boolean, modifier: Modifier = Modifier) {
+fun SummaryCard(title: String, amount: Double, isIncome: Boolean, currencySymbol: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -268,7 +277,7 @@ fun SummaryCard(title: String, amount: Double, isIncome: Boolean, modifier: Modi
                 )
             }
             Text(
-                text = "${if (isIncome && amount > 0) "+" else ""}Ksh ${
+                text = "${if (isIncome && amount > 0) "+" else ""}$currencySymbol ${
                     String.format(
                         Locale.US,
                         "%,.0f",
@@ -287,7 +296,7 @@ fun SummaryCard(title: String, amount: Double, isIncome: Boolean, modifier: Modi
 // -------------------------------------------------------------------------
 
 @Composable
-fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
+fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>, currencySymbol: String) {
     // 1. Calculations
     val totalExpense = monthlyData.sumOf { it.expense }
     val count = monthlyData.size
@@ -334,7 +343,7 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>) {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Monthly average: Ksh ${String.format(Locale.US, "%,.2f", monthlyAvg)}",
+                            text = "Monthly average: $currencySymbol ${String.format(Locale.US, "%,.2f", monthlyAvg)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
@@ -652,7 +661,7 @@ fun DonutChart(categories: List<CategoryReportData>) {
 }
 
 @Composable
-fun CategoryUtilizationSection(categories: List<CategoryReportData>) {
+fun CategoryUtilizationSection(categories: List<CategoryReportData>, currencySymbol: String) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
             text = "Budget Utilization",
@@ -671,6 +680,7 @@ fun CategoryUtilizationSection(categories: List<CategoryReportData>) {
                 categories.forEachIndexed { index, category ->
                     CategoryProgressItem(
                         category = category,
+                        currencySymbol = currencySymbol,
                         showDivider = index < categories.size - 1
                     )
                 }
@@ -680,7 +690,7 @@ fun CategoryUtilizationSection(categories: List<CategoryReportData>) {
 }
 
 @Composable
-fun CategoryProgressItem(category: CategoryReportData, showDivider: Boolean) {
+fun CategoryProgressItem(category: CategoryReportData, currencySymbol: String, showDivider: Boolean) {
     Column(modifier = Modifier.padding(16.dp)) {
         Row(
             modifier = Modifier
@@ -712,7 +722,7 @@ fun CategoryProgressItem(category: CategoryReportData, showDivider: Boolean) {
             }
 
             Text(
-                text = "Ksh ${String.format(Locale.US, "%,.0f", category.amount)}",
+                text = "$currencySymbol ${String.format(Locale.US, "%,.0f", category.amount)}",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )

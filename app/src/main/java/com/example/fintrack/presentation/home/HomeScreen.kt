@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import com.example.fintrack.presentation.navigation.AppRoutes
+import com.example.fintrack.core.domain.model.Currency
 
 @Composable
 fun HomeScreen(
@@ -48,6 +49,7 @@ fun HomeScreen(
     val spendingCategories by viewModel.spendingCategories.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
+    val currency by viewModel.currencyPreference.collectAsState()
 
     // 1. COLLECT THE WEEKLY SPENDING STATE HERE
     val weeklySpending by viewModel.weeklySpending.collectAsState()
@@ -69,7 +71,8 @@ fun HomeScreen(
             item {
                 WeeklySpendingCard(
                     amountSpent = weeklySpending.first,   // This Week
-                    lastWeekSpent = weeklySpending.second // Last Week
+                    lastWeekSpent = weeklySpending.second, // Last Week
+                    currencySymbol = currency.symbol
                 )
             }
 
@@ -82,6 +85,7 @@ fun HomeScreen(
             item {
                 TransactionsSection(
                     transactions = recentTransactions,
+                    currencySymbol = currency.symbol,
                     onViewAllClick = {
                         navController.navigate(AppRoutes.TransactionList.route)
                     }
@@ -194,7 +198,7 @@ fun HomeHeader(user: UserUiModel?) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = user?.fullName ?: "Loading...",
+                    text = user?.fullName?.substringBefore(" ") ?: "Loading...",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -219,7 +223,8 @@ fun HomeHeader(user: UserUiModel?) {
 @Composable
 fun WeeklySpendingCard(
     amountSpent: Double = 433.62,
-    lastWeekSpent: Double = 377.06
+    lastWeekSpent: Double = 377.06,
+    currencySymbol: String = "Ksh"
 ) {
     val difference = amountSpent - lastWeekSpent
     val percentageChange = if (lastWeekSpent > 0) {
@@ -289,7 +294,7 @@ fun WeeklySpendingCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Ksh",
+                            text = currencySymbol,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -311,7 +316,7 @@ fun WeeklySpendingCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "vs. last week (Ksh %,.2f)".format(lastWeekSpent),
+                            text = "vs. last week ($currencySymbol %,.2f)".format(lastWeekSpent),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFFD8B4FE)
@@ -441,6 +446,7 @@ fun SpendingItem(category: SpendingCategoryUiModel) {
 @Composable
 fun TransactionsSection(
     transactions: List<TransactionUiModel>,
+    currencySymbol: String,
     onViewAllClick: () -> Unit
 ) {
     Column(modifier = Modifier.padding(top = 28.dp)) {
@@ -451,19 +457,19 @@ fun TransactionsSection(
         Spacer(modifier = Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             transactions.forEach { transaction ->
-                TransactionItem(transaction)
+                TransactionItem(transaction, currencySymbol)
             }
         }
     }
 }
 
 @Composable
-fun TransactionItem(transaction: TransactionUiModel) {
+fun TransactionItem(transaction: TransactionUiModel, currencySymbol: String) {
     val amountColor = if (transaction.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
     val amountString = if (transaction.amount > 0) {
-        "+Ksh ${"%.2f".format(transaction.amount)}"
+        "+$currencySymbol ${"%.2f".format(transaction.amount)}"
     } else {
-        "-Ksh ${"%.2f".format(kotlin.math.abs(transaction.amount))}"
+        "-$currencySymbol ${"%.2f".format(kotlin.math.abs(transaction.amount))}"
     }
 
     Card(

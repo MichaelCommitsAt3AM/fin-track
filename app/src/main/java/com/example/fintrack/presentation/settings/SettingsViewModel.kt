@@ -3,6 +3,7 @@ package com.example.fintrack.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fintrack.core.data.local.LocalAuthManager
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -36,6 +37,13 @@ class SettingsViewModel @Inject constructor(
             initialValue = "Dark"
         )
 
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
+        )
+
     fun onLogout() {
         authRepository.signOut()
         viewModelScope.launch {
@@ -52,6 +60,12 @@ class SettingsViewModel @Inject constructor(
     fun setThemePreference(theme: String) {
         viewModelScope.launch {
             localAuthManager.setThemePreference(theme)
+        }
+    }
+
+    fun setCurrencyPreference(currency: Currency) {
+        viewModelScope.launch {
+            localAuthManager.setCurrencyPreference(currency)
         }
     }
 }
