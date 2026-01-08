@@ -353,7 +353,7 @@ fun SpendingSection(
     isEmpty: Boolean
 ) {
     Column(modifier = Modifier.padding(top = 28.dp)) {
-        SectionHeader(title = "Spending", onViewAllClick = { /* TODO */ })
+        SectionHeader(title = "Spending", onViewAllClick = null)
 
         if (isEmpty) {
             Box(
@@ -513,7 +513,7 @@ fun TransactionItem(transaction: TransactionUiModel) {
 }
 
 @Composable
-fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
+fun SectionHeader(title: String, onViewAllClick: (() -> Unit)?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -525,14 +525,16 @@ fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
-        ClickableText(
-            text = AnnotatedString("View All"),
-            onClick = { onViewAllClick() },
-            style = TextStyle(
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+        if (onViewAllClick != null) {
+            ClickableText(
+                text = AnnotatedString("View All"),
+                onClick = { onViewAllClick() },
+                style = TextStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
             )
-        )
+        }
     }
 }

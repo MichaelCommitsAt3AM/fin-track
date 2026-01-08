@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -44,8 +45,11 @@ fun SettingsScreen(
     paddingValues: PaddingValues,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    // Observe the biometric state from ViewModel
+    // Observe states from ViewModel
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+    val themePreference by viewModel.themePreference.collectAsState()
+
+    var showThemeSheet by remember { mutableStateOf(false) }
 
     // Listen for logout event
     LaunchedEffect(key1 = true) {
@@ -56,6 +60,17 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showThemeSheet) {
+        ThemeSelectionSheet(
+            onDismiss = { showThemeSheet = false },
+            currentTheme = themePreference,
+            onThemeSelected = { selectedTheme ->
+                viewModel.setThemePreference(selectedTheme)
+                showThemeSheet = false
+            }
+        )
     }
 
 
@@ -133,7 +148,13 @@ fun SettingsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Paid, title = "Currency", trailingText = "USD", onClick = {})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.Contrast, title = "Theme", trailingText = "Dark", onClick = {})
+                
+                SettingsItem(
+                    icon = Icons.Default.Contrast,
+                    title = "Theme",
+                    trailingText = themePreference,
+                    onClick = { showThemeSheet = true }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -173,6 +194,107 @@ fun SettingsScreen(
 }
 
 // --- Reusable Components ---
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThemeSelectionSheet(
+    onDismiss: () -> Unit,
+    currentTheme: String,
+    onThemeSelected: (String) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Select Theme",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+            )
+
+            ThemeOptionItem(
+                label = "Light Mode",
+                icon = Icons.Default.LightMode,
+                isSelected = currentTheme == "Light",
+                onClick = { onThemeSelected("Light") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ThemeOptionItem(
+                label = "Dark Mode",
+                icon = Icons.Default.DarkMode,
+                isSelected = currentTheme == "Dark",
+                onClick = { onThemeSelected("Dark") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ThemeOptionItem(
+                label = "System Default",
+                icon = Icons.Default.SettingsBrightness,
+                isSelected = currentTheme == "System Default",
+                onClick = { onThemeSelected("System Default") }
+            )
+        }
+    }
+}
+
+@Composable
+fun ThemeOptionItem(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,8 +340,6 @@ fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // --- FIXED CRASH HERE ---
-        // Replaced getIdentifier with safe helper function
         Image(
             painter = painterResource(id = getAvatarResource(avatarId)),
             contentDescription = "Profile Picture",
@@ -228,7 +348,6 @@ fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
                 .size(72.dp)
                 .clip(CircleShape)
         )
-        // ------------------------
 
         Spacer(modifier = Modifier.width(16.dp))
         Column {

@@ -18,6 +18,7 @@ class LocalAuthManager @Inject constructor(@ApplicationContext private val conte
 
     private val IS_BIOMETRIC_ENABLED = booleanPreferencesKey("is_biometric_enabled")
     private val USER_PIN = stringPreferencesKey("user_pin_hash") // In real app, hash this!
+    private val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
 
     val isBiometricEnabled: Flow<Boolean> = context.dataStore.data
         .map { it[IS_BIOMETRIC_ENABLED] ?: false }
@@ -25,11 +26,18 @@ class LocalAuthManager @Inject constructor(@ApplicationContext private val conte
     val userPin: Flow<String?> = context.dataStore.data
         .map { it[USER_PIN] }
 
+    val themePreference: Flow<String> = context.dataStore.data
+        .map { it[THEME_PREFERENCE] ?: "Dark" }
+
     suspend fun setBiometricEnabled(enabled: Boolean) {
         context.dataStore.edit { it[IS_BIOMETRIC_ENABLED] = enabled }
     }
 
     suspend fun setUserPin(pin: String) {
         context.dataStore.edit { it[USER_PIN] = pin }
+    }
+
+    suspend fun setThemePreference(theme: String) {
+        context.dataStore.edit { it[THEME_PREFERENCE] = theme }
     }
 }

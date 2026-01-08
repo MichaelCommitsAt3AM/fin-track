@@ -29,6 +29,13 @@ class SettingsViewModel @Inject constructor(
             initialValue = false
         )
 
+    val themePreference = localAuthManager.themePreference
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = "Dark"
+        )
+
     fun onLogout() {
         authRepository.signOut()
         viewModelScope.launch {
@@ -39,6 +46,12 @@ class SettingsViewModel @Inject constructor(
     fun disableBiometric() {
         viewModelScope.launch {
             localAuthManager.setBiometricEnabled(false)
+        }
+    }
+
+    fun setThemePreference(theme: String) {
+        viewModelScope.launch {
+            localAuthManager.setThemePreference(theme)
         }
     }
 }

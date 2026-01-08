@@ -2,6 +2,7 @@ package com.example.fintrack
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -12,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.ui.components.BottomNavBar
 import com.example.fintrack.presentation.auth.BiometricLoginScreen
+import com.example.fintrack.presentation.auth.pin.PinLoginScreen
 import com.example.fintrack.presentation.navigation.AppRoutes
 import com.example.fintrack.presentation.navigation.NavGraph
 import com.example.fintrack.presentation.ui.theme.FinTrackTheme
@@ -49,22 +52,46 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
         val isBiometricEnabled = runBlocking { localAuthManager.isBiometricEnabled.first() }
 
         setContent {
-            FinTrackTheme {
+            val themePreference by localAuthManager.themePreference.collectAsState(initial = "Dark")
+            
+            val useDarkTheme = when (themePreference) {
+                "Light" -> false
+                "Dark" -> true
+                else -> isSystemInDarkTheme()
+            }
+
+            FinTrackTheme(darkTheme = useDarkTheme) {
                 // State to control the app lock.
                 // If biometric is enabled in settings, we start locked.
                 var isAppLocked by remember { mutableStateOf(isBiometricEnabled) }
+                var showPinLock by remember { mutableStateOf(false) }
 
                 if (isAppLocked) {
                     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        BiometricLoginScreen(
-                            onSuccess = {
-                                isAppLocked = false
-                            },
-                            onUsePin = {
-                                // TODO: Switch to PIN input screen state here
-                                // For now, you might want to handle this or keep biometric prompt open
-                            }
-                        )
+                        if (showPinLock) {
+                            PinLoginScreen(
+                                onPinVerified = {
+                                    isAppLocked = false
+                                },
+                                onUseBiometrics = {
+                                    showPinLock = false
+                                },
+                                onForgotPin = {
+                                    // Unlock to allow navigation to recovery flows
+                                    isAppLocked = false
+                                },
+                                isBiometricAvailable = true
+                            )
+                        } else {
+                            BiometricLoginScreen(
+                                onSuccess = {
+                                    isAppLocked = false
+                                },
+                                onUsePin = {
+                                    showPinLock = true
+                                }
+                            )
+                        }
                     }
                 } else {
                     // --- Main Application Content ---
