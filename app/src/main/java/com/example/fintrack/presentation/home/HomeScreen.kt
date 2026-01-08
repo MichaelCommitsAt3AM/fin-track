@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -65,7 +66,11 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            item { HomeHeader(user = currentUser) }
+            item {
+                HomeHeader(
+                    user = currentUser,
+                    onNotificationClick = { navController.navigate(AppRoutes.Notifications.route) }
+                ) }
 
             // 2. PASS THE DATA TO THE CARD
             item {
@@ -165,7 +170,10 @@ fun OfflineBanner(onDismiss: () -> Unit) {
 }
 
 @Composable
-fun HomeHeader(user: UserUiModel?) {
+fun HomeHeader(
+    user: UserUiModel?,
+    onNotificationClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -206,7 +214,7 @@ fun HomeHeader(user: UserUiModel?) {
             }
         }
         IconButton(
-            onClick = { /* TODO */ },
+            onClick = onNotificationClick,
             modifier = Modifier
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
@@ -249,7 +257,7 @@ fun WeeklySpendingCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        brush = linearGradient(
                             colors = listOf(
                                 Color(0xFF5B7FFF),
                                 Color(0xFF9B59B6)

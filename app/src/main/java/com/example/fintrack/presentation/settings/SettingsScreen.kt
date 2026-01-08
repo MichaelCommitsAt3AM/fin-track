@@ -42,6 +42,7 @@ fun SettingsScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToManageCategories: () -> Unit,
+    onNavigateToSignInMethods: () -> Unit,
     navController: NavController,
     paddingValues: PaddingValues,
     viewModel: SettingsViewModel = hiltViewModel()
@@ -118,7 +119,11 @@ fun SettingsScreen(
 
             // Security Section
             SettingsSection(title = "Security") {
-                SettingsItem(icon = Icons.Default.Lock, title = "Change Password", onClick = {})
+                SettingsItem(
+                    icon = Icons.Default.Lock,
+                    title = "Sign-in Methods",
+                    onClick = onNavigateToSignInMethods
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 // Biometric Toggle

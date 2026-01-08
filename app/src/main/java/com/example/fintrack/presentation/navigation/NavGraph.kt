@@ -23,6 +23,7 @@ import com.example.fintrack.presentation.auth.RegistrationScreen
 import com.example.fintrack.presentation.budgets.AddBudgetScreen
 import com.example.fintrack.presentation.budgets.BudgetsScreen
 import com.example.fintrack.presentation.home.HomeScreen
+import com.example.fintrack.presentation.notifications.NotificationScreen
 import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.setup.SetupScreen
@@ -211,25 +212,15 @@ fun NavGraph(
             )
         }
 
-//        composable(
-//            route = AppRoutes.Settings.route,
-//            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-//            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
-//        ) {
-//            // Note: In your original file, you had AddTransactionScreen here by mistake?
-//            // I'm correcting it to SettingsScreen based on the route name.
-//            SettingsScreen(
-//                onNavigateToLogin = {
-//                    navController.navigate(AppRoutes.Login.route) {
-//                        popUpTo(0) // Clear backstack on logout
-//                    }
-//                },
-//                onNavigateBack = { navController.popBackStack() },
-//                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
-//                navController = navController,
-//                paddingValues = paddingValues
-//            )
-//        }
+        composable(
+            route = AppRoutes.Notifications.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            NotificationScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
         settingsNavGraph(
             navController = navController,

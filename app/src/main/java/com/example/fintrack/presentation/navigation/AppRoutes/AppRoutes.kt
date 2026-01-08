@@ -19,11 +19,17 @@ sealed class AppRoutes(val route: String) {
     object FingerprintSetup : AppRoutes("fingerprint_setup_screen") // <--- NEW
     object PinLogin : AppRoutes("pin_login_screen")
 
+    object ManageSignInMethods : AppRoutes("manage_sign_in_methods_screen")
+    object SetPassword : AppRoutes("set_password_screen")
+
     // --- Main App (Bottom Bar) Flow ---
     object Home : AppRoutes("home_screen")
     object Reports : AppRoutes("reports_screen")
     object Budgets : AppRoutes("budgets_screen")
     object AddBudget : AppRoutes("add_budget_screen")
+
+    // Notifications in home screen
+    object Notifications : AppRoutes("notifications_screen")
 
     // Settings feature
     object SettingsGraph : AppRoutes("settings_graph")

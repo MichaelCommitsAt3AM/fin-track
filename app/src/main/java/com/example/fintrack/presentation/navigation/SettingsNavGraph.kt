@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.example.fintrack.presentation.settings.CategoryDetailScreen
+import com.example.fintrack.presentation.settings.security.ManageSignInMethodsScreen
 import com.example.fintrack.presentation.settings.categories.ManageCategoriesScreen
 import com.example.fintrack.presentation.settings.SettingsScreen
 import com.example.fintrack.presentation.settings.biometric.BiometricSetupScreen
@@ -22,6 +23,7 @@ import com.example.fintrack.presentation.settings.biometric.FingerprintSetupScre
 import com.example.fintrack.presentation.settings.profile.ManageProfileScreen
 import com.example.fintrack.presentation.settings.recurring.EditRecurringTransactionScreen
 import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
+import com.example.fintrack.presentation.settings.security.SetPasswordScreen
 
 fun NavGraphBuilder.settingsNavGraph(
     navController: NavHostController,
@@ -44,6 +46,9 @@ fun NavGraphBuilder.settingsNavGraph(
                 onNavigateToManageCategories = {
                     navController.navigate(AppRoutes.ManageCategories.route)
                 },
+                onNavigateToSignInMethods = { // <--- Pass the navigation call
+                    navController.navigate(AppRoutes.ManageSignInMethods.route)
+                },
                 paddingValues = paddingValues
             )
         }
@@ -59,7 +64,30 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 3. Manage Categories Screen
+        // 3: Manage Sign-in Methods Screen
+        composable(
+            route = AppRoutes.ManageSignInMethods.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            ManageSignInMethodsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                navController = navController
+            )
+        }
+
+        // 4: Set Password Screen
+        composable(
+            route = AppRoutes.SetPassword.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            SetPasswordScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // 5. Manage Categories Screen
         composable(
             route = AppRoutes.ManageCategories.route,
             popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
@@ -73,7 +101,7 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 4. Recurring Transactions Screen
+        // 6. Recurring Transactions Screen
         composable(
             route = AppRoutes.RecurringTransactions.route,
             enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
@@ -87,7 +115,7 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 5. Add Category Screen (Slide Up)
+        // 7. Add Category Screen (Slide Up)
         composable(
             route = AppRoutes.AddCategory.route,
             enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
@@ -98,7 +126,7 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 6. Edit Category Screen (Slide Over)
+        // 8. Edit Category Screen (Slide Over)
         composable(
             route = AppRoutes.EditCategory.route,
             arguments = listOf(navArgument("categoryName") { type = NavType.StringType }),
@@ -110,7 +138,7 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 7. Edit Recurring Transaction Screen (Slide Over)
+        // 9. Edit Recurring Transaction Screen (Slide Over)
         composable(
             route = AppRoutes.EditRecurringTransaction.route,
             arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
@@ -125,7 +153,7 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 8. Biometric Setup Screen (PIN)
+        // 10. Biometric Setup Screen (PIN)
         composable(
             route = AppRoutes.BiometricSetup.route,
             enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
@@ -153,7 +181,7 @@ fun NavGraphBuilder.settingsNavGraph(
             )
         }
 
-        // 9. Fingerprint Setup Screen (NEW)
+        // 11. Fingerprint Setup Screen (NEW)
         composable(
             route = AppRoutes.FingerprintSetup.route,
             enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
