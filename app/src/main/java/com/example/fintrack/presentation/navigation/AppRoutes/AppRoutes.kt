@@ -34,6 +34,13 @@ sealed class AppRoutes(val route: String) {
 
     // --- Goals Flow ---
     object AddDebt : AppRoutes("add_debt_screen")
+    object AddSaving : AppRoutes("add_saving_screen")
+    object ManageSaving : AppRoutes("manage_saving_screen/{savingId}") {
+        fun createRoute(savingId: String) = "manage_saving_screen/$savingId"
+    }
+    object ManageDebt : AppRoutes("manage_debt_screen/{debtId}") {
+        fun createRoute(debtId: String) = "manage_debt_screen/$debtId"
+    }
 
 
     // Settings feature

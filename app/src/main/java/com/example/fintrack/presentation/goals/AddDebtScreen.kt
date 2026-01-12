@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -30,8 +28,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import com.example.fintrack.presentation.ui.theme.SpendingBills
+import com.example.fintrack.core.domain.model.DebtType as DomainDebtType
 
 enum class DebtType {
     I_OWE, OWED_TO_ME
@@ -40,7 +40,8 @@ enum class DebtType {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddDebtScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: DebtViewModel = hiltViewModel()
 ) {
     // 1. State Hoisting
     var debtType by remember { mutableStateOf(DebtType.I_OWE) }
@@ -74,10 +75,31 @@ fun AddDebtScreen(
             )
         },
         bottomBar = {
-            // Extracted to isolate recomposition for the button's internal Ripple/Color
             SaveDebtButton(
                 activeColor = activeColor,
-                onClick = { /* TODO: Save */ onNavigateBack() }
+                onClick = {
+                    // Save to database via ViewModel
+                    val amountValue = amount.toDoubleOrNull() ?: 0.0
+                    val interestValue = interest.toDoubleOrNull() ?: 0.0
+                    
+                    if (title.isNotBlank() && amountValue > 0) {
+                        viewModel.addDebt(
+                            title = title,
+                            originalAmount = amountValue,
+                            currentBalance = amountValue, // Initially same as original
+                            minimumPayment = 0.0, // Can be calculated or set later
+                            dueDate = selectedDateMillis ?: System.currentTimeMillis(),
+                            interestRate = interestValue,
+                            notes = notes,
+                            iconName = "CreditCard", // Default icon
+                            debtType = when (debtType) {
+                                DebtType.I_OWE -> DomainDebtType.I_OWE
+                                DebtType.OWED_TO_ME -> DomainDebtType.OWED_TO_ME
+                            }
+                        )
+                        onNavigateBack()
+                    }
+                }
             )
         }
     ) { paddingValues ->

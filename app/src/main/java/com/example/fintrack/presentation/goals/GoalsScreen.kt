@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +31,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.fintrack.presentation.navigation.AppRoutes
 
@@ -39,9 +41,20 @@ val GoalWarning = Color(0xFFF39C12)
 val GoalDanger = Color(0xFFE74C3C)
 
 @Composable
-fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
+fun GoalsScreen(
+    navController: NavController,
+    paddingValues: PaddingValues,
+    savingViewModel: SavingViewModel = hiltViewModel(),
+    debtViewModel: DebtViewModel = hiltViewModel(),
+    budgetViewModel: BudgetViewModel = hiltViewModel()
+) {
         // State for tracking selected tab
         var selectedTab by remember { mutableStateOf("Budgets") }
+
+        // Collect savings and debts from ViewModels
+        val savings by savingViewModel.savings.collectAsStateWithLifecycle()
+        val debts by debtViewModel.debts.collectAsStateWithLifecycle()
+        val budgets by budgetViewModel.budgets.collectAsStateWithLifecycle()
 
         LazyColumn(
                 modifier =
@@ -74,7 +87,7 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
                                                                         AppRoutes.AddBudget.route
                                                                 )
                                                         "Savings" -> {
-                                                                /* TODO: Navigate to Add Saving */
+                                                                navController.navigate(AppRoutes.AddSaving.route)
                                                         }
                                                         "Debts" -> {
                                                             navController.navigate(AppRoutes.AddDebt.route)
@@ -122,29 +135,60 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
                         "Budgets" -> {
                                 // --- Monthly Budgets Section ---
                                 item {
+                                        val currentMonth = java.text.SimpleDateFormat("MMMM", java.util.Locale.getDefault())
+                                            .format(java.util.Calendar.getInstance().time)
                                         SectionHeader(
                                                 title = "Monthly Budgets",
-                                                badge = "September"
+                                                badge = currentMonth
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
-                                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                                BudgetCard(
-                                                        title = "Shopping",
-                                                        subtitle = "$750 left of $1,000",
-                                                        amount = "$250",
-                                                        icon = Icons.Default.ShoppingBag,
-                                                        color = Color(0xFF6366F1), // Indigo
-                                                        progress = 0.25f
-                                                )
-                                                BudgetCard(
-                                                        title = "Food & Dining",
-                                                        subtitle = "$180 left of $600",
-                                                        amount = "$420",
-                                                        icon = Icons.Default.Restaurant,
-                                                        color = Color(0xFFF97316), // Orange
-                                                        progress = 0.7f,
-                                                        isWarning = true
-                                                )
+
+                                        if (budgets.isEmpty()) {
+                                                // Empty state
+                                                Column(
+                                                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                        Icon(
+                                                                imageVector = Icons.Default.AccountBalanceWallet,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                                modifier = Modifier.size(64.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(16.dp))
+                                                        Text(
+                                                                text = "No budgets set",
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                        Text(
+                                                                text = "Set a budget to track your spending",
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                        )
+                                                }
+                                        } else {
+                                                // Display real budgets
+                                                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                                        budgets.forEach { budget ->
+                                                                // For now, we'll show budgets without spending data
+                                                                // In the future, you could add a TransactionRepository call to get spending per category
+                                                                val progress = 0.0f // Placeholder - would need transaction data to calculate
+                                                                val spent = 0.0 // Placeholder
+                                                                val remaining = budget.amount - spent
+                                                                val isWarning = progress > 0.7f
+
+                                                                BudgetCard(
+                                                                        title = budget.categoryName,
+                                                                        subtitle = "$${String.format("%.0f", remaining)} left of $${String.format("%.0f", budget.amount)}",
+                                                                        amount = "$${String.format("%.0f", spent)}",
+                                                                        icon = getCategoryIcon(budget.categoryName),
+                                                                        color = getCategoryColor(budget.categoryName),
+                                                                        progress = progress,
+                                                                        isWarning = isWarning
+                                                                )
+                                                        }
+                                                }
                                         }
                                 }
                         }
@@ -153,39 +197,52 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
                                 item {
                                         SectionHeader(
                                                 title = "Savings Goals",
-                                                actionText = "View All"
+                                                actionText = if (savings.isNotEmpty()) "View All" else null
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
 
-                                        // Grid Row
-                                        Row(
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                                modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                                SavingsCard(
-                                                        modifier = Modifier.weight(1f),
-                                                        title = "New Laptop",
-                                                        target = "Target: $2,000",
-                                                        saved = "$1,200",
-                                                        percentage = 0.6f,
-                                                        icon = Icons.Default.Computer,
-                                                        color = Color(0xFF10B981) // Emerald
-                                                )
-                                                SavingsCard(
-                                                        modifier = Modifier.weight(1f),
-                                                        title = "Vacation",
-                                                        target = "Target: $3,500",
-                                                        saved = "$875",
-                                                        percentage = 0.25f,
-                                                        icon = Icons.Default.BeachAccess,
-                                                        color = Color(0xFF3B82F6) // Blue
-                                                )
+                                        if (savings.isEmpty()) {
+                                                // Empty state
+                                                Column(
+                                                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                        Icon(
+                                                                imageVector = Icons.Default.Savings,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                                modifier = Modifier.size(64.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(16.dp))
+                                                        Text(
+                                                                text = "No savings yet",
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                        Text(
+                                                                text = "Start saving by creating your first goal",
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                        )
+                                                }
+                                        } else {
+                                                // Display real savings
+                                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                        savings.take(3).forEach { saving ->
+                                                                val percentage = (saving.currentAmount / saving.targetAmount).toFloat().coerceIn(0f, 1f)
+                                                                SavingsCard(
+                                                                        modifier = Modifier.fillMaxWidth(),
+                                                                        title = saving.title,
+                                                                        target = "Target: $${String.format("%,.0f", saving.targetAmount)}",
+                                                                        saved = "$${String.format("%,.0f", saving.currentAmount)}",
+                                                                        percentage = percentage,
+                                                                        icon = iconFromName(saving.iconName),
+                                                                        color = Color(0xFF10B981),
+                                                                        onClick = { navController.navigate(AppRoutes.ManageSaving.createRoute(saving.id)) }
+                                                                )
+                                                        }
+                                                }
                                         }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        // Full Width Savings Card
-                                        EmergencyFundCard()
                                 }
                         }
                         "Debts" -> {
@@ -193,23 +250,47 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
                                 item {
                                         SectionHeader(title = "Active Debts", badge = null)
                                         Spacer(modifier = Modifier.height(16.dp))
-                                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                DebtCard(
-                                                        title = "Student Loan",
-                                                        dueDate = "Due Oct 15",
-                                                        amount = "$5,400.00",
-                                                        minPay = "Min: $250.00",
-                                                        icon = Icons.Default.School,
-                                                        color = GoalDanger
-                                                )
-                                                DebtCard(
-                                                        title = "Credit Card",
-                                                        dueDate = "Due Oct 05",
-                                                        amount = "$1,250.00",
-                                                        minPay = "Min: $45.00",
-                                                        icon = Icons.Default.CreditCard,
-                                                        color = GoalWarning
-                                                )
+
+                                        if (debts.isEmpty()) {
+                                                // Empty state
+                                                Column(
+                                                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                        Icon(
+                                                                imageVector = Icons.Default.CreditCard,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                                modifier = Modifier.size(64.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(16.dp))
+                                                        Text(
+                                                                text = "No debts tracked",
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                        Text(
+                                                                text = "Add a debt to start tracking payments",
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                        )
+                                                }
+                                        } else {
+                                                // Display real debts
+                                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                        debts.forEach { debt ->
+                                                                val daysUntilDue = ((debt.dueDate - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)).toInt()
+                                                                DebtCard(
+                                                                        title = debt.title,
+                                                                        dueDate = if (daysUntilDue > 0) "Due in $daysUntilDue days" else "Overdue",
+                                                                        amount = "$${String.format("%,.2f", debt.currentBalance)}",
+                                                                        minPay = "Min: $${String.format("%,.2f", debt.minimumPayment)}",
+                                                                        icon = iconFromName(debt.iconName),
+                                                                        color = if (daysUntilDue < 7) GoalDanger else GoalWarning,
+                                                                        onClick = { navController.navigate(AppRoutes.ManageDebt.createRoute(debt.id)) }
+                                                                )
+                                                        }
+                                                }
                                         }
                                 }
                         }
@@ -463,10 +544,11 @@ fun SavingsCard(
         saved: String,
         percentage: Float,
         icon: ImageVector,
-        color: Color
+        color: Color,
+        onClick: () -> Unit = {}
 ) {
         Card(
-                modifier = modifier,
+                modifier = modifier.clickable { onClick() },
                 colors =
                         CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border =
@@ -533,8 +615,9 @@ fun SavingsCard(
 }
 
 @Composable
-fun EmergencyFundCard() {
+fun EmergencyFundCard(onClick: () -> Unit = {}) {
         Card(
+                modifier = Modifier.clickable { onClick() },
                 colors =
                         CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border =
@@ -616,12 +699,13 @@ fun DebtCard(
         amount: String,
         minPay: String,
         icon: ImageVector,
-        color: Color
+        color: Color,
+        onClick: () -> Unit = {}
 ) {
         Card(
+                modifier = Modifier.fillMaxWidth().clickable { onClick() },
                 colors =
-                        CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
+                        CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                         // Left Colored Border

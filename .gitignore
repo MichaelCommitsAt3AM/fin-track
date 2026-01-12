@@ -14,3 +14,8 @@
 .cxx
 local.properties
 google-services.json
+
+# Log files
+*.log
+logs/
+error.log

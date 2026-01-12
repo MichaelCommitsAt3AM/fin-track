@@ -13,6 +13,14 @@ import com.example.fintrack.data.local.model.RecurringTransactionEntity
 import com.example.fintrack.data.local.dao.RecurringTransactionDao
 import com.example.fintrack.core.data.local.model.UserEntity
 import com.example.fintrack.core.data.local.dao.UserDao
+import com.example.fintrack.core.data.local.model.SavingEntity
+import com.example.fintrack.core.data.local.model.DebtEntity
+import com.example.fintrack.core.data.local.model.ContributionEntity
+import com.example.fintrack.core.data.local.model.PaymentEntity
+import com.example.fintrack.core.data.local.dao.SavingDao
+import com.example.fintrack.core.data.local.dao.DebtDao
+import com.example.fintrack.core.data.local.dao.ContributionDao
+import com.example.fintrack.core.data.local.dao.PaymentDao
 
 // This annotation defines the database
 @Database(
@@ -21,9 +29,13 @@ import com.example.fintrack.core.data.local.dao.UserDao
         CategoryEntity::class,
         BudgetEntity::class,
         RecurringTransactionEntity::class,
-        UserEntity::class
+        UserEntity::class,
+        SavingEntity::class,
+        DebtEntity::class,
+        ContributionEntity::class,
+        PaymentEntity::class
     ],
-    version = 4 // Increment this number if you change the schema
+    version = 5 // Incremented for new savings/debts tables
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -34,6 +46,10 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
     abstract fun recurringTransactionDao(): RecurringTransactionDao
     abstract fun userDao(): UserDao
+    abstract fun savingDao(): SavingDao
+    abstract fun debtDao(): DebtDao
+    abstract fun contributionDao(): ContributionDao
+    abstract fun paymentDao(): PaymentDao
 
 
 

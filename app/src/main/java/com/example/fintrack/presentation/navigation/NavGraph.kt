@@ -26,7 +26,10 @@ import com.example.fintrack.presentation.auth.pin.PinLoginScreen
 import com.example.fintrack.presentation.auth.RegistrationScreen
 import com.example.fintrack.presentation.budgets.AddBudgetScreen
 import com.example.fintrack.presentation.goals.AddDebtScreen
+import com.example.fintrack.presentation.goals.AddSavingScreen
 import com.example.fintrack.presentation.goals.GoalsScreen
+import com.example.fintrack.presentation.goals.ManageSavingScreen
+import com.example.fintrack.presentation.goals.ManageDebtScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.notifications.NotificationScreen
 import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
@@ -236,6 +239,48 @@ fun NavGraph(
         ) {
             AddDebtScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = AppRoutes.AddSaving.route,
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
+        ) {
+            AddSavingScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = AppRoutes.ManageSaving.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
+        ) { backStackEntry ->
+            val savingId = backStackEntry.arguments?.getString("savingId") ?: ""
+            ManageSavingScreen(
+                savingId = savingId,
+                onNavigateBack = { navController.popBackStack() },
+                onEdit = { 
+                    // Navigate to AddSaving screen in edit mode
+                    navController.navigate(AppRoutes.AddSaving.route)
+                }
+            )
+        }
+
+        composable(
+            route = AppRoutes.ManageDebt.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
+        ) { backStackEntry ->
+            val debtId = backStackEntry.arguments?.getString("debtId") ?: ""
+            ManageDebtScreen(
+                debtId = debtId,
+                onNavigateBack = { navController.popBackStack() },
+                onEdit = { 
+                    // Navigate to AddDebt screen in edit mode
+                    navController.navigate(AppRoutes.AddDebt.route)
+                }
             )
         }
 

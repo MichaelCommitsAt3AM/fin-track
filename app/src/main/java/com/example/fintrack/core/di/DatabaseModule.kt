@@ -7,6 +7,10 @@ import com.example.fintrack.core.data.local.dao.BudgetDao
 import com.example.fintrack.core.data.local.dao.CategoryDao
 import com.example.fintrack.core.data.local.dao.TransactionDao
 import com.example.fintrack.core.data.local.dao.UserDao
+import com.example.fintrack.core.data.local.dao.SavingDao
+import com.example.fintrack.core.data.local.dao.DebtDao
+import com.example.fintrack.core.data.local.dao.ContributionDao
+import com.example.fintrack.core.data.local.dao.PaymentDao
 import com.example.fintrack.core.domain.repository.UserRepository
 import com.example.fintrack.core.data.repository.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
@@ -61,6 +65,30 @@ object DatabaseModule {
     @Singleton
     fun provideUserDao(database: FinanceDatabase): UserDao {
         return database.userDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSavingDao(database: FinanceDatabase): SavingDao {
+        return database.savingDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideDebtDao(database: FinanceDatabase): DebtDao {
+        return database.debtDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideContributionDao(database: FinanceDatabase): ContributionDao {
+        return database.contributionDao()
+    }
+
+    @Provides
+    @Singleton
+    fun providePaymentDao(database: FinanceDatabase): PaymentDao {
+        return database.paymentDao()
     }
 
     @Provides
