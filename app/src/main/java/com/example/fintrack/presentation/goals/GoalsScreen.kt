@@ -7,10 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -223,94 +219,80 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
 
 @Composable
 fun GoalsSegmentedControl(selectedTab: String, onTabSelected: (String) -> Unit) {
-    val tabs = listOf("Budgets", "Savings", "Debts")
-    val density = LocalDensity.current
-    var boxWidthPx by remember { mutableStateOf(0) }
+        val tabs = listOf("Budgets", "Savings", "Debts")
+        val density = LocalDensity.current
+        var boxWidthPx by remember { mutableStateOf(0) }
 
-    // 1. Define the animation spec for a "smooth" glide
-    val animationSpec = tween<Dp>(
-        durationMillis = 300,
-        easing = androidx.compose.animation.core.FastOutSlowInEasing
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp) // Fixed height for better touch targets
-            .padding(vertical = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                RoundedCornerShape(12.dp)
-            )
-            .onSizeChanged { boxWidthPx = it.width }
-    ) {
-        // 2. Calculate the exact width of one segment
-        val itemWidth = with(density) { (boxWidthPx / tabs.size).toDp() }
-        val selectedIndex = tabs.indexOf(selectedTab)
-
-        // 3. Animate the X offset of the Green Highlight
-        val highlightOffset by animateDpAsState(
-            targetValue = itemWidth * selectedIndex,
-            animationSpec = animationSpec,
-            label = "highlight_offset"
-        )
-
-        // The Sliding Green Highlight Box
-        if (boxWidthPx > 0) {
-            Box(
-                modifier = Modifier
-                    .width(itemWidth)
-                    .fillMaxHeight()
-                    .offset(x = highlightOffset)
-                    .padding(4.dp) // Creates the floating effect inside the container
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GoalGreen) // <--- The Green Highlight
-            )
-        }
-
-        // The Text Labels
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                        color =
+                                                MaterialTheme.colorScheme.surfaceContainerHighest
+                                                        .copy(alpha = 0.5f)
+                                )
+                                .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                                        RoundedCornerShape(12.dp)
+                                )
+                                .padding(4.dp)
+                                .onSizeChanged { boxWidthPx = it.width }
         ) {
-            tabs.forEach { tab ->
-                val isSelected = tab == selectedTab
-
-                // 4. Smoothly animate the text color so it fades to white as the box arrives
-                val textColor by animateColorAsState(
-                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    animationSpec = tween(durationMillis = 300),
-                    label = "text_color"
-                )
+                // Animated sliding highlight
+                val selectedIndex = tabs.indexOf(selectedTab)
+                val highlightX by
+                        animateDpAsState(
+                                targetValue =
+                                        with(density) {
+                                                val itemWidth = boxWidthPx / 3f
+                                                (itemWidth * selectedIndex).toDp()
+                                        },
+                                label = "highlight"
+                        )
 
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            onTabSelected(tab)
-                        },
+                        modifier =
+                                Modifier.offset(x = highlightX)
+                                        .fillMaxWidth(1f / 3f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(GoalGreen)
+                )
 
-
-                            contentAlignment = Alignment.Center
+                Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = tab,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = textColor // Applied animated color here
-                    )
+                        tabs.forEach { tab ->
+                                val isSelected = tab == selectedTab
+                                Box(
+                                        modifier =
+                                                Modifier.weight(1f)
+                                                        .fillMaxHeight()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .clickable { onTabSelected(tab) }
+                                                        .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                ) {
+                                        Text(
+                                                text = tab,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight =
+                                                        if (isSelected) FontWeight.Bold
+                                                        else FontWeight.Medium,
+                                                color =
+                                                        if (isSelected) Color.White
+                                                        else
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                        )
+                                }
+                        }
                 }
-            }
         }
-    }
 }
 
 @Composable
