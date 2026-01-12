@@ -32,6 +32,10 @@ sealed class AppRoutes(val route: String) {
     // Notifications in home screen
     object Notifications : AppRoutes("notifications_screen")
 
+    // --- Goals Flow ---
+    object AddDebt : AppRoutes("add_debt_screen")
+
+
     // Settings feature
     object SettingsGraph : AppRoutes("settings_graph")
     object Settings : AppRoutes("settings_screen")

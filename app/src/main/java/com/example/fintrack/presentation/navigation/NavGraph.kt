@@ -25,6 +25,7 @@ import com.example.fintrack.presentation.auth.LoginScreen
 import com.example.fintrack.presentation.auth.pin.PinLoginScreen
 import com.example.fintrack.presentation.auth.RegistrationScreen
 import com.example.fintrack.presentation.budgets.AddBudgetScreen
+import com.example.fintrack.presentation.goals.AddDebtScreen
 import com.example.fintrack.presentation.goals.GoalsScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.notifications.NotificationScreen
@@ -224,6 +225,16 @@ fun NavGraph(
             exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
         ) {
             AddBudgetScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = AppRoutes.AddDebt.route,
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
+        ) {
+            AddDebtScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

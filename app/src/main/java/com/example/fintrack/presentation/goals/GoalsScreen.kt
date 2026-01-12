@@ -9,6 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -73,7 +77,7 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
                                                                 /* TODO: Navigate to Add Saving */
                                                         }
                                                         "Debts" -> {
-                                                                /* TODO: Navigate to Add Debt */
+                                                            navController.navigate(AppRoutes.AddDebt.route)
                                                         }
                                                 }
                                         },
@@ -219,80 +223,77 @@ fun GoalsScreen(navController: NavController, paddingValues: PaddingValues) {
 
 @Composable
 fun GoalsSegmentedControl(selectedTab: String, onTabSelected: (String) -> Unit) {
-        val tabs = listOf("Budgets", "Savings", "Debts")
-        val density = LocalDensity.current
-        var boxWidthPx by remember { mutableStateOf(0) }
+    val tabs = listOf("Budgets", "Savings", "Debts")
+
+    // Use BoxWithConstraints to get exact width for calculations immediately
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp) // Fixed height for a consistent look
+            .padding(vertical = 8.dp) // External padding
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(4.dp) // Internal padding (gap between container and highlight)
+    ) {
+        val segmentWidth = maxWidth / tabs.size
+        val selectedIndex = tabs.indexOf(selectedTab)
+
+        // 1. Animated Highlight Pill
+        val indicatorOffset by animateDpAsState(
+            targetValue = segmentWidth * selectedIndex,
+            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+            label = "indicatorOffset"
+        )
 
         Box(
-                modifier =
-                        Modifier.fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                        color =
-                                                MaterialTheme.colorScheme.surfaceContainerHighest
-                                                        .copy(alpha = 0.5f)
-                                )
-                                .border(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                        RoundedCornerShape(12.dp)
-                                )
-                                .padding(4.dp)
-                                .onSizeChanged { boxWidthPx = it.width }
-        ) {
-                // Animated sliding highlight
-                val selectedIndex = tabs.indexOf(selectedTab)
-                val highlightX by
-                        animateDpAsState(
-                                targetValue =
-                                        with(density) {
-                                                val itemWidth = boxWidthPx / 3f
-                                                (itemWidth * selectedIndex).toDp()
-                                        },
-                                label = "highlight"
-                        )
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(8.dp))
+                .background(GoalGreen) // Your custom Green Color
+        )
 
-                Box(
-                        modifier =
-                                Modifier.offset(x = highlightX)
-                                        .fillMaxWidth(1f / 3f)
-                                        .fillMaxHeight()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(GoalGreen)
+        // 2. Tab Items (Overlay)
+        Row(modifier = Modifier.fillMaxSize()) {
+            tabs.forEach { tab ->
+                val isSelected = tab == selectedTab
+
+                // Animate text color for better contrast
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "textColor"
                 )
 
-                Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Box(
+                    modifier = Modifier
+                        .width(segmentWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(
+                            // Removing ripple for a cleaner sliding look
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onTabSelected(tab) },
+                    contentAlignment = Alignment.Center
                 ) {
-                        tabs.forEach { tab ->
-                                val isSelected = tab == selectedTab
-                                Box(
-                                        modifier =
-                                                Modifier.weight(1f)
-                                                        .fillMaxHeight()
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .clickable { onTabSelected(tab) }
-                                                        .padding(vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                ) {
-                                        Text(
-                                                text = tab,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight =
-                                                        if (isSelected) FontWeight.Bold
-                                                        else FontWeight.Medium,
-                                                color =
-                                                        if (isSelected) Color.White
-                                                        else
-                                                                MaterialTheme.colorScheme
-                                                                        .onSurfaceVariant
-                                        )
-                                }
-                        }
+                    Text(
+                        text = tab,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = textColor,
+                        maxLines = 1
+                    )
                 }
+            }
         }
+    }
 }
 
 @Composable
