@@ -25,7 +25,7 @@ import com.example.fintrack.presentation.auth.LoginScreen
 import com.example.fintrack.presentation.auth.pin.PinLoginScreen
 import com.example.fintrack.presentation.auth.RegistrationScreen
 import com.example.fintrack.presentation.budgets.AddBudgetScreen
-import com.example.fintrack.presentation.budgets.BudgetsScreen
+import com.example.fintrack.presentation.goals.GoalsScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.notifications.NotificationScreen
 import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
@@ -205,13 +205,13 @@ fun NavGraph(
         }
 
         composable(
-            route = BottomNavItem.Budgets.route,
+            route = BottomNavItem.Goals.route,
             enterTransition = { fadeIn(animationSpec = tabCrossfadeSpec) },
             exitTransition = { fadeOut(animationSpec = tabCrossfadeSpec) }
         ) {
-            BudgetsScreen(
-                paddingValues = paddingValues,
-                onNavigateToAddBudget = { navController.navigate(AppRoutes.AddBudget.route) }
+            GoalsScreen(
+                navController = navController,
+                paddingValues = paddingValues
             )
         }
 

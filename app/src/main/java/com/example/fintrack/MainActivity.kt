@@ -32,15 +32,14 @@ import com.example.fintrack.presentation.navigation.NavGraph
 import com.example.fintrack.presentation.ui.theme.FinTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() { // Changed to FragmentActivity for BiometricPrompt
 
-    @Inject
-    lateinit var localAuthManager: LocalAuthManager
+    @Inject lateinit var localAuthManager: LocalAuthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,12 +52,13 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
 
         setContent {
             val themePreference by localAuthManager.themePreference.collectAsState(initial = "Dark")
-            
-            val useDarkTheme = when (themePreference) {
-                "Light" -> false
-                "Dark" -> true
-                else -> isSystemInDarkTheme()
-            }
+
+            val useDarkTheme =
+                    when (themePreference) {
+                        "Light" -> false
+                        "Dark" -> true
+                        else -> isSystemInDarkTheme()
+                    }
 
             FinTrackTheme(darkTheme = useDarkTheme) {
                 // State to control the app lock.
@@ -67,29 +67,24 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                 var showPinLock by remember { mutableStateOf(false) }
 
                 if (isAppLocked) {
-                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                    ) {
                         if (showPinLock) {
                             PinLoginScreen(
-                                onPinVerified = {
-                                    isAppLocked = false
-                                },
-                                onUseBiometrics = {
-                                    showPinLock = false
-                                },
-                                onForgotPin = {
-                                    // Unlock to allow navigation to recovery flows
-                                    isAppLocked = false
-                                },
-                                isBiometricAvailable = true
+                                    onPinVerified = { isAppLocked = false },
+                                    onUseBiometrics = { showPinLock = false },
+                                    onForgotPin = {
+                                        // Unlock to allow navigation to recovery flows
+                                        isAppLocked = false
+                                    },
+                                    isBiometricAvailable = true
                             )
                         } else {
                             BiometricLoginScreen(
-                                onSuccess = {
-                                    isAppLocked = false
-                                },
-                                onUsePin = {
-                                    showPinLock = true
-                                }
+                                    onSuccess = { isAppLocked = false },
+                                    onUsePin = { showPinLock = true }
                             )
                         }
                     }
@@ -111,43 +106,48 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
 
-                    val mainTabRoutes = listOf(
-                        AppRoutes.Home.route,
-                        AppRoutes.Reports.route,
-                        AppRoutes.Budgets.route,
-                        AppRoutes.SettingsGraph.route,
-                        AppRoutes.Settings.route
-                    )
+                    val mainTabRoutes =
+                            listOf(
+                                    AppRoutes.Home.route,
+                                    AppRoutes.Reports.route,
+                                    AppRoutes.Goals.route,
+                                    AppRoutes.SettingsGraph.route,
+                                    AppRoutes.Settings.route
+                            )
 
                     val showBottomNav = currentRoute in mainTabRoutes
 
                     Scaffold(
-                        bottomBar = {
-                            if (showBottomNav) {
-                                BottomNavBar(navController = navController)
-                            }
-                        },
-                        floatingActionButton = {
-                            if (showBottomNav) {
-                                FloatingActionButton(
-                                    onClick = { navController.navigate(AppRoutes.AddTransaction.route) },
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                    shape = CircleShape
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "Add Transaction"
-                                    )
+                            bottomBar = {
+                                if (showBottomNav) {
+                                    BottomNavBar(navController = navController)
                                 }
-                            }
-                        },
-                        floatingActionButtonPosition = FabPosition.End
+                            },
+                            floatingActionButton = {
+                                if (showBottomNav) {
+                                    FloatingActionButton(
+                                            onClick = {
+                                                navController.navigate(
+                                                        AppRoutes.AddTransaction.route
+                                                )
+                                            },
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                                            shape = CircleShape
+                                    ) {
+                                        Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Add Transaction"
+                                        )
+                                    }
+                                }
+                            },
+                            floatingActionButtonPosition = FabPosition.End
                     ) { paddingValues ->
                         NavGraph(
-                            navController = navController,
-                            paddingValues = paddingValues,
-                            startDestination = startDestination
+                                navController = navController,
+                                paddingValues = paddingValues,
+                                startDestination = startDestination
                         )
                     }
                 }

@@ -74,9 +74,12 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun signInWithGoogle(credential: AuthCredential): AuthResult {
         return try {
+            Log.d("AuthRepository", "signInWithGoogle: Starting Firebase authentication with Google credential")
             val result = firebaseAuth.signInWithCredential(credential).await()
+            Log.d("AuthRepository", "signInWithGoogle: Firebase auth successful. User: ${result.user?.email}, UID: ${result.user?.uid}")
             AuthResult(result.user)
         } catch (e: Exception) {
+            Log.e("AuthRepository", "signInWithGoogle: Firebase auth failed", e)
             AuthResult(null, e.message)
         }
     }

@@ -36,6 +36,8 @@ class AuthViewModel @Inject constructor(
     private val userRepository: UserRepository
 ) : ViewModel() {
 
+    private val TAG = "AuthViewModel"
+
     // Holds the current user (null if logged out)
     private val _currentUser = MutableStateFlow<FirebaseUser?>(null)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
@@ -347,11 +349,69 @@ class AuthViewModel @Inject constructor(
 
     private fun signInGoogle(credential: AuthCredential) {
         viewModelScope.launch {
+            android.util.Log.d(TAG, "signInGoogle: Starting Google Sign-In with credential")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            android.util.Log.d(TAG, "signInGoogle: Calling repository.signInWithGoogle")
             val result = repository.signInWithGoogle(credential)
-            handleAuthResult(result)
+
+            _uiState.value = _uiState.value.copy(isLoading = false)
+
+            if (result.user != null) {
+                android.util.Log.d(TAG, "signInGoogle: Sign-in successful. User: ${result.user.email}, UID: ${result.user.uid}")
+                try {
+                    // Check if user exists in database
+                    android.util.Log.d(TAG, "signInGoogle: Checking if user exists in database")
+                    val existingUser = userRepository.getCurrentUserOnce()
+
+                    if (existingUser == null) {
+                        android.util.Log.d(TAG, "signInGoogle: New user detected, creating user record")
+                        // New user - create user record
+                        val newUser = User(
+                            userId = result.user.uid,
+                            fullName = result.user.displayName ?: result.user.email?.substringBefore("@") ?: "User",
+                            email = result.user.email ?: "",
+                            phoneNumber = result.user.phoneNumber ?: "",
+                            avatarId = 1,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        android.util.Log.d(TAG, "signInGoogle: Creating user: ${newUser.email}")
+                        userRepository.createUser(newUser)
+
+                        // Initialize default categories for new user
+                        android.util.Log.d(TAG, "signInGoogle: Initializing default categories")
+                        categoryRepository.initDefaultCategories()
+
+                        // Navigate to setup for new users
+                        android.util.Log.d(TAG, "signInGoogle: Navigating to setup (new user)")
+                        _authEventChannel.send(AuthEvent.NavigateToSetup)
+                    } else {
+                        android.util.Log.d(TAG, "signInGoogle: Existing user detected, syncing data")
+                        // Existing user - sync their data
+                        syncUserData()
+
+                        // Navigate to setup (which will redirect to home if already set up)
+                        android.util.Log.d(TAG, "signInGoogle: Navigating to setup (existing user)")
+                        _authEventChannel.send(AuthEvent.NavigateToSetup)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "signInGoogle: Error in Google Sign-In flow", e)
+                    _uiState.value = _uiState.value.copy(
+                        error = "Failed to complete sign in: ${e.message}"
+                    )
+                }
+            } else {
+                android.util.Log.e(TAG, "signInGoogle: Sign-in failed. Error: ${result.error}")
+                _uiState.value = _uiState.value.copy(
+                    error = result.error ?: "Google Sign-In failed"
+                )
+            }
         }
     }
+
+// You can remove or update the old handleAuthResult function since we're not using it anymore
+// Or keep it for other auth methods if needed
 
     // Check if the user is existing or new
     suspend fun isNewUser(): Boolean {

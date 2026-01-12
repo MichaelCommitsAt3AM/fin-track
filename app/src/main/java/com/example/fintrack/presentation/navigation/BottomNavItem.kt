@@ -2,6 +2,7 @@ package com.example.fintrack.presentation.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
@@ -24,10 +25,10 @@ sealed class BottomNavItem(
         icon = Icons.Default.BarChart
     )
 
-    object Budgets : BottomNavItem(
-        route = AppRoutes.Budgets.route,
-        title = "Budgets",
-        icon = Icons.Outlined.AccountBalanceWallet
+    object Goals : BottomNavItem(
+        route = AppRoutes.Goals.route,
+        title = "Goals",
+        icon = Icons.Default.Flag
     )
 
     object Settings : BottomNavItem(

@@ -1,8 +1,8 @@
 package com.example.fintrack.presentation.navigation
 
 /**
- * A sealed class that defines all navigation routes in the app.
- * This provides a type-safe way to navigate.
+ * A sealed class that defines all navigation routes in the app. This provides a type-safe way to
+ * navigate.
  */
 sealed class AppRoutes(val route: String) {
     // --- Auth Flow ---
@@ -25,6 +25,7 @@ sealed class AppRoutes(val route: String) {
     // --- Main App (Bottom Bar) Flow ---
     object Home : AppRoutes("home_screen")
     object Reports : AppRoutes("reports_screen")
+    object Goals : AppRoutes("goals_screen")
     object Budgets : AppRoutes("budgets_screen")
     object AddBudget : AppRoutes("add_budget_screen")
 
