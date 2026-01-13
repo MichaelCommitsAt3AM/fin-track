@@ -1,5 +1,7 @@
 package com.example.fintrack.presentation.transactions
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,9 +46,7 @@ fun TransactionListScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Download */ }) {
-                        Icon(Icons.Default.Download, "Download", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    // Download button removed
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -108,7 +108,11 @@ fun TransactionListScreen(
                 // FIX: Call ViewModel functions instead of setting local state manually
                 FilterTab("All", selectedFilter == "All") { viewModel.onFilterSelected("All") }
                 FilterTab("Income", selectedFilter == "Income") { viewModel.onFilterSelected("Income") }
-                FilterTab("Expense", selectedFilter == "Expense") { viewModel.onFilterSelected("Expense") }
+                FilterTab(
+                    text = "Expense", 
+                    isSelected = selectedFilter == "Expense",
+                    selectedContainerColor = MaterialTheme.colorScheme.error // Red for Expense
+                ) { viewModel.onFilterSelected("Expense") }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -152,14 +156,34 @@ fun TransactionListScreen(
 }
 
 @Composable
-fun RowScope.FilterTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+fun RowScope.FilterTab(
+    text: String, 
+    isSelected: Boolean, 
+    selectedContainerColor: Color = MaterialTheme.colorScheme.primary,
+    onClick: () -> Unit
+) {
+    val targetContainerColor = if (isSelected) selectedContainerColor else Color.Transparent
+    val targetContentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    
+    val containerColor by animateColorAsState(
+        targetValue = targetContainerColor, 
+        animationSpec = tween(300),
+        label = "containerColor"
+    )
+    
+    val contentColor by animateColorAsState(
+        targetValue = targetContentColor, 
+        animationSpec = tween(300),
+        label = "contentColor"
+    )
 
     Button(
         onClick = onClick,
         modifier = Modifier.weight(1f),
-        colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor, 
+            contentColor = contentColor
+        ),
         shape = RoundedCornerShape(50),
         elevation = ButtonDefaults.buttonElevation(0.dp),
         contentPadding = PaddingValues(vertical = 8.dp)

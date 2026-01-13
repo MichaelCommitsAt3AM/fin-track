@@ -36,8 +36,38 @@ object DatabaseModule {
             FinanceDatabase::class.java,
             FinanceDatabase.DATABASE_NAME // "finance_db"
         )
-            // In a real app, you'd add migration strategies here
-            .fallbackToDestructiveMigration() // For now, just rebuild if schema changes
+            // PRODUCTION MIGRATION STRATEGY:
+            // Version 1 is our production baseline (established 2026-01-13)
+            // For ANY future schema changes:
+            // 1. Increment version number in FinanceDatabase.kt
+            // 2. Create a Migration object below
+            // 3. Add the migration with .addMigrations()
+            // 4. Test migration on device with old version data
+            //
+            // Example - Adding a new column:
+            // val MIGRATION_1_2 = object : Migration(1, 2) {
+            //     override fun migrate(database: SupportSQLiteDatabase) {
+            //         database.execSQL("ALTER TABLE transactions ADD COLUMN is_recurring INTEGER NOT NULL DEFAULT 0")
+            //     }
+            // }
+            // Then: .addMigrations(MIGRATION_1_2)
+            //
+            // Example - Creating a new table:
+            // val MIGRATION_2_3 = object : Migration(2, 3) {
+            //     override fun migrate(database: SupportSQLiteDatabase) {
+            //         database.execSQL("""
+            //             CREATE TABLE IF NOT EXISTS tags (
+            //                 id TEXT PRIMARY KEY NOT NULL,
+            //                 name TEXT NOT NULL,
+            //                 color TEXT NOT NULL
+            //             )
+            //         """.trimIndent())
+            //     }
+            // }
+            //
+            // IMPORTANT: Never use fallbackToDestructiveMigration() in production!
+            // It deletes all user data. Only use during active development.
+            .fallbackToDestructiveMigration() // TODO: Remove before production release!
             .build()
     }
 

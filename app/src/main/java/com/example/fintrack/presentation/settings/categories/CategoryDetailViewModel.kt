@@ -1,6 +1,6 @@
 package com.example.fintrack.presentation.settings
 
-import android.util.Log
+import com.example.fintrack.core.util.AppLogger
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -86,7 +86,7 @@ class CategoryDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                Log.e("CategoryDetailVM", "Error loading category: ${e.message}")
+                AppLogger.e("CategoryDetailVM", "Error loading category: ${e.message}")
                 _eventChannel.send(CategoryDetailEvent.ShowError("Failed to load category"))
             }
         }
@@ -123,14 +123,14 @@ class CategoryDetailViewModel @Inject constructor(
         // Get userId
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
-            Log.e("CategoryDetailVM", "User not logged in!")
+            AppLogger.e("CategoryDetailVM", "User not logged in!")
             viewModelScope.launch {
                 _eventChannel.send(CategoryDetailEvent.ShowError("User not logged in. Please log in again."))
             }
             return
         }
 
-        Log.d("CategoryDetailVM", "Saving category: ${currentState.name} for user: $userId")
+        AppLogger.d("CategoryDetailVM", "Saving category: ${currentState.name} for user: $userId")
 
         viewModelScope.launch {
             try {
@@ -141,7 +141,7 @@ class CategoryDetailViewModel @Inject constructor(
                     currentState.originalName != currentState.name &&
                     currentState.originalName != null) {
 
-                    Log.d("CategoryDetailVM", "Deleting old category: ${currentState.originalName}")
+                    AppLogger.d("CategoryDetailVM", "Deleting old category: ${currentState.originalName}")
                     val oldCategory = Category(
                         name = currentState.originalName,
                         userId = userId,
@@ -163,15 +163,15 @@ class CategoryDetailViewModel @Inject constructor(
                     isDefault = false
                 )
 
-                Log.d("CategoryDetailVM", "Inserting category: $category")
+                AppLogger.d("CategoryDetailVM", "Inserting category: $category")
                 categoryRepository.insertCategory(category)
 
                 _state.value = _state.value.copy(isLoading = false)
-                Log.d("CategoryDetailVM", "Category saved successfully!")
+                AppLogger.d("CategoryDetailVM", "Category saved successfully!")
                 _eventChannel.send(CategoryDetailEvent.NavigateBack)
 
             } catch (e: Exception) {
-                Log.e("CategoryDetailVM", "Error saving category: ${e.message}", e)
+                AppLogger.e("CategoryDetailVM", "Error saving category: ${e.message}", e)
                 _state.value = _state.value.copy(isLoading = false)
                 _eventChannel.send(CategoryDetailEvent.ShowError("Failed to save category: ${e.message}"))
             }

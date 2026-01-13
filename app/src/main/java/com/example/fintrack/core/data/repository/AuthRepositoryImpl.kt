@@ -1,6 +1,7 @@
 package com.example.fintrack.core.data.repository
 
 import android.util.Log
+import com.example.fintrack.BuildConfig
 import com.example.fintrack.core.domain.repository.AuthRepository
 import com.example.fintrack.core.domain.repository.AuthResult
 import com.example.fintrack.core.domain.repository.EmailCheckResult
@@ -74,12 +75,18 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun signInWithGoogle(credential: AuthCredential): AuthResult {
         return try {
-            Log.d("AuthRepository", "signInWithGoogle: Starting Firebase authentication with Google credential")
+            if (BuildConfig.DEBUG) {
+                Log.d("AuthRepository", "signInWithGoogle: Starting Firebase authentication with Google credential")
+            }
             val result = firebaseAuth.signInWithCredential(credential).await()
-            Log.d("AuthRepository", "signInWithGoogle: Firebase auth successful. User: ${result.user?.email}, UID: ${result.user?.uid}")
+            if (BuildConfig.DEBUG) {
+                Log.d("AuthRepository", "signInWithGoogle: Firebase auth successful")
+            }
             AuthResult(result.user)
         } catch (e: Exception) {
-            Log.e("AuthRepository", "signInWithGoogle: Firebase auth failed", e)
+            if (BuildConfig.DEBUG) {
+                Log.e("AuthRepository", "signInWithGoogle: Firebase auth failed", e)
+            }
             AuthResult(null, e.message)
         }
     }
@@ -91,14 +98,20 @@ class AuthRepositoryImpl @Inject constructor(
                 ?: return AuthResult(null, "No user logged in to link.")
 
             val result = user.linkWithCredential(credential).await()
-            Log.d("AuthRepository", "Account linked successfully: ${result.user?.email}")
+            if (BuildConfig.DEBUG) {
+                Log.d("AuthRepository", "Account linked successfully")
+            }
             AuthResult(result.user)
         } catch (e: FirebaseAuthUserCollisionException) {
             // Specific handling for when the Google account is already used by another user
-            Log.e("AuthRepository", "Link collision", e)
+            if (BuildConfig.DEBUG) {
+                Log.e("AuthRepository", "Link collision", e)
+            }
             AuthResult(null, "This Google account is already linked to another FinTrack account.")
         } catch (e: Exception) {
-            Log.e("AuthRepository", "Link failed", e)
+            if (BuildConfig.DEBUG) {
+                Log.e("AuthRepository", "Link failed", e)
+            }
             AuthResult(null, e.message ?: "Failed to link account.")
         }
     }
@@ -109,10 +122,14 @@ class AuthRepositoryImpl @Inject constructor(
                 ?: return AuthResult(null, "No user logged in.")
 
             val result = user.unlink(providerId).await()
-            Log.d("AuthRepository", "Unlinked provider: $providerId")
+            if (BuildConfig.DEBUG) {
+                Log.d("AuthRepository", "Unlinked provider: $providerId")
+            }
             AuthResult(result.user)
         } catch (e: Exception) {
-            Log.e("AuthRepository", "Unlink failed", e)
+            if (BuildConfig.DEBUG) {
+                Log.e("AuthRepository", "Unlink failed", e)
+            }
             AuthResult(null, e.message ?: "Failed to unlink account.")
         }
     }

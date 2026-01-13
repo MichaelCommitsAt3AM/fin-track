@@ -6,10 +6,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.fintrack.core.domain.model.Currency
+import com.example.fintrack.core.util.SecurityUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "auth_prefs")
@@ -18,7 +20,7 @@ private val Context.dataStore by preferencesDataStore(name = "auth_prefs")
 class LocalAuthManager @Inject constructor(@ApplicationContext private val context: Context) {
 
     private val IS_BIOMETRIC_ENABLED = booleanPreferencesKey("is_biometric_enabled")
-    private val USER_PIN = stringPreferencesKey("user_pin_hash") // In real app, hash this!
+    private val USER_PIN = stringPreferencesKey("user_pin_hashed") // Stores hashed PIN in format "salt:hash"
     private val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
     private val CURRENCY_PREFERENCE = stringPreferencesKey("currency_preference")
 
@@ -39,8 +41,48 @@ class LocalAuthManager @Inject constructor(@ApplicationContext private val conte
         context.dataStore.edit { it[IS_BIOMETRIC_ENABLED] = enabled }
     }
 
+    /**
+     * Sets and securely hashes the user's PIN.
+     * The PIN is salted and hashed using SHA-256 before storage.
+     * 
+     * @param pin The plaintext PIN (should be validated before calling this)
+     */
     suspend fun setUserPin(pin: String) {
-        context.dataStore.edit { it[USER_PIN] = pin }
+        val hashedPin = SecurityUtils.createPinHash(pin)
+        context.dataStore.edit { it[USER_PIN] = hashedPin }
+    }
+
+    /**
+     * Verifies if the provided PIN matches the stored hash.
+     * Automatically migrates plaintext PINs to hashed format on first verification.
+     * 
+     * @param inputPin The PIN entered by the user
+     * @return true if PIN is correct, false otherwise
+     */
+    suspend fun verifyPin(inputPin: String): Boolean {
+        val storedPin = context.dataStore.data.first()[USER_PIN] ?: return false
+        
+        // Check if stored PIN is in plaintext (legacy format) and migrate if needed
+        if (!SecurityUtils.isHashedPin(storedPin)) {
+            // Legacy plaintext PIN - migrate to hashed format
+            if (storedPin == inputPin) {
+                // Correct PIN, hash and store it
+                setUserPin(inputPin)
+                return true
+            }
+            return false
+        }
+        
+        // Modern hashed PIN - verify using constant-time comparison
+        return SecurityUtils.verifyPin(inputPin, storedPin)
+    }
+
+    /**
+     * Checks if a PIN has been set.
+     * @return true if PIN exists (hashed or plaintext), false otherwise
+     */
+    suspend fun hasPinSet(): Boolean {
+        return context.dataStore.data.first()[USER_PIN] != null
     }
 
     suspend fun setThemePreference(theme: String) {

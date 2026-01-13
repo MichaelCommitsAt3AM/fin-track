@@ -28,41 +28,35 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import java.text.SimpleDateFormat
 import java.util.*
 
 // Mock data class for demonstration
-data class DebtGoal(
-    val id: String,
-    val title: String,
-    val originalAmount: Double,
-    val currentBalance: Double,
-    val minimumPayment: Double,
-    val dueDate: Long,
-    val interestRate: Double,
-    val icon: ImageVector,
-    val color: Color,
-    val debtType: DebtType,
-    val payments: List<Payment>
-)
-
-data class Payment(
-    val id: String,
-    val amount: Double,
-    val date: Long,
-    val note: String = ""
-)
+import com.example.fintrack.core.domain.model.DebtType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageDebtScreen(
     debtId: String,
     onNavigateBack: () -> Unit,
-    onEdit: () -> Unit = {}
+    onEdit: () -> Unit = {},
+    viewModel: DebtViewModel = hiltViewModel()
 ) {
-    // Mock data - in production this would come from a ViewModel
-    val debt = remember {
+    val domainDebt by viewModel.currentDebt.collectAsState()
+    val domainPayments by viewModel.payments.collectAsState()
+    
+    // Map domain model to UI model
+    val debt = domainDebt?.toUiModel(domainPayments)
+    
+    // Load debt data when screen opens
+    LaunchedEffect(debtId) {
+        viewModel.loadDebt(debtId)
+    }
+    
+    // Mock data for preview - will be replaced by actual debt
+    val mockDebt = remember {
         when (debtId) {
             "student_loan" -> DebtGoal(
                 id = "student_loan",
@@ -76,10 +70,10 @@ fun ManageDebtScreen(
                 color = GoalDanger,
                 debtType = DebtType.I_OWE,
                 payments = listOf(
-                    Payment("1", 1000.0, System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000, "Initial payment"),
-                    Payment("2", 800.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
-                    Payment("3", 500.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
-                    Payment("4", 300.0, System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000, "Extra payment")
+                    UiPayment("1", 1000.0, System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000, "Initial payment"),
+                    UiPayment("2", 800.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
+                    UiPayment("3", 500.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
+                    UiPayment("4", 300.0, System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000, "Extra payment")
                 )
             )
             else -> DebtGoal(
@@ -94,18 +88,22 @@ fun ManageDebtScreen(
                 color = GoalWarning,
                 debtType = DebtType.I_OWE,
                 payments = listOf(
-                    Payment("1", 500.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
-                    Payment("2", 250.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000, "Monthly payment")
+                    UiPayment("1", 500.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
+                    UiPayment("2", 250.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000, "Monthly payment")
                 )
             )
         }
     }
+    
+    // Use actual debt or mock for safety
+    val displayDebt = debt ?: mockDebt
+    val displayPayments = displayDebt.payments
 
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
-    val paidPercentage = ((debt.originalAmount - debt.currentBalance) / debt.originalAmount).toFloat().coerceIn(0f, 1f)
+    val paidPercentage = ((displayDebt.originalAmount - displayDebt.currentBalance) / displayDebt.originalAmount).toFloat().coerceIn(0f, 1f)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -113,7 +111,7 @@ fun ManageDebtScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        debt.title,
+                        displayDebt.title,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     ) 
@@ -177,14 +175,14 @@ fun ManageDebtScreen(
             // Hero Section - Circular Progress
             item {
                 DebtProgressHero(
-                    debt = debt,
+                    debt = displayDebt,
                     paidPercentage = paidPercentage
                 )
             }
 
             // Quick Stats Cards
             item {
-                DebtQuickStatsRow(debt = debt)
+                DebtQuickStatsRow(debt = displayDebt)
             }
 
             // Make Payment Button
@@ -223,12 +221,12 @@ fun ManageDebtScreen(
                 )
             }
 
-            items(debt.payments.sortedByDescending { it.date }) { payment ->
+            items(displayPayments.sortedByDescending { it.date }) { payment ->
                 PaymentHistoryItem(payment = payment)
             }
 
             // Empty state if no payments
-            if (debt.payments.isEmpty()) {
+            if (displayPayments.isEmpty()) {
                 item {
                     EmptyPaymentState()
                 }
@@ -241,10 +239,10 @@ fun ManageDebtScreen(
         MakePaymentDialog(
             onDismiss = { showPaymentDialog = false },
             onConfirm = { amount, note ->
-                // TODO: Add payment to debt
+                viewModel.makePayment(debtId, amount, note)
                 showPaymentDialog = false
             },
-            minimumPayment = debt.minimumPayment
+            minimumPayment = displayDebt.minimumPayment
         )
     }
 
@@ -261,12 +259,12 @@ fun ManageDebtScreen(
             },
             title = { Text("Delete Debt?") },
             text = { 
-                Text("Are you sure you want to delete \"${debt.title}\"? This action cannot be undone.") 
+                Text("Are you sure you want to delete \"${displayDebt.title}\"? This action cannot be undone.") 
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // TODO: Delete debt
+                        viewModel.deleteDebt(debtId)
                         showDeleteDialog = false
                         onNavigateBack()
                     },
@@ -412,7 +410,7 @@ fun DebtQuickStatsRow(debt: DebtGoal) {
 }
 
 @Composable
-fun PaymentHistoryItem(payment: Payment) {
+fun PaymentHistoryItem(payment: UiPayment) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Card(

@@ -2,12 +2,14 @@ package com.example.fintrack.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.BuildConfig
 import com.example.fintrack.core.domain.model.User
 import com.example.fintrack.core.domain.repository.AuthRepository
 import com.example.fintrack.core.domain.repository.AuthResult
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.repository.UserRepository
+import com.example.fintrack.core.util.AppLogger
 import com.example.fintrack.util.EmailVerificationRateLimiter // Assuming util is now in core
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseUser
@@ -213,7 +215,7 @@ class AuthViewModel @Inject constructor(
                     userRepository.createUser(user)
                 } catch (e: Exception) {
                     // Log error but continue
-                    android.util.Log.e("AuthViewModel", "Error creating user record: ${e.message}")
+                    AppLogger.e(TAG, "Error creating user record", e)
                 }
 
                 // Initialize default categories for the new user
@@ -349,23 +351,23 @@ class AuthViewModel @Inject constructor(
 
     private fun signInGoogle(credential: AuthCredential) {
         viewModelScope.launch {
-            android.util.Log.d(TAG, "signInGoogle: Starting Google Sign-In with credential")
+            AppLogger.d(TAG, "Starting Google Sign-In with credential")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            android.util.Log.d(TAG, "signInGoogle: Calling repository.signInWithGoogle")
+            AppLogger.d(TAG, "Calling repository.signInWithGoogle")
             val result = repository.signInWithGoogle(credential)
 
             _uiState.value = _uiState.value.copy(isLoading = false)
 
             if (result.user != null) {
-                android.util.Log.d(TAG, "signInGoogle: Sign-in successful. User: ${result.user.email}, UID: ${result.user.uid}")
+                AppLogger.d(TAG, "Sign-in successful for user: ${AppLogger.sanitizeUserId(result.user.uid)}")
                 try {
                     // Check if user exists in database
-                    android.util.Log.d(TAG, "signInGoogle: Checking if user exists in database")
+                    AppLogger.d(TAG, "Checking if user exists in database")
                     val existingUser = userRepository.getCurrentUserOnce()
 
                     if (existingUser == null) {
-                        android.util.Log.d(TAG, "signInGoogle: New user detected, creating user record")
+                        AppLogger.d(TAG, "New user detected, creating user record")
                         // New user - create user record
                         val newUser = User(
                             userId = result.user.uid,
@@ -376,33 +378,33 @@ class AuthViewModel @Inject constructor(
                             createdAt = System.currentTimeMillis(),
                             updatedAt = System.currentTimeMillis()
                         )
-                        android.util.Log.d(TAG, "signInGoogle: Creating user: ${newUser.email}")
+                        AppLogger.d(TAG, "Creating user in database")
                         userRepository.createUser(newUser)
 
                         // Initialize default categories for new user
-                        android.util.Log.d(TAG, "signInGoogle: Initializing default categories")
+                        AppLogger.d(TAG, "Initializing default categories")
                         categoryRepository.initDefaultCategories()
 
                         // Navigate to setup for new users
-                        android.util.Log.d(TAG, "signInGoogle: Navigating to setup (new user)")
+                        AppLogger.d(TAG, "Navigating to setup (new user)")
                         _authEventChannel.send(AuthEvent.NavigateToSetup)
                     } else {
-                        android.util.Log.d(TAG, "signInGoogle: Existing user detected, syncing data")
+                        AppLogger.d(TAG, "Existing user detected, syncing data")
                         // Existing user - sync their data
                         syncUserData()
 
                         // Navigate to setup (which will redirect to home if already set up)
-                        android.util.Log.d(TAG, "signInGoogle: Navigating to setup (existing user)")
+                        AppLogger.d(TAG, "Navigating to setup (existing user)")
                         _authEventChannel.send(AuthEvent.NavigateToSetup)
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e(TAG, "signInGoogle: Error in Google Sign-In flow", e)
+                    AppLogger.e(TAG, "Error in Google Sign-In flow", e)
                     _uiState.value = _uiState.value.copy(
                         error = "Failed to complete sign in: ${e.message}"
                     )
                 }
             } else {
-                android.util.Log.e(TAG, "signInGoogle: Sign-in failed. Error: ${result.error}")
+                AppLogger.e(TAG, "Google Sign-in failed: ${result.error}")
                 _uiState.value = _uiState.value.copy(
                     error = result.error ?: "Google Sign-In failed"
                 )
@@ -447,7 +449,7 @@ class AuthViewModel @Inject constructor(
                     categoryRepository.initDefaultCategories()
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Error creating user: ${e.message}")
+                AppLogger.e(TAG, "Error creating user", e)
             }
 
             _authEventChannel.send(AuthEvent.NavigateToHome)

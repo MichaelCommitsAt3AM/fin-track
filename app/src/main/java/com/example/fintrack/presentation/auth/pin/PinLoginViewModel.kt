@@ -55,18 +55,18 @@ class PinLoginViewModel @Inject constructor(
             // Small delay for UX
             delay(200)
 
-            // Get stored PIN from LocalAuthManager using .first() to get the current value
-            val storedPin = localAuthManager.userPin.first()
+            // Check if PIN is set
+            val hasPinSet = localAuthManager.hasPinSet()
 
             launch(Dispatchers.Main) {
-                if (storedPin == null) {
+                if (!hasPinSet) {
                     // No PIN set - should not happen, but handle gracefully
                     _eventFlow.send(PinLoginEvent.Error("No PIN configured. Please set up your PIN."))
                     _uiState.value = _uiState.value.copy(
                         enteredPin = "",
                         isError = true
                     )
-                } else if (pin == storedPin) {
+                } else if (localAuthManager.verifyPin(pin)) {
                     // PIN matches - success!
                     _eventFlow.send(PinLoginEvent.Success)
                 } else {

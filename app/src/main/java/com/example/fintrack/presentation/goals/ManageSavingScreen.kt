@@ -28,39 +28,35 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Mock data class for demonstration
-data class SavingGoal(
-    val id: String,
-    val title: String,
-    val targetAmount: Double,
-    val currentAmount: Double,
-    val targetDate: Long,
-    val category: String,
-    val icon: ImageVector,
-    val color: Color,
-    val contributions: List<Contribution>
-)
-
-data class Contribution(
-    val id: String,
-    val amount: Double,
-    val date: Long,
-    val note: String = ""
-)
+// Mock data class removed - using GoalUtils models
+import com.example.fintrack.core.domain.model.Saving
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageSavingScreen(
     savingId: String,
     onNavigateBack: () -> Unit,
-    onEdit: () -> Unit = {}
+    onEdit: () -> Unit = {},
+    viewModel: SavingViewModel = hiltViewModel()
 ) {
-    // Mock data - in production this would come from a ViewModel
-    val saving = remember {
+    val domainSaving by viewModel.currentSaving.collectAsState()
+    val domainContributions by viewModel.contributions.collectAsState()
+    
+    // Map domain model to UI model
+    val saving = domainSaving?.toUiModel(domainContributions)
+    
+    // Load saving data when screen opens
+    LaunchedEffect(savingId) {
+        viewModel.loadSaving(savingId)
+    }
+    
+    // Mock data for preview - will be replaced by actual saving
+    val mockSaving = remember {
         when (savingId) {
             "laptop" -> SavingGoal(
                 id = "laptop",
@@ -72,10 +68,10 @@ fun ManageSavingScreen(
                 icon = Icons.Default.Computer,
                 color = Color(0xFF10B981),
                 contributions = listOf(
-                    Contribution("1", 500.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000, "Initial deposit"),
-                    Contribution("2", 300.0, System.currentTimeMillis() - 20L * 24 * 60 * 60 * 1000),
-                    Contribution("3", 200.0, System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000, "Bonus money"),
-                    Contribution("4", 200.0, System.currentTimeMillis() - 2L * 24 * 60 * 60 * 1000)
+                    UiContribution("1", 500.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000, "Initial deposit"),
+                    UiContribution("2", 300.0, System.currentTimeMillis() - 20L * 24 * 60 * 60 * 1000),
+                    UiContribution("3", 200.0, System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000, "Bonus money"),
+                    UiContribution("4", 200.0, System.currentTimeMillis() - 2L * 24 * 60 * 60 * 1000)
                 )
             )
             "vacation" -> SavingGoal(
@@ -88,8 +84,8 @@ fun ManageSavingScreen(
                 icon = Icons.Default.BeachAccess,
                 color = Color(0xFF3B82F6),
                 contributions = listOf(
-                    Contribution("1", 500.0, System.currentTimeMillis() - 45L * 24 * 60 * 60 * 1000),
-                    Contribution("2", 375.0, System.currentTimeMillis() - 15L * 24 * 60 * 60 * 1000)
+                    UiContribution("1", 500.0, System.currentTimeMillis() - 45L * 24 * 60 * 60 * 1000),
+                    UiContribution("2", 375.0, System.currentTimeMillis() - 15L * 24 * 60 * 60 * 1000)
                 )
             )
             else -> SavingGoal(
@@ -102,20 +98,24 @@ fun ManageSavingScreen(
                 icon = Icons.Default.HealthAndSafety,
                 color = Color(0xFFA855F7),
                 contributions = listOf(
-                    Contribution("1", 5000.0, System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000, "Starting fund"),
-                    Contribution("2", 1500.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
-                    Contribution("3", 1000.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
-                    Contribution("4", 500.0, System.currentTimeMillis() - 5L * 24 * 60 * 60 * 1000)
+                    UiContribution("1", 5000.0, System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000, "Starting fund"),
+                    UiContribution("2", 1500.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
+                    UiContribution("3", 1000.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
+                    UiContribution("4", 500.0, System.currentTimeMillis() - 5L * 24 * 60 * 60 * 1000)
                 )
             )
         }
     }
+    
+    // Use actual saving or mock for safety
+    val displaySaving = saving ?: mockSaving
+    val displayContributions = displaySaving.contributions
 
     var showContributionDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
-    val percentage = (saving.currentAmount / saving.targetAmount).toFloat().coerceIn(0f, 1f)
+    val percentage = (displaySaving.currentAmount / displaySaving.targetAmount).toFloat().coerceIn(0f, 1f)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -123,7 +123,7 @@ fun ManageSavingScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        saving.title,
+                        displaySaving.title,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     ) 
@@ -187,14 +187,14 @@ fun ManageSavingScreen(
             // Hero Section - Circular Progress
             item {
                 SavingProgressHero(
-                    saving = saving,
+                    saving = displaySaving,
                     percentage = percentage
                 )
             }
 
             // Quick Stats Cards
             item {
-                QuickStatsRow(saving = saving, percentage = percentage)
+                QuickStatsRow(saving = displaySaving, percentage = percentage)
             }
 
             // Add Contribution Button
@@ -205,7 +205,7 @@ fun ManageSavingScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = saving.color
+                        containerColor = displaySaving.color
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -233,12 +233,12 @@ fun ManageSavingScreen(
                 )
             }
 
-            items(saving.contributions.sortedByDescending { it.date }) { contribution ->
+            items(displayContributions.sortedByDescending { it.date }) { contribution ->
                 ContributionHistoryItem(contribution = contribution)
             }
 
             // Empty state if no contributions
-            if (saving.contributions.isEmpty()) {
+            if (displayContributions.isEmpty()) {
                 item {
                     EmptyContributionState()
                 }
@@ -251,10 +251,10 @@ fun ManageSavingScreen(
         AddContributionDialog(
             onDismiss = { showContributionDialog = false },
             onConfirm = { amount, note ->
-                // TODO: Add contribution to saving
+                viewModel.addContribution(savingId, amount, note)
                 showContributionDialog = false
             },
-            color = saving.color
+            color = displaySaving.color
         )
     }
 
@@ -271,12 +271,12 @@ fun ManageSavingScreen(
             },
             title = { Text("Delete Saving Goal?") },
             text = { 
-                Text("Are you sure you want to delete \"${saving.title}\"? This action cannot be undone.") 
+                Text("Are you sure you want to delete \"${displaySaving.title}\"? This action cannot be undone.") 
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // TODO: Delete saving
+                        viewModel.deleteSaving(savingId)
                         showDeleteDialog = false
                         onNavigateBack()
                     },
@@ -469,7 +469,7 @@ fun StatCard(
 }
 
 @Composable
-fun ContributionHistoryItem(contribution: Contribution) {
+fun ContributionHistoryItem(contribution: UiContribution) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Card(

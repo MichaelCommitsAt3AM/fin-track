@@ -1,7 +1,7 @@
 package com.example.fintrack.presentation.settings.security
 
 import android.app.Activity
-import android.util.Log
+import com.example.fintrack.core.util.AppLogger
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -60,7 +60,7 @@ fun ManageSignInMethodsScreen(
                     viewModel.linkGoogle(idToken, account.email)
                 }
             } catch (e: ApiException) {
-                Log.w("ManageSignIn", "Google sign in failed", e)
+                AppLogger.w("ManageSignIn", "Google sign in failed", e)
                 // Optionally handle specific Google API errors here
             }
         }

@@ -1,6 +1,6 @@
 package com.example.fintrack.presentation.setup
 
-import android.util.Log
+import com.example.fintrack.core.util.AppLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fintrack.core.domain.repository.CategoryRepository
@@ -48,7 +48,7 @@ class SetupViewModel @Inject constructor(
     fun startSetup() {
         viewModelScope.launch {
             try {
-                Log.d("SetupViewModel", "Starting setup process")
+                AppLogger.d("SetupViewModel", "Starting setup process")
 
                 // Step 1: Sync user profile first
                 _uiState.value = _uiState.value.copy(
@@ -61,7 +61,7 @@ class SetupViewModel @Inject constructor(
                     userRepository.syncUserFromCloud()
                 }
                 userJob.await()
-                Log.d("SetupViewModel", "User profile synced")
+                AppLogger.d("SetupViewModel", "User profile synced")
 
                 // Step 2: Check if data already exists locally
                 _uiState.value = _uiState.value.copy(
@@ -73,7 +73,7 @@ class SetupViewModel @Inject constructor(
                 val hasLocalData = checkLocalData()
 
                 if (hasLocalData) {
-                    Log.d("SetupViewModel", "Local data found, skipping sync")
+                    AppLogger.d("SetupViewModel", "Local data found, skipping sync")
                     _uiState.value = _uiState.value.copy(
                         currentStep = "Ready!",
                         progress = 1.0f
@@ -94,7 +94,7 @@ class SetupViewModel @Inject constructor(
                 }
 
                 categoriesJob.await()
-                Log.d("SetupViewModel", "Categories synced")
+                AppLogger.d("SetupViewModel", "Categories synced")
 
                 // Step 4: Sync transactions
                 _uiState.value = _uiState.value.copy(
@@ -107,7 +107,7 @@ class SetupViewModel @Inject constructor(
                 }
 
                 transactionsJob.await()
-                Log.d("SetupViewModel", "Transactions synced")
+                AppLogger.d("SetupViewModel", "Transactions synced")
 
                 // Step 5: Sync budgets
                 _uiState.value = _uiState.value.copy(
@@ -119,7 +119,7 @@ class SetupViewModel @Inject constructor(
                     budgetRepository.syncBudgetsFromCloud()
                 }
                 budgetsJob.await()
-                Log.d("SetupViewModel", "Budgets synced")
+                AppLogger.d("SetupViewModel", "Budgets synced")
 
                 // Step 6: Sync Recurring transactions
                 _uiState.value = _uiState.value.copy(
@@ -131,7 +131,7 @@ class SetupViewModel @Inject constructor(
                     transactionRepository.syncRecurringTransactionsFromCloud()
                 }
                 recurringJob.await()
-                Log.d("SetupViewModel", "Recurring transactions synced")
+                AppLogger.d("SetupViewModel", "Recurring transactions synced")
 
                 // Step 7: Verify sync
                 _uiState.value = _uiState.value.copy(
@@ -151,13 +151,13 @@ class SetupViewModel @Inject constructor(
                     delay(500)
                     _eventChannel.send(SetupEvent.NavigateToHome)
                 } else {
-                    Log.w("SetupViewModel", "Sync verification failed, but proceeding anyway")
+                    AppLogger.w("SetupViewModel", "Sync verification failed, but proceeding anyway")
                     // Still navigate to home even if verification fails
                     _eventChannel.send(SetupEvent.NavigateToHome)
                 }
 
             } catch (e: Exception) {
-                Log.e("SetupViewModel", "Setup failed: ${e.message}", e)
+                AppLogger.e("SetupViewModel", "Setup failed: ${e.message}", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Setup failed: ${e.message}"
@@ -173,10 +173,10 @@ class SetupViewModel @Inject constructor(
             val transactions = transactionRepository.getAllTransactions().first()
 
             val hasData = categories.isNotEmpty() || transactions.isNotEmpty()
-            Log.d("SetupViewModel", "Local data check: ${categories.size} categories, ${transactions.size} transactions")
+            AppLogger.d("SetupViewModel", "Local data check: ${categories.size} categories, ${transactions.size} transactions")
             hasData
         } catch (e: Exception) {
-            Log.e("SetupViewModel", "Error checking local data: ${e.message}")
+            AppLogger.e("SetupViewModel", "Error checking local data: ${e.message}")
             false
         }
     }
@@ -186,12 +186,12 @@ class SetupViewModel @Inject constructor(
             val categories = categoryRepository.getAllCategories().first()
             val transactions = transactionRepository.getAllTransactions().first()
 
-            Log.d("SetupViewModel", "Verification: ${categories.size} categories, ${transactions.size} transactions")
+            AppLogger.d("SetupViewModel", "Verification: ${categories.size} categories, ${transactions.size} transactions")
 
             // Consider sync successful if we have at least default categories
             categories.isNotEmpty()
         } catch (e: Exception) {
-            Log.e("SetupViewModel", "Verification failed: ${e.message}")
+            AppLogger.e("SetupViewModel", "Verification failed: ${e.message}")
             false
         }
     }

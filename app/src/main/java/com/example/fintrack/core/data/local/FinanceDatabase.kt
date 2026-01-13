@@ -38,7 +38,7 @@ import com.example.fintrack.core.data.local.dao.NotificationDao
         PaymentEntity::class,
         NotificationEntity::class
     ],
-    version = 6 // Incremented for notifications table
+    version = 1 // Production baseline with all entities
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {

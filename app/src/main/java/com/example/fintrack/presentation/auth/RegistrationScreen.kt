@@ -33,7 +33,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import android.util.Log
+import com.example.fintrack.core.util.AppLogger
+import com.example.fintrack.BuildConfig
 import com.example.fintrack.R
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -145,28 +146,26 @@ fun RegisterEmailStep(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        Log.d("RegistrationScreen", "Google Sign-In activity result received. ResultCode: ${result.resultCode}")
+        AppLogger.d("RegistrationScreen", "Google Sign-In activity result received. ResultCode: ${result.resultCode}")
         if (result.resultCode == Activity.RESULT_OK) {
-            Log.d("RegistrationScreen", "Result OK, processing sign-in data")
+            AppLogger.d("RegistrationScreen", "Result OK, processing sign-in data")
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
                 val account = task.getResult(ApiException::class.java)
-                Log.d("RegistrationScreen", "Account retrieved: ${account.email}, ID Token: ${account.idToken?.take(20)}...")
+                AppLogger.d("RegistrationScreen", "Account retrieved, ID Token: ${AppLogger.sanitizeToken(account.idToken)}")
                 val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-                Log.d("RegistrationScreen", "Credential created, sending to ViewModel")
+                AppLogger.d("RegistrationScreen", "Credential created, sending to ViewModel")
                 viewModel.onEvent(AuthUiEvent.SignInWithGoogle(credential))
             } catch (e: ApiException) {
-                Log.e("RegistrationScreen", "Google Sign-In ApiException: ${e.statusCode} - ${e.message}", e)
+                AppLogger.e("RegistrationScreen", "Google Sign-In ApiException: ${e.statusCode}", e)
                 Toast.makeText(
                     context,
                     "Google Sign-In failed: ${e.message}",
                     Toast.LENGTH_LONG
                 ).show()
             }
-        } else if (result.resultCode == Activity.RESULT_CANCELED) {
-            Log.w("RegistrationScreen", "Google Sign-In was canceled by user")
         } else {
-            Log.e("RegistrationScreen", "Google Sign-In failed with result code: ${result.resultCode}")
+            AppLogger.w("RegistrationScreen", "Google Sign-In cancelled with result code: ${result.resultCode}")
         }
     }
 
@@ -255,14 +254,14 @@ fun RegisterEmailStep(
         // Google Sign In Button with Logo
         OutlinedButton(
             onClick = {
-                Log.d("RegistrationScreen", "Google Sign-In button clicked")
+                AppLogger.d("RegistrationScreen", "Google Sign-In button clicked")
                 // Trigger Google Sign-In
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                     .requestIdToken(context.getString(R.string.default_web_client_id))
                     .requestEmail()
                     .build()
                 val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                Log.d("RegistrationScreen", "Launching Google Sign-In intent")
+                AppLogger.d("RegistrationScreen", "Launching Google Sign-In intent")
                 launcher.launch(googleSignInClient.signInIntent)
             },
             modifier = Modifier
