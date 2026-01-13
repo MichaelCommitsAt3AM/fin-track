@@ -1,5 +1,7 @@
 package com.example.fintrack.presentation.add_transaction
 
+import com.example.fintrack.core.ui.components.ModernDatePicker
+
 import android.widget.Toast
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -23,14 +25,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarToday
+
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
+
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -49,7 +50,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDatePickerState
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -81,7 +82,6 @@ fun AddTransactionScreen(
     val state by viewModel.uiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
     val context = LocalContext.current
-    var showDatePicker by remember { mutableStateOf(false) }
 
     val relevantCategories = remember(state.categories, state.transactionType) {
         state.categories.filter { it.type.name == state.transactionType.name }
@@ -148,14 +148,10 @@ fun AddTransactionScreen(
                     onPaymentMethodSelected = { viewModel.onEvent(AddTransactionUiEvent.OnPaymentMethodChange(it)) }
                 )
 
-                FinTrackTextField(
-                    value = viewModel.formatMillisToDate(state.date),
-                    onValueChange = {},
-                    label = "Date",
-                    placeholder = "Select date",
-                    readOnly = true,
-                    trailingIcon = { Icon(Icons.Default.CalendarToday, null) },
-                    modifier = Modifier.clickable { showDatePicker = true }
+                ModernDatePicker(
+                    selectedDateMillis = state.date,
+                    onDateSelected = { viewModel.onEvent(AddTransactionUiEvent.OnDateChange(it)) },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 // --- Recurring Section ---
@@ -203,28 +199,7 @@ fun AddTransactionScreen(
         }
     }
 
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.date,
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val selectedDate = datePickerState.selectedDateMillis!!
-                    viewModel.onEvent(AddTransactionUiEvent.OnDateChange(selectedDate))
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
+
 }
 
 @Composable
