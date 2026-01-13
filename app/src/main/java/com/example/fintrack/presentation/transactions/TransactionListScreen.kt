@@ -1,11 +1,18 @@
 package com.example.fintrack.presentation.transactions
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +31,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 
+
+private val filterOrder = listOf(
+    "All",
+    "Income",
+    "Expense"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionListScreen(
@@ -34,6 +48,8 @@ fun TransactionListScreen(
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val groupedTransactions by viewModel.uiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
+    
+    val listState = rememberLazyListState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -118,37 +134,63 @@ fun TransactionListScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // --- Grouped Transaction List ---
-            if (groupedTransactions.isEmpty()) {
-                // Empty State
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "No transactions found",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 32.dp)
-                ) {
-                    groupedTransactions.forEach { (date, transactions) ->
-                        item {
-                            Text(
-                                text = date,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
-                        items(transactions) { transaction ->
-                            TransactionListItem(transaction, currency.symbol)
-                            Spacer(modifier = Modifier.height(8.dp))
+            AnimatedContent(
+                targetState = selectedFilter,
+                transitionSpec = {
+                    val fromIndex = filterOrder.indexOf(initialState)
+                    val toIndex = filterOrder.indexOf(targetState)
+
+                    val direction = if (toIndex > fromIndex) 1 else -1
+
+                    (slideInHorizontally(
+                        animationSpec = tween(220),
+                        initialOffsetX = { it / 4 * direction }
+                    ) + fadeIn(animationSpec = tween(120)))
+                        .togetherWith(
+                            slideOutHorizontally(
+                                animationSpec = tween(220),
+                                targetOffsetX = { -it / 4 * direction }
+                            ) + fadeOut(animationSpec = tween(120))
+                        )
+                },
+                label = "TransactionFilterTransition"
+            ) { targetFilter ->
+                if (groupedTransactions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No transactions found for $targetFilter",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
+                        groupedTransactions.forEach { (date, transactions) ->
+                            item(key = date) {
+                                Text(
+                                    text = date,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            items(
+                                items = transactions,
+                                key = { it.dateMillis }
+                            ) { transaction ->
+                                TransactionListItem(transaction, currency.symbol)
+                            }
                         }
                     }
+
                 }
             }
         }
