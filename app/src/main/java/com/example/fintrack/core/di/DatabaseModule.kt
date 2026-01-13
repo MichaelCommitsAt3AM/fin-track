@@ -11,6 +11,7 @@ import com.example.fintrack.core.data.local.dao.SavingDao
 import com.example.fintrack.core.data.local.dao.DebtDao
 import com.example.fintrack.core.data.local.dao.ContributionDao
 import com.example.fintrack.core.data.local.dao.PaymentDao
+import com.example.fintrack.core.data.local.dao.PaymentMethodDao
 import com.example.fintrack.core.domain.repository.UserRepository
 import com.example.fintrack.core.data.repository.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
@@ -67,6 +68,10 @@ object DatabaseModule {
             //
             // IMPORTANT: Never use fallbackToDestructiveMigration() in production!
             // It deletes all user data. Only use during active development.
+            .addMigrations(
+                FinanceDatabase.MIGRATION_1_2,
+                FinanceDatabase.MIGRATION_2_3
+            )
             .fallbackToDestructiveMigration() // TODO: Remove before production release!
             .build()
     }
@@ -124,6 +129,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideNotificationDao(database: FinanceDatabase) = database.notificationDao()
+
+    @Provides
+    @Singleton
+    fun providePaymentMethodDao(database: FinanceDatabase) = database.paymentMethodDao()
 
     @Provides
     @Singleton

@@ -96,7 +96,7 @@ fun ModernDatePicker(
 }
 
 @Composable
-private fun CustomDatePickerDialog(
+fun CustomDatePickerDialog(
     selectedDateMillis: Long,
     onDateSelected: (Long) -> Unit,
     onDismiss: () -> Unit

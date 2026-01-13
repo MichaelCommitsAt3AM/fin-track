@@ -3,12 +3,16 @@ package com.example.fintrack.core.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.fintrack.core.data.local.dao.BudgetDao
 import com.example.fintrack.core.data.local.dao.CategoryDao
 import com.example.fintrack.core.data.local.dao.TransactionDao
+import com.example.fintrack.core.data.local.dao.PaymentMethodDao
 import com.example.fintrack.core.data.local.model.BudgetEntity
 import com.example.fintrack.core.data.local.model.CategoryEntity
 import com.example.fintrack.core.data.local.model.TransactionEntity
+import com.example.fintrack.core.data.local.model.PaymentMethodEntity
 import com.example.fintrack.data.local.model.RecurringTransactionEntity
 import com.example.fintrack.data.local.dao.RecurringTransactionDao
 import com.example.fintrack.core.data.local.model.UserEntity
@@ -36,9 +40,10 @@ import com.example.fintrack.core.data.local.dao.NotificationDao
         DebtEntity::class,
         ContributionEntity::class,
         PaymentEntity::class,
-        NotificationEntity::class
+        NotificationEntity::class,
+        PaymentMethodEntity::class
     ],
-    version = 1 // Production baseline with all entities
+    version = 3 // Added isActive to PaymentMethodEntity
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -54,11 +59,37 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun contributionDao(): ContributionDao
     abstract fun paymentDao(): PaymentDao
     abstract fun notificationDao(): NotificationDao
+    abstract fun paymentMethodDao(): PaymentMethodDao
 
 
 
     // This is often used for creating a Singleton instance
     companion object {
         const val DATABASE_NAME = "finance_db"
+        
+        // Migration from version 1 to 2: Add payment_methods table
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS payment_methods (
+                        name TEXT NOT NULL,
+                        userId TEXT NOT NULL,
+                        iconName TEXT NOT NULL,
+                        colorHex TEXT NOT NULL,
+                        isDefault INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(name, userId)
+                    )""".trimIndent()
+                )
+            }
+        }
+        
+        // Migration from version 2 to 3: Add isActive column to payment_methods
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """ALTER TABLE payment_methods ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1"""
+                )
+            }
+        }
     }
 }

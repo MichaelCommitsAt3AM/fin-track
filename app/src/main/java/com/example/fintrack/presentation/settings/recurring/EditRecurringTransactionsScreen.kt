@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.fintrack.core.ui.components.CustomDatePickerDialog
 import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import com.example.fintrack.core.domain.model.TransactionType
 
@@ -169,26 +170,14 @@ fun EditRecurringTransactionScreen(
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.startDate,
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val selectedDate = datePickerState.selectedDateMillis!!
-                    viewModel.onEvent(EditRecurringTransactionUiEvent.OnDateChange(selectedDate))
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
+        CustomDatePickerDialog(
+            selectedDateMillis = state.startDate,
+            onDateSelected = { newDate ->
+                viewModel.onEvent(EditRecurringTransactionUiEvent.OnDateChange(newDate))
+                showDatePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
 

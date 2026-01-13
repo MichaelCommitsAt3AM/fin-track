@@ -306,7 +306,8 @@ fun NavGraph(
         ) {
             AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) }
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
+                onNavigateToPaymentMethods = { navController.navigate(AppRoutes.PaymentMethods.route) }
             )
         }
 

@@ -10,6 +10,7 @@ import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.TransactionRepository
+import com.example.fintrack.core.domain.repository.PaymentMethodRepository
 import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,11 +29,11 @@ import javax.inject.Inject
 data class AddTransactionUiState(
     val transactionType: TransactionType = TransactionType.EXPENSE,
     val categories: List<Category> = emptyList(),
-    val paymentMethods: List<String> = listOf("Cash", "Card", "M-Pesa"), // Default payment methods
+    val paymentMethods: List<String> = emptyList(), // Load from database
     val amount: String = "",
     val description: String = "",
     val selectedCategory: String? = null,
-    val selectedPaymentMethod: String? = "Cash", // Default to Cash
+    val selectedPaymentMethod: String? = null, // Will be set after loading
     val date: Long = System.currentTimeMillis(),
     // Recurring State
     val isRecurring: Boolean = false,
@@ -61,6 +62,7 @@ sealed class AddTransactionEvent {
 @HiltViewModel
 class AddTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
+    private val paymentMethodRepository: PaymentMethodRepository,
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
@@ -80,12 +82,30 @@ class AddTransactionViewModel @Inject constructor(
 
     init {
         loadCategories()
+        loadPaymentMethods()
     }
 
     private fun loadCategories() {
         viewModelScope.launch {
             getCategoriesUseCase().collect { categories ->
                 _uiState.value = _uiState.value.copy(categories = categories)
+            }
+        }
+    }
+
+    private fun loadPaymentMethods() {
+        viewModelScope.launch {
+            // Initialize defaults if needed
+            paymentMethodRepository.initDefaultPaymentMethods()
+            
+            paymentMethodRepository.getAllPaymentMethods().collect { methods ->
+                val methodNames = methods.map { it.name }
+                // Auto-select the default payment method, or first one if no default
+                val defaultMethod = methods.find { it.isDefault }?.name ?: methodNames.firstOrNull()
+                _uiState.value = _uiState.value.copy(
+                    paymentMethods = methodNames,
+                    selectedPaymentMethod = _uiState.value.selectedPaymentMethod ?: defaultMethod
+                )
             }
         }
     }

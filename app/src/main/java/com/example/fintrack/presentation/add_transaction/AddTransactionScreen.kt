@@ -5,6 +5,8 @@ import com.example.fintrack.core.ui.components.ModernDatePicker
 import android.widget.Toast
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +24,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -57,10 +62,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +76,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import com.example.fintrack.core.domain.model.TransactionType
 
@@ -76,7 +84,8 @@ import com.example.fintrack.core.domain.model.TransactionType
 @Composable
 fun AddTransactionScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToManageCategories: () -> Unit, // <-- NEW PARAMETER
+    onNavigateToManageCategories: () -> Unit,
+    onNavigateToPaymentMethods: () -> Unit, // NEW PARAMETER
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -101,6 +110,7 @@ fun AddTransactionScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), // Let imePadding handle insets
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Add Transaction", fontWeight = FontWeight.Bold) },
@@ -111,18 +121,21 @@ fun AddTransactionScreen(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
-                ),
-
-                // modifier = Modifier.padding(WindowInsets.statusBars.asPaddingValues())
+                )
             )
         }
     ) { paddingValues ->
+        val scrollState = rememberScrollState()
+        val bringIntoViewRequester = remember { BringIntoViewRequester() }
+        val coroutineScope = rememberCoroutineScope()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding() // Automatically adds padding when keyboard appears
                 .padding(paddingValues)
                 .padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
         ) {
 
             TransactionTypeToggle(
@@ -145,7 +158,8 @@ fun AddTransactionScreen(
                 PaymentMethodSelector(
                     paymentMethods = state.paymentMethods,
                     selectedPaymentMethod = state.selectedPaymentMethod,
-                    onPaymentMethodSelected = { viewModel.onEvent(AddTransactionUiEvent.OnPaymentMethodChange(it)) }
+                    onPaymentMethodSelected = { viewModel.onEvent(AddTransactionUiEvent.OnPaymentMethodChange(it)) },
+                    onAddPaymentMethodClick = onNavigateToPaymentMethods
                 )
 
                 ModernDatePicker(
@@ -176,7 +190,16 @@ fun AddTransactionScreen(
                     value = state.description,
                     onValueChange = { viewModel.onEvent(AddTransactionUiEvent.OnDescriptionChange(it)) },
                     label = "Description",
-                    placeholder = "e.g. Weekly groceries"
+                    placeholder = "e.g. Weekly groceries",
+                    modifier = Modifier
+                        .bringIntoViewRequester(bringIntoViewRequester)
+                        .onFocusEvent { focusState ->
+                            if (focusState.isFocused) {
+                                coroutineScope.launch {
+                                    bringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        }
                 )
             }
 
@@ -375,7 +398,8 @@ fun CategorySelector(
 fun PaymentMethodSelector(
     paymentMethods: List<String>,
     selectedPaymentMethod: String?,
-    onPaymentMethodSelected: (String) -> Unit
+    onPaymentMethodSelected: (String) -> Unit,
+    onAddPaymentMethodClick: () -> Unit = {} // New parameter
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -414,15 +438,47 @@ fun PaymentMethodSelector(
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
-                paymentMethods.forEach { method ->
+                if (paymentMethods.isEmpty()) {
                     DropdownMenuItem(
-                        text = { Text(method) },
-                        onClick = {
-                            onPaymentMethodSelected(method)
-                            expanded = false
-                        }
+                        text = { Text("No payment methods found") },
+                        onClick = { },
+                        enabled = false
                     )
+                } else {
+                    paymentMethods.forEach { method ->
+                        DropdownMenuItem(
+                            text = { Text(method) },
+                            onClick = {
+                                onPaymentMethodSelected(method)
+                                expanded = false
+                            }
+                        )
+                    }
                 }
+
+                // --- ADD BUTTON INSIDE DROPDOWN ---
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "Add new payment method",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    onClick = {
+                        onAddPaymentMethodClick()
+                        expanded = false
+                    }
+                )
+                // ----------------------------------
             }
         }
     }

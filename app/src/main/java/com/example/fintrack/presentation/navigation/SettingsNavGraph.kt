@@ -25,6 +25,7 @@ import com.example.fintrack.presentation.settings.recurring.EditRecurringTransac
 import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
 import com.example.fintrack.presentation.settings.security.SetPasswordScreen
 import com.example.fintrack.presentation.settings.notifications.NotificationSettingsScreen
+import com.example.fintrack.presentation.settings.payment_methods.PaymentMethodsScreen
 
 fun NavGraphBuilder.settingsNavGraph(
     navController: NavHostController,
@@ -49,6 +50,9 @@ fun NavGraphBuilder.settingsNavGraph(
                 },
                 onNavigateToSignInMethods = { // <--- Pass the navigation call
                     navController.navigate(AppRoutes.ManageSignInMethods.route)
+                },
+                onNavigateToPaymentMethods = {
+                    navController.navigate(AppRoutes.PaymentMethods.route)
                 },
                 paddingValues = paddingValues
             )
@@ -95,6 +99,17 @@ fun NavGraphBuilder.settingsNavGraph(
             popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
         ) {
             NotificationSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // 4b: Payment Methods Screen
+        composable(
+            route = AppRoutes.PaymentMethods.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            PaymentMethodsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

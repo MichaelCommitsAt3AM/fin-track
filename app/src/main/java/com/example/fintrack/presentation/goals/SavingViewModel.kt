@@ -2,7 +2,9 @@ package com.example.fintrack.presentation.goals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Contribution
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.Saving
 import com.example.fintrack.core.domain.repository.SavingRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -15,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SavingViewModel @Inject constructor(
     private val savingRepository: SavingRepository,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val userId: String?
@@ -39,6 +42,14 @@ class SavingViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    // Currency preference
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
+        )
 
     init {
         loadAllSavings()

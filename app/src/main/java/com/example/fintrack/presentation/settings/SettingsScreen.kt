@@ -43,6 +43,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToManageCategories: () -> Unit,
     onNavigateToSignInMethods: () -> Unit,
+    onNavigateToPaymentMethods: () -> Unit,
     navController: NavController,
     paddingValues: PaddingValues,
     viewModel: SettingsViewModel = hiltViewModel()
@@ -112,7 +113,7 @@ fun SettingsScreen(
             SettingsSection(title = "Account") {
                 SettingsItem(icon = Icons.Default.Person, title = "Manage Profile", onClick = {navController.navigate(AppRoutes.ManageProfile.route)})
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.AccountBalance, title = "Linked Accounts", onClick = {})
+                SettingsItem(icon = Icons.Default.Payment, title = "Payment Methods", onClick = onNavigateToPaymentMethods)
             }
 
             Spacer(modifier = Modifier.height(24.dp))

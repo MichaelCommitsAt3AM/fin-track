@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -25,7 +28,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
+import com.example.fintrack.core.ui.components.CustomDatePickerDialog
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +39,8 @@ fun AddSavingScreen(
     onNavigateBack: () -> Unit,
     viewModel: SavingViewModel = hiltViewModel()
 ) {
+    val currency by viewModel.currencyPreference.collectAsState()
+    
     // State Hoisting
     var targetAmount by remember { mutableStateOf("") }
     var currentAmount by remember { mutableStateOf("") }
@@ -44,7 +52,6 @@ fun AddSavingScreen(
     // Date Picker State for target date
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDateMillis by remember { mutableStateOf<Long?>(null) }
-    val datePickerState = rememberDatePickerState()
 
     // Icon Selection Dialog
     var showIconPicker by remember { mutableStateOf(false) }
@@ -53,12 +60,13 @@ fun AddSavingScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), // Let imePadding handle insets
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Add Saving Goal", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    TextButton(onClick = onNavigateBack) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.primary)
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -104,11 +112,16 @@ fun AddSavingScreen(
             )
         }
     ) { paddingValues ->
+        val scrollState = rememberScrollState()
+        val bringIntoViewRequester = remember { BringIntoViewRequester() }
+        val coroutineScope = rememberCoroutineScope()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding() // Automatically adds padding when keyboard appears
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Icon Display Section
@@ -125,7 +138,8 @@ fun AddSavingScreen(
                 amount = targetAmount,
                 onAmountChange = { targetAmount = it },
                 activeColor = activeColor,
-                label = "Target Amount"
+                label = "Target Amount",
+                currencySymbol = currency.symbol
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -143,30 +157,27 @@ fun AddSavingScreen(
                 selectedDateMillis = selectedDateMillis,
                 onDateClick = { showDatePicker = true },
                 notes = notes,
-                onNotesChange = { notes = it }
+                onNotesChange = { notes = it },
+                bringIntoViewRequester = bringIntoViewRequester,
+                coroutineScope = coroutineScope
             )
 
+    // Date Picker Dialog
+    if (showDatePicker) {
+        CustomDatePickerDialog(
+            selectedDateMillis = selectedDateMillis ?: System.currentTimeMillis(),
+            onDateSelected = { newDate ->
+                selectedDateMillis = newDate
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
+    }
             Spacer(modifier = Modifier.height(100.dp))
         }
     }
 
-    // Date Picker Dialog
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    selectedDateMillis = datePickerState.selectedDateMillis
-                    showDatePicker = false
-                }) { Text("OK", color = activeColor) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
+
 
     // Icon Picker Dialog
     if (showIconPicker) {
@@ -221,7 +232,8 @@ fun SavingAmountSection(
     amount: String,
     onAmountChange: (String) -> Unit,
     activeColor: Color,
-    label: String
+    label: String,
+    currencySymbol: String
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
@@ -230,7 +242,7 @@ fun SavingAmountSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "$",
+                text = currencySymbol,
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -310,7 +322,9 @@ fun SavingFormSection(
     selectedDateMillis: Long?,
     onDateClick: () -> Unit,
     notes: String,
-    onNotesChange: (String) -> Unit
+    onNotesChange: (String) -> Unit,
+    bringIntoViewRequester: BringIntoViewRequester,
+    coroutineScope: kotlinx.coroutines.CoroutineScope
 ) {
     Column(
         modifier = Modifier
@@ -382,7 +396,16 @@ fun SavingFormSection(
             onValueChange = onNotesChange,
             placeholder = "Add any details or motivation...",
             singleLine = false,
-            minLines = 3
+            minLines = 3,
+            modifier = Modifier
+                .bringIntoViewRequester(bringIntoViewRequester)
+                .onFocusEvent { focusState ->
+                    if (focusState.isFocused) {
+                        coroutineScope.launch {
+                            bringIntoViewRequester.bringIntoView()
+                        }
+                    }
+                }
         )
     }
 }
