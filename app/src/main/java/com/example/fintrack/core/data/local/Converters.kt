@@ -1,6 +1,8 @@
 package com.example.fintrack.core.data.local
 
 import androidx.room.TypeConverter
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class Converters {
 
@@ -16,5 +18,16 @@ class Converters {
     fun toStringList(value: String?): List<String>? {
         // We split the string by the comma
         return value?.split(",")?.map { it.trim() }
+    }
+
+    // LocalDateTime converters
+    @TypeConverter
+    fun fromLocalDateTime(value: LocalDateTime?): String? {
+        return value?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    }
+
+    @TypeConverter
+    fun toLocalDateTime(value: String?): LocalDateTime? {
+        return value?.let { LocalDateTime.parse(it, DateTimeFormatter.ISO_LOCAL_DATE_TIME) }
     }
 }

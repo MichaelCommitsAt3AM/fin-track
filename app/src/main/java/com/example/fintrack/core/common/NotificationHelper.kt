@@ -10,14 +10,25 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.fintrack.R
+import com.example.fintrack.core.domain.model.Notification
+import com.example.fintrack.core.domain.model.NotificationType
+import com.example.fintrack.core.domain.repository.NotificationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class NotificationHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val notificationRepository: NotificationRepository
 ) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         const val CHANNEL_BUDGET_ID = "budget_alerts"
@@ -70,18 +81,61 @@ class NotificationHelper @Inject constructor(
     }
 
     fun showBudgetNotification(title: String, message: String) {
-        showNotification(CHANNEL_BUDGET_ID, NOTIFICATION_ID_BUDGET + System.currentTimeMillis().toInt() % 100, title, message)
+        showNotification(
+            channelId = CHANNEL_BUDGET_ID,
+            notificationId = NOTIFICATION_ID_BUDGET + System.currentTimeMillis().toInt() % 100,
+            title = title,
+            message = message,
+            type = NotificationType.BUDGET,
+            iconType = "warning"
+        )
     }
 
     fun showGoalNotification(title: String, message: String) {
-        showNotification(CHANNEL_GOALS_ID, NOTIFICATION_ID_GOAL + System.currentTimeMillis().toInt() % 100, title, message)
+        showNotification(
+            channelId = CHANNEL_GOALS_ID,
+            notificationId = NOTIFICATION_ID_GOAL + System.currentTimeMillis().toInt() % 100,
+            title = title,
+            message = message,
+            type = NotificationType.GOAL,
+            iconType = "lightbulb"
+        )
     }
 
     fun showDebtNotification(title: String, message: String) {
-        showNotification(CHANNEL_DEBT_ID, NOTIFICATION_ID_DEBT + System.currentTimeMillis().toInt() % 100, title, message)
+        showNotification(
+            channelId = CHANNEL_DEBT_ID,
+            notificationId = NOTIFICATION_ID_DEBT + System.currentTimeMillis().toInt() % 100,
+            title = title,
+            message = message,
+            type = NotificationType.DEBT,
+            iconType = "receipt"
+        )
     }
 
-    private fun showNotification(channelId: String, notificationId: Int, title: String, message: String) {
+    private fun showNotification(
+        channelId: String,
+        notificationId: Int,
+        title: String,
+        message: String,
+        type: NotificationType,
+        iconType: String
+    ) {
+        // Save notification to database
+        scope.launch {
+            val notification = Notification(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                message = message,
+                type = type,
+                timestamp = LocalDateTime.now(),
+                isRead = false,
+                iconType = iconType
+            )
+            notificationRepository.insertNotification(notification)
+        }
+
+        // Show system notification
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(
                     context,
@@ -93,7 +147,7 @@ class NotificationHelper @Inject constructor(
         }
 
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Use app icon or specific icon
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

@@ -21,6 +21,8 @@ import com.example.fintrack.core.data.local.dao.SavingDao
 import com.example.fintrack.core.data.local.dao.DebtDao
 import com.example.fintrack.core.data.local.dao.ContributionDao
 import com.example.fintrack.core.data.local.dao.PaymentDao
+import com.example.fintrack.core.data.local.entity.NotificationEntity
+import com.example.fintrack.core.data.local.dao.NotificationDao
 
 // This annotation defines the database
 @Database(
@@ -33,9 +35,10 @@ import com.example.fintrack.core.data.local.dao.PaymentDao
         SavingEntity::class,
         DebtEntity::class,
         ContributionEntity::class,
-        PaymentEntity::class
+        PaymentEntity::class,
+        NotificationEntity::class
     ],
-    version = 5 // Incremented for new savings/debts tables
+    version = 6 // Incremented for notifications table
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -50,6 +53,7 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun debtDao(): DebtDao
     abstract fun contributionDao(): ContributionDao
     abstract fun paymentDao(): PaymentDao
+    abstract fun notificationDao(): NotificationDao
 
 
 

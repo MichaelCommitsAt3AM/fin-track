@@ -24,6 +24,7 @@ import com.example.fintrack.presentation.settings.profile.ManageProfileScreen
 import com.example.fintrack.presentation.settings.recurring.EditRecurringTransactionScreen
 import com.example.fintrack.presentation.settings.recurring.RecurringTransactionsScreen
 import com.example.fintrack.presentation.settings.security.SetPasswordScreen
+import com.example.fintrack.presentation.settings.notifications.NotificationSettingsScreen
 
 fun NavGraphBuilder.settingsNavGraph(
     navController: NavHostController,
@@ -83,6 +84,17 @@ fun NavGraphBuilder.settingsNavGraph(
             popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
         ) {
             SetPasswordScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // 4a: Notification Settings Screen
+        composable(
+            route = AppRoutes.NotificationSettings.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+        ) {
+            NotificationSettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

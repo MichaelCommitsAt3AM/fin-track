@@ -7,6 +7,7 @@ import com.example.fintrack.core.data.repository.NetworkRepositoryImpl
 import com.example.fintrack.core.data.repository.TransactionRepositoryImpl
 import com.example.fintrack.core.data.repository.SavingRepositoryImpl
 import com.example.fintrack.core.data.repository.DebtRepositoryImpl
+import com.example.fintrack.core.data.repository.NotificationRepositoryImpl
 import com.example.fintrack.core.domain.repository.AuthRepository
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.CategoryRepository
@@ -14,6 +15,7 @@ import com.example.fintrack.core.domain.repository.NetworkRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.repository.SavingRepository
 import com.example.fintrack.core.domain.repository.DebtRepository
+import com.example.fintrack.core.domain.repository.NotificationRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -66,4 +68,10 @@ abstract class RepositoryModule {
     abstract fun bindDebtRepository(
         debtRepositoryImpl: DebtRepositoryImpl
     ): DebtRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(
+        notificationRepositoryImpl: NotificationRepositoryImpl
+    ): NotificationRepository
 }

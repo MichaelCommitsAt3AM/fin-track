@@ -163,7 +163,7 @@ fun SettingsScreen(
                     onClick = { navController.navigate(AppRoutes.RecurringTransactions.route)}
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = {})
+                SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = { navController.navigate(AppRoutes.NotificationSettings.route) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(
                     icon = Icons.Default.Paid,

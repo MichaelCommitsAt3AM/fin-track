@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -270,6 +269,7 @@ fun ManageSignInMethodsScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                     // Apple Item (Placeholder for future)
+                    /*
                     SignInMethodItem(
                         icon = Icons.Default.PhoneIphone,
                         title = "Apple",
@@ -325,6 +325,7 @@ fun ManageSignInMethodsScreen(
                             }
                         }
                     )
+                    */
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

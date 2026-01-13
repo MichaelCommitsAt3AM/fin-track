@@ -1,6 +1,10 @@
 package com.example.fintrack.presentation.profile_setup
 
+import android.Manifest
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,12 +34,31 @@ fun ProfileSetupScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var shouldNavigateToHome by remember { mutableStateOf(false) }
+
+    // Notification permission launcher for Android 13+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(context, "Notifications enabled", Toast.LENGTH_SHORT).show()
+        }
+        // Navigate regardless of permission result
+        onNavigateToHome()
+    }
 
     // Listen for events
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                is ProfileSetupEvent.NavigateToHome -> onNavigateToHome()
+                is ProfileSetupEvent.NavigateToHome -> {
+                    // Request notification permission before navigating
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        onNavigateToHome()
+                    }
+                }
                 is ProfileSetupEvent.ShowError -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }

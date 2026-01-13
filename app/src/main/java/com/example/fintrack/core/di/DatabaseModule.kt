@@ -93,6 +93,10 @@ object DatabaseModule {
 
     @Provides
     @Singleton
+    fun provideNotificationDao(database: FinanceDatabase) = database.notificationDao()
+
+    @Provides
+    @Singleton
     fun provideUserRepository(
         userDao: UserDao,
         firebaseAuth: FirebaseAuth,
