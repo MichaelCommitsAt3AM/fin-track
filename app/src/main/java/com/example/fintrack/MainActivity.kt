@@ -23,6 +23,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +52,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() { // Changed to FragmentActivity for BiometricPrompt
@@ -135,6 +140,7 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
 
                     // Offline banner state management
                     val isOnline by mainViewModel.isOnline.collectAsState()
+                    val currentUser by mainViewModel.currentUser.collectAsState()
                     var showOfflineBanner by remember { mutableStateOf(true) }
 
                     // Reset banner visibility when coming back online
@@ -144,39 +150,83 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                         }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        Scaffold(
-                                bottomBar = {
-                                    if (showBottomNav) {
-                                        BottomNavBar(navController = navController)
-                                    }
-                                },
-                                floatingActionButton = {
-                                    if (showBottomNav) {
-                                        FloatingActionButton(
-                                                onClick = {
-                                                    navController.navigate(
-                                                            AppRoutes.AddTransaction.route
-                                                    )
-                                                },
-                                                containerColor = MaterialTheme.colorScheme.primary,
-                                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                                shape = CircleShape
-                                        ) {
-                                            Icon(
-                                                    imageVector = Icons.Default.Add,
-                                                    contentDescription = "Add Transaction"
-                                            )
-                                        }
-                                    }
-                                },
-                                floatingActionButtonPosition = FabPosition.End
-                        ) { paddingValues ->
-                            NavGraph(
-                                    navController = navController,
-                                    paddingValues = paddingValues,
-                                    startDestination = startDestination
+                    // Trigger sync when network reconnects
+                    LaunchedEffect(isOnline) {
+                        if (isOnline && currentRoute in mainTabRoutes) {
+                            // Trigger background sync when back online
+                            val workManager = androidx.work.WorkManager.getInstance(applicationContext)
+                            val syncWork = androidx.work.OneTimeWorkRequestBuilder<com.example.fintrack.core.worker.TransactionSyncWorker>()
+                                .setConstraints(com.example.fintrack.core.worker.TransactionSyncWorker.getConstraints())
+                                .build()
+                            
+                            workManager.enqueueUniqueWork(
+                                com.example.fintrack.core.worker.TransactionSyncWorker.WORK_NAME,
+                                androidx.work.ExistingWorkPolicy.REPLACE,
+                                syncWork
                             )
+                        }
+                    }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Drawer state for profile drawer
+                        val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+                        val scope = rememberCoroutineScope()
+
+                        ModalNavigationDrawer(
+                            drawerState = drawerState,
+                            gesturesEnabled = drawerState.isOpen,
+                            scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f),
+                            drawerContent = {
+                                com.example.fintrack.presentation.home.ProfileDrawerContent(
+                                    user = currentUser,
+                                    onCloseDrawer = {
+                                        scope.launch { drawerState.close() }
+                                    },
+                                    onNavigateToProfile = {
+                                        scope.launch { drawerState.close() }
+                                        navController.navigate(AppRoutes.Settings.route)
+                                    },
+                                    onNavigateToSettings = {
+                                        scope.launch { drawerState.close() }
+                                        navController.navigate(AppRoutes.Settings.route)
+                                    }
+                                )
+                            }
+                        ) {
+                            Scaffold(
+                                    bottomBar = {
+                                        if (showBottomNav) {
+                                            BottomNavBar(navController = navController)
+                                        }
+                                    },
+                                    floatingActionButton = {
+                                        if (showBottomNav) {
+                                            FloatingActionButton(
+                                                    onClick = {
+                                                        navController.navigate(
+                                                                AppRoutes.AddTransaction.route
+                                                        )
+                                                    },
+                                                    containerColor = MaterialTheme.colorScheme.primary,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                                    shape = CircleShape
+                                            ) {
+                                                Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = "Add Transaction"
+                                                )
+                                            }
+                                        }
+                                    },
+                                    floatingActionButtonPosition = FabPosition.End
+                            ) { paddingValues ->
+                                NavGraph(
+                                        navController = navController,
+                                        paddingValues = paddingValues,
+                                        startDestination = startDestination,
+                                        onOpenDrawer = { scope.launch { drawerState.open() } }
+                                )
+                            }
                         }
 
                         // Global Offline Banner

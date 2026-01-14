@@ -1,22 +1,25 @@
 package com.example.fintrack.presentation.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +28,6 @@ import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -34,64 +36,88 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import com.example.fintrack.presentation.navigation.AppRoutes
-import com.example.fintrack.core.domain.model.Currency
+import com.example.fintrack.core.ui.components.SyncStatusOverlay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
-    paddingValues: PaddingValues,
+    paddingValues: PaddingValues, // These usually come from Scaffold
+    onOpenDrawer: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val spendingCategories by viewModel.spendingCategories.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
-
-    // 1. COLLECT THE WEEKLY SPENDING STATE HERE
     val weeklySpending by viewModel.weeklySpending.collectAsState()
+    val syncStatus by viewModel.syncStatus.collectAsState()
 
-    LazyColumn(
+    // Root Box is essential for Overlay behavior
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(paddingValues)
-            .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(bottom = 32.dp)
     ) {
-        item {
-            HomeHeader(
-                user = currentUser,
-                onNotificationClick = { navController.navigate(AppRoutes.Notifications.route) }
-            ) }
+        // LAYER 1: Main Content
+        PullToRefreshBox(
+            isRefreshing = syncStatus is SyncStatus.Syncing,
+            onRefresh = { viewModel.triggerManualSync() },
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues) // Apply Scaffold padding here
+                    .padding(horizontal = 20.dp),
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
+                // REMOVED: SyncStatusBanner from here (item block deleted)
 
-        // 2. PASS THE DATA TO THE CARD
-        item {
-            WeeklySpendingCard(
-                amountSpent = weeklySpending.first,   // This Week
-                lastWeekSpent = weeklySpending.second, // Last Week
-                currencySymbol = currency.symbol
-            )
-        }
-
-        item {
-            SpendingSection(
-                categories = spendingCategories,
-                isEmpty = spendingCategories.isEmpty()
-            )
-        }
-        item {
-            TransactionsSection(
-                transactions = recentTransactions,
-                currencySymbol = currency.symbol,
-                onViewAllClick = {
-                    navController.navigate(AppRoutes.TransactionList.route)
+                item {
+                    HomeHeader(
+                        user = currentUser,
+                        onProfileClick = onOpenDrawer,
+                        onNotificationClick = { navController.navigate(AppRoutes.Notifications.route) }
+                    )
                 }
-            )
+
+                item {
+                    WeeklySpendingCard(
+                        amountSpent = weeklySpending.first,
+                        lastWeekSpent = weeklySpending.second,
+                        currencySymbol = currency.symbol
+                    )
+                }
+
+                item {
+                    SpendingSection(
+                        categories = spendingCategories,
+                        isEmpty = spendingCategories.isEmpty()
+                    )
+                }
+
+                item {
+                    TransactionsSection(
+                        transactions = recentTransactions,
+                        currencySymbol = currency.symbol,
+                        onViewAllClick = {
+                            navController.navigate(AppRoutes.TransactionList.route)
+                        }
+                    )
+                }
+            }
         }
+
+        // LAYER 2: Overlay Banner
+        // We place it at the top. It is NOT inside the LazyColumn.
+        // It ignores paddingValues.top so it can slide in from the very edge of the screen.
+        SyncStatusOverlay(
+            status = syncStatus,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -100,6 +126,7 @@ fun HomeScreen(
 @Composable
 fun HomeHeader(
     user: UserUiModel?,
+    onProfileClick: () -> Unit,
     onNotificationClick: () -> Unit
 ) {
     Row(
@@ -111,8 +138,7 @@ fun HomeHeader(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
 
-            // --- UPDATED IMAGE LOADING ---
-            //
+            // Clickable avatar
             Image(
                 painter = painterResource(
                     id = com.example.fintrack.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
@@ -120,11 +146,10 @@ fun HomeHeader(
                 contentDescription = "User Avatar",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(48.dp) // Increased slightly for better look
+                    .size(48.dp)
                     .clip(CircleShape)
-                    //.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape)
+                    .clickable { onProfileClick() }
             )
-            // -----------------------------
 
             Spacer(modifier = Modifier.width(12.dp))
             Column {
@@ -480,3 +505,123 @@ fun SectionHeader(title: String, onViewAllClick: (() -> Unit)?) {
         }
     }
 }
+
+@Composable
+fun ProfileDrawerContent(
+    user: UserUiModel?,
+    onCloseDrawer: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
+    ModalDrawerSheet(
+        modifier = Modifier.width(280.dp),
+        drawerContainerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.fillMaxHeight()
+        ) {
+            // Profile Header
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Large Avatar with border
+                Box {
+                    Image(
+                        painter = painterResource(
+                            id = com.example.fintrack.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
+                        ),
+                        contentDescription = "User Avatar Large",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(CircleShape)
+                            .border(4.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                            .padding(4.dp)
+                    )
+                    // Online indicator
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .align(Alignment.BottomEnd)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .border(4.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = user?.fullName ?: "User Name",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Text(
+                    text = user?.email ?: "user@example.com",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            HorizontalDivider()
+            
+            // Menu Items
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 8.dp)
+            ) {
+                DrawerMenuItem(
+                    icon = Icons.Default.Person,
+                    text = "My Profile",
+                    onClick = onNavigateToProfile
+                )
+                
+                DrawerMenuItem(
+                    icon = Icons.Default.Settings,
+                    text = "Settings",
+                    onClick = onNavigateToSettings
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DrawerMenuItem(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(28.dp)
+        )
+        Spacer(modifier = Modifier.width(20.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+// Helper data class for tuple
+private data class Tuple4<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)

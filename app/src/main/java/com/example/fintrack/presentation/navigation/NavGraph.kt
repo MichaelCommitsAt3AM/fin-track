@@ -42,7 +42,8 @@ import com.example.fintrack.presentation.transactions.TransactionListScreen
 fun NavGraph(
     navController: NavHostController,
     paddingValues: PaddingValues,
-    startDestination: String
+    startDestination: String,
+    onOpenDrawer: () -> Unit = {}
 ) {
     // --- Animation Specs ---
 
@@ -194,7 +195,8 @@ fun NavGraph(
         ) {
             HomeScreen(
                 navController = navController,
-                paddingValues = paddingValues
+                paddingValues = paddingValues,
+                onOpenDrawer = onOpenDrawer
             )
         }
 

@@ -17,5 +17,7 @@ data class TransactionEntity(
     val paymentMethod: String?,
     val tags: List<String>? = null, // Room can handle simple lists
     val isSynced: Boolean = false, // Tracks if transaction has been synced to Firebase
-    val isPlanned: Boolean = false // Tracks if this is a future/planned transaction
+    val isPlanned: Boolean = false, // Tracks if this is a future/planned transaction
+    val updatedAt: Long = System.currentTimeMillis(), // Timestamp for incremental sync
+    val deletedAt: Long? = null // Soft delete timestamp for sync
 )

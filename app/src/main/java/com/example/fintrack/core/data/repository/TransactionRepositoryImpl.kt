@@ -12,6 +12,7 @@ import com.example.fintrack.core.domain.repository.NetworkRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.data.local.dao.RecurringTransactionDao
 import com.example.fintrack.core.data.local.model.RecurringTransactionEntity
+import com.example.fintrack.core.data.local.SyncTimestampManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,8 @@ class TransactionRepositoryImpl @Inject constructor(
     private val db: FinanceDatabase,
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val networkRepository: NetworkRepository
+    private val networkRepository: NetworkRepository,
+    private val syncTimestampManager: SyncTimestampManager
 ) : TransactionRepository {
 
     private val transactionDao: TransactionDao = db.transactionDao()
@@ -58,7 +60,8 @@ class TransactionRepositoryImpl @Inject constructor(
         val transactionWithId = transaction.copy(
             id = transactionId,
             userId = userId,
-            isPlanned = isPlanned
+            isPlanned = isPlanned,
+            updatedAt = currentTime // Set updatedAt for sync tracking
         )
 
         // OFFLINE-FIRST: 1. Always save locally first with isSynced = false
@@ -84,7 +87,8 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun updateTransaction(transaction: Transaction) {
         // OFFLINE-FIRST: 1. Update locally first, mark as unsynced
-        val entityToUpdate = transaction.toEntity()
+        val updatedTransaction = transaction.copy(updatedAt = System.currentTimeMillis())
+        val entityToUpdate = updatedTransaction.toEntity()
         transactionDao.updateTransaction(entityToUpdate)
         Log.d("TransactionRepo", "Transaction updated locally: ${transaction.id}")
 
@@ -94,7 +98,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 try {
                     getUserTransactionsCollection()
                         .document(transaction.id)
-                        .set(transaction)
+                        .set(updatedTransaction) // Upload with updatedAt
                         .await()
                     transactionDao.markAsSynced(transaction.id)
                     Log.d("TransactionRepo", "Transaction synced to Firestore: ${transaction.id}")
@@ -138,26 +142,56 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun syncTransactionsFromCloud() {
         getUserId()?.let { userId ->
             try {
-                Log.d("TransactionRepo", "Starting transaction sync for user: $userId")
-                val snapshot = getUserTransactionsCollection().get().await()
+                // Get last sync timestamp
+                val lastSyncTimestamp = syncTimestampManager.getLastTransactionSyncTimestamp()
+                val currentSyncTimestamp = System.currentTimeMillis()
+                
+                Log.d("TransactionRepo", "Incremental sync: fetching transactions updated after $lastSyncTimestamp")
+                
+                // Query only transactions updated since last sync
+                val query = if (lastSyncTimestamp > 0) {
+                    // Incremental sync: fetch only changes
+                    getUserTransactionsCollection()
+                        .whereGreaterThan("updatedAt", lastSyncTimestamp)
+                } else {
+                    // First sync: fetch all
+                    Log.d("TransactionRepo","First sync - fetching all transactions")
+                    getUserTransactionsCollection()
+                }
+                
+                val snapshot = query.get().await()
 
-                Log.d("TransactionRepo", "Found ${snapshot.size()} transactions in Firestore")
+                Log.d("TransactionRepo", "Found ${snapshot.size()} changed transactions")
 
                 val entities = snapshot.documents.mapNotNull { doc ->
                     try {
-                        val entity = TransactionEntity(
-                            id = doc.id,
-                            userId = userId,
-                            type = doc.getString("type") ?: "",
-                            amount = doc.getDouble("amount") ?: 0.0,
-                            category = doc.getString("category") ?: "",
-                            date = doc.getLong("date") ?: 0L,
-                            notes = doc.getString("notes"),
-                            paymentMethod = doc.getString("paymentMethod"),
-                            tags = doc.get("tags") as? List<String>
-                        )
-                        Log.d("TransactionRepo", "Mapped transaction: ${entity.id}")
-                        entity
+                        val deletedAt = doc.getLong("deletedAt")
+                        
+                        // If transaction is marked as deleted, delete it locally
+                        if (deletedAt != null) {
+                            Log.d("TransactionRepo", "Deleting transaction: ${doc.id}")
+                            transactionDao.deleteById(doc.id)
+                            null // Don't insert deleted items
+                        } else {
+                            // Normal transaction - insert/update
+                            val entity = TransactionEntity(
+                                id = doc.id,
+                                userId = userId,
+                                type = doc.getString("type") ?: "",
+                                amount = doc.getDouble("amount") ?: 0.0,
+                                category = doc.getString("category") ?: "",
+                                date = doc.getLong("date") ?: 0L,
+                                notes = doc.getString("notes"),
+                                paymentMethod = doc.getString("paymentMethod"),
+                                tags = doc.get("tags") as? List<String>,
+                                updatedAt = doc.getLong("updatedAt") ?: System.currentTimeMillis(),
+                                deletedAt = null,
+                                isSynced = true, // Mark as synced since it's from cloud
+                                isPlanned = doc.getBoolean("isPlanned") ?: false
+                            )
+                            Log.d("TransactionRepo", "Mapped transaction: ${entity.id}")
+                            entity
+                        }
                     } catch (e: Exception) {
                         Log.e("TransactionRepo", "Error mapping document ${doc.id}: ${e.message}", e)
                         null
@@ -165,12 +199,14 @@ class TransactionRepositoryImpl @Inject constructor(
                 }
 
                 if (entities.isNotEmpty()) {
-                    Log.d("TransactionRepo", "Inserting ${entities.size} transactions into Room")
+                    Log.d("TransactionRepo", "Inserting/updating ${entities.size} transactions")
                     transactionDao.insertAll(entities)
-                    Log.d("TransactionRepo", "Sync completed successfully")
-                } else {
-                    Log.w("TransactionRepo", "No valid transactions to sync")
                 }
+                
+                // Update last sync timestamp
+                syncTimestampManager.setLastTransactionSyncTimestamp(currentSyncTimestamp)
+                Log.d("TransactionRepo", "Incremental sync completed successfully")
+                
             } catch (e: Exception) {
                 Log.e("TransactionRepo", "Sync failed: ${e.message}", e)
             }
@@ -292,10 +328,14 @@ class TransactionRepositoryImpl @Inject constructor(
 
             unsyncedTransactions.forEach { entity ->
                 try {
-                    val transaction = entity.toDomain()
+                    // Convert to domain and set updatedAt
+                    val transaction = entity.toDomain().copy(
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    
                     getUserTransactionsCollection()
                         .document(entity.id)
-                        .set(transaction)
+                        .set(transaction) // Upload with updatedAt
                         .await()
                     transactionDao.markAsSynced(entity.id)
                     Log.d("TransactionRepo", "Synced transaction: ${entity.id}")

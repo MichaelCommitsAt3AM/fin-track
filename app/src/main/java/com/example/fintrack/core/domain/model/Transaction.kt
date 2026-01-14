@@ -11,7 +11,9 @@ data class Transaction(
     val notes: String?,
     val paymentMethod: String?,
     val tags: List<String>?,
-    val isPlanned: Boolean = false // Marks future-dated transactions as planned
+    val isPlanned: Boolean = false, // Marks future-dated transactions as planned
+    val updatedAt: Long = System.currentTimeMillis(), // For incremental sync
+    val deletedAt: Long? = null // Soft delete for sync
 )
 
 // Using an enum for transaction type is safer in the domain layer

@@ -17,12 +17,22 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+
+// Sync status for UI feedback
+sealed class SyncStatus {
+    object Idle : SyncStatus()
+    object Syncing : SyncStatus()
+    object Success : SyncStatus()
+    data class Error(val message: String) : SyncStatus()
+}
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -33,6 +43,10 @@ class HomeViewModel @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
+
+    // --- Sync Status ---
+    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
 
     // --- Network Connectivity State ---
     val isOnline: StateFlow<Boolean> = networkRepository.observeNetworkConnectivity()
@@ -248,5 +262,41 @@ class HomeViewModel @Inject constructor(
     private fun formatDate(dateMillis: Long): String {
         val sdf = SimpleDateFormat("dd MMM", Locale.getDefault())
         return sdf.format(Date(dateMillis))
+    }
+
+    // Manual sync trigger for pull-to-refresh
+    fun triggerManualSync() {
+        if (_syncStatus.value is SyncStatus.Syncing) return
+
+        viewModelScope.launch {
+            _syncStatus.value = SyncStatus.Syncing
+            try {
+                // Optional: Add a minimum delay here if the network is too fast
+                // so the spinner doesn't just "flicker" for 10ms.
+                val syncJob = launch {
+                    transactionRepository.syncTransactionsFromCloud()
+                    transactionRepository.syncUnsyncedTransactions()
+                }
+                // Ensure the spinner shows for at least 500ms even if net is instant
+                delay(500)
+                syncJob.join() // Wait for actual sync to finish
+
+                _syncStatus.value = SyncStatus.Success
+
+                // REDUCE THIS: 2000ms -> 800ms
+                // Long enough to read "Success", short enough to not be annoying
+                delay(800)
+
+                _syncStatus.value = SyncStatus.Idle
+            } catch (e: Exception) {
+                _syncStatus.value = SyncStatus.Error(e.message ?: "Sync failed")
+
+                // REDUCE THIS: 3000ms -> 2000ms
+                // Errors need slightly more time to read, but 3s is long.
+                delay(2000)
+
+                _syncStatus.value = SyncStatus.Idle
+            }
+        }
     }
 }

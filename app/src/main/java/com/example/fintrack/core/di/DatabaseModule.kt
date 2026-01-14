@@ -72,7 +72,8 @@ object DatabaseModule {
                 FinanceDatabase.MIGRATION_1_2,
                 FinanceDatabase.MIGRATION_2_3,
                 FinanceDatabase.MIGRATION_3_4,
-                FinanceDatabase.MIGRATION_4_5
+                FinanceDatabase.MIGRATION_4_5,
+                FinanceDatabase.MIGRATION_5_6
             )
             .fallbackToDestructiveMigration() // TODO: Remove before production release!
             .build()
