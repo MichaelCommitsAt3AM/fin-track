@@ -30,5 +30,7 @@ interface TransactionRepository {
     suspend fun syncTransactionsFromCloud()
 
     suspend fun syncRecurringTransactionsFromCloud() // ADD THIS
+    
+    suspend fun syncUnsyncedTransactions() // Sync local unsynced transactions to cloud
 
 }

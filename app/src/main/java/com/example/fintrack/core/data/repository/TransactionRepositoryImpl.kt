@@ -8,9 +8,10 @@ import com.example.fintrack.core.data.mapper.toDomain
 import com.example.fintrack.core.data.mapper.toEntity
 import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.Transaction
+import com.example.fintrack.core.domain.repository.NetworkRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
-import com.example.fintrack.data.local.dao.RecurringTransactionDao
-import com.example.fintrack.data.local.model.RecurringTransactionEntity
+import com.example.fintrack.core.data.local.dao.RecurringTransactionDao
+import com.example.fintrack.core.data.local.model.RecurringTransactionEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +22,8 @@ import javax.inject.Inject
 class TransactionRepositoryImpl @Inject constructor(
     private val db: FinanceDatabase,
     private val firebaseAuth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val networkRepository: NetworkRepository
 ) : TransactionRepository {
 
     private val transactionDao: TransactionDao = db.transactionDao()
@@ -54,35 +56,48 @@ class TransactionRepositoryImpl @Inject constructor(
             userId = userId
         )
 
-        // 1. Save locally
+        // OFFLINE-FIRST: 1. Always save locally first with isSynced = false
         transactionDao.insertTransaction(transactionWithId.toEntity())
+        Log.d("TransactionRepo", "Transaction saved locally: $transactionId")
 
-        // 2. Save to Firestore
-        try {
-            getUserTransactionsCollection()
-                .document(transactionId)
-                .set(transactionWithId)
-                .await()
-            Log.d("TransactionRepo", "Transaction saved with ID: $transactionId")
-        } catch (e: Exception) {
-            Log.e("TransactionRepo", "Error saving to Firestore: ${e.message}")
+        // 2. If online, attempt to sync to Firestore immediately
+        if (networkRepository.isNetworkAvailable()) {
+            try {
+                getUserTransactionsCollection()
+                    .document(transactionId)
+                    .set(transactionWithId)
+                    .await()
+                transactionDao.markAsSynced(transactionId)
+                Log.d("TransactionRepo", "Transaction synced to Firestore: $transactionId")
+            } catch (e: Exception) {
+                Log.e("TransactionRepo", "Error syncing to Firestore (will retry later): ${e.message}")
+            }
+        } else {
+            Log.d("TransactionRepo", "Offline - transaction will sync when online")
         }
     }
 
     override suspend fun updateTransaction(transaction: Transaction) {
-        // 1. Update locally
-        transactionDao.updateTransaction(transaction.toEntity())
+        // OFFLINE-FIRST: 1. Update locally first, mark as unsynced
+        val entityToUpdate = transaction.toEntity()
+        transactionDao.updateTransaction(entityToUpdate)
+        Log.d("TransactionRepo", "Transaction updated locally: ${transaction.id}")
 
-        // 2. Update in Firestore
+        // 2. If online, attempt to sync to Firestore immediately
         getUserId()?.let {
-            try {
-                getUserTransactionsCollection()
-                    .document(transaction.id)
-                    .set(transaction)
-                    .await()
-                Log.d("TransactionRepo", "Transaction updated: ${transaction.id}")
-            } catch (e: Exception) {
-                Log.e("TransactionRepo", "Error updating Firestore: ${e.message}")
+            if (networkRepository.isNetworkAvailable()) {
+                try {
+                    getUserTransactionsCollection()
+                        .document(transaction.id)
+                        .set(transaction)
+                        .await()
+                    transactionDao.markAsSynced(transaction.id)
+                    Log.d("TransactionRepo", "Transaction synced to Firestore: ${transaction.id}")
+                } catch (e: Exception) {
+                    Log.e("TransactionRepo", "Error syncing to Firestore (will retry later): ${e.message}")
+                }
+            } else {
+                Log.d("TransactionRepo", "Offline - update will sync when online")
             }
         }
     }
@@ -253,5 +268,40 @@ class TransactionRepositoryImpl @Inject constructor(
                 Log.e("TransactionRepo", "Recurring transactions sync failed: ${e.message}", e)
             }
         } ?: Log.e("TransactionRepo", "Cannot sync: User ID is null")
+    }
+
+    override suspend fun syncUnsyncedTransactions() {
+        val userId = getUserId() ?: run {
+            Log.e("TransactionRepo", "Cannot sync: User not logged in")
+            return
+        }
+
+        if (!networkRepository.isNetworkAvailable()) {
+            Log.d("TransactionRepo", "Network unavailable, skipping sync")
+            return
+        }
+
+        try {
+            val unsyncedTransactions = transactionDao.getUnsyncedTransactions(userId)
+            Log.d("TransactionRepo", "Found ${unsyncedTransactions.size} unsynced transactions")
+
+            unsyncedTransactions.forEach { entity ->
+                try {
+                    val transaction = entity.toDomain()
+                    getUserTransactionsCollection()
+                        .document(entity.id)
+                        .set(transaction)
+                        .await()
+                    transactionDao.markAsSynced(entity.id)
+                    Log.d("TransactionRepo", "Synced transaction: ${entity.id}")
+                } catch (e: Exception) {
+                    Log.e("TransactionRepo", "Failed to sync transaction ${entity.id}: ${e.message}")
+                }
+            }
+
+            Log.d("TransactionRepo", "Sync completed")
+        } catch (e: Exception) {
+            Log.e("TransactionRepo", "Error during sync: ${e.message}", e)
+        }
     }
 }

@@ -184,7 +184,7 @@ fun TransactionListScreen(
                             }
                             items(
                                 items = transactions,
-                                key = { it.dateMillis }
+                                key = { it.id }
                             ) { transaction ->
                                 TransactionListItem(transaction, currency.symbol)
                             }

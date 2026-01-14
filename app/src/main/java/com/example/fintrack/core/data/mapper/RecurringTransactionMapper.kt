@@ -3,7 +3,7 @@ package com.example.fintrack.core.data.mapper
 import com.example.fintrack.core.domain.model.RecurrenceFrequency
 import com.example.fintrack.core.domain.model.RecurringTransaction
 import com.example.fintrack.core.domain.model.TransactionType
-import com.example.fintrack.data.local.model.RecurringTransactionEntity
+import com.example.fintrack.core.data.local.model.RecurringTransactionEntity
 
 fun RecurringTransaction.toEntity(): RecurringTransactionEntity {
     return RecurringTransactionEntity(

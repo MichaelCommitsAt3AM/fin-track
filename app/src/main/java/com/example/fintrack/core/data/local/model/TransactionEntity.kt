@@ -15,5 +15,6 @@ data class TransactionEntity(
     val date: Long, // Store as a timestamp for easy sorting/filtering
     val notes: String?,
     val paymentMethod: String?,
-    val tags: List<String>? = null // Room can handle simple lists
+    val tags: List<String>? = null, // Room can handle simple lists
+    val isSynced: Boolean = false // Tracks if transaction has been synced to Firebase
 )

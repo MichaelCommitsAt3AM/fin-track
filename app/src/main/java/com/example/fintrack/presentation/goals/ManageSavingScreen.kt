@@ -46,6 +46,7 @@ fun ManageSavingScreen(
 ) {
     val domainSaving by viewModel.currentSaving.collectAsState()
     val domainContributions by viewModel.contributions.collectAsState()
+    val currency by viewModel.currencyPreference.collectAsState()
     
     // Map domain model to UI model
     val saving = domainSaving?.toUiModel(domainContributions)
@@ -188,13 +189,14 @@ fun ManageSavingScreen(
             item {
                 SavingProgressHero(
                     saving = displaySaving,
-                    percentage = percentage
+                    percentage = percentage,
+                    currency = currency
                 )
             }
 
             // Quick Stats Cards
             item {
-                QuickStatsRow(saving = displaySaving, percentage = percentage)
+                QuickStatsRow(saving = displaySaving, percentage = percentage, currency = currency)
             }
 
             // Add Contribution Button
@@ -234,7 +236,7 @@ fun ManageSavingScreen(
             }
 
             items(displayContributions.sortedByDescending { it.date }) { contribution ->
-                ContributionHistoryItem(contribution = contribution)
+                ContributionHistoryItem(contribution = contribution, currency = currency)
             }
 
             // Empty state if no contributions
@@ -254,7 +256,8 @@ fun ManageSavingScreen(
                 viewModel.addContribution(savingId, amount, note)
                 showContributionDialog = false
             },
-            color = displaySaving.color
+            color = displaySaving.color,
+            currency = currency
         )
     }
 
@@ -299,7 +302,8 @@ fun ManageSavingScreen(
 @Composable
 fun SavingProgressHero(
     saving: SavingGoal,
-    percentage: Float
+    percentage: Float,
+    currency: com.example.fintrack.core.domain.model.Currency
 ) {
     val animatedProgress = remember { Animatable(0f) }
 
@@ -377,13 +381,13 @@ fun SavingProgressHero(
 
             // Amount display
             Text(
-                text = "$${String.format("%,.2f", saving.currentAmount)}",
+                text = "${currency.symbol}${String.format("%,.2f", saving.currentAmount)}",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = saving.color
             )
             Text(
-                text = "of $${String.format("%,.2f", saving.targetAmount)}",
+                text = "of ${currency.symbol}${String.format("%,.2f", saving.targetAmount)}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -392,7 +396,7 @@ fun SavingProgressHero(
 }
 
 @Composable
-fun QuickStatsRow(saving: SavingGoal, percentage: Float) {
+fun QuickStatsRow(saving: SavingGoal, percentage: Float, currency: com.example.fintrack.core.domain.model.Currency) {
     val remaining = saving.targetAmount - saving.currentAmount
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
@@ -411,7 +415,7 @@ fun QuickStatsRow(saving: SavingGoal, percentage: Float) {
             modifier = Modifier.weight(1f),
             icon = Icons.Default.TrendingUp,
             label = "Remaining",
-            value = "$${String.format("%,.0f", remaining)}",
+            value = "${currency.symbol}${String.format("%,.0f", remaining)}",
             color = Color(0xFFF59E0B)
         )
     }
@@ -469,7 +473,7 @@ fun StatCard(
 }
 
 @Composable
-fun ContributionHistoryItem(contribution: UiContribution) {
+fun ContributionHistoryItem(contribution: UiContribution, currency: com.example.fintrack.core.domain.model.Currency) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Card(
@@ -521,7 +525,7 @@ fun ContributionHistoryItem(contribution: UiContribution) {
                 }
             }
             Text(
-                text = "+$${String.format("%.2f", contribution.amount)}",
+                text = "+${currency.symbol}${String.format("%.2f", contribution.amount)}",
                 fontWeight = FontWeight.Bold,
                 color = FinTrackGreen,
                 style = MaterialTheme.typography.bodyLarge
@@ -564,7 +568,8 @@ fun EmptyContributionState() {
 fun AddContributionDialog(
     onDismiss: () -> Unit,
     onConfirm: (amount: Double, note: String) -> Unit,
-    color: Color
+    color: Color,
+    currency: com.example.fintrack.core.domain.model.Currency
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -589,7 +594,7 @@ fun AddContributionDialog(
                         }
                     },
                     label = { Text("Amount") },
-                    leadingIcon = { Text("$", fontWeight = FontWeight.Bold) },
+                    leadingIcon = { Text(currency.symbol, fontWeight = FontWeight.Bold) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

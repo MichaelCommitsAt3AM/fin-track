@@ -30,6 +30,7 @@ import com.example.fintrack.presentation.goals.AddSavingScreen
 import com.example.fintrack.presentation.goals.GoalsScreen
 import com.example.fintrack.presentation.goals.ManageSavingScreen
 import com.example.fintrack.presentation.goals.ManageDebtScreen
+import com.example.fintrack.presentation.goals.ManageBudgetScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.notifications.NotificationScreen
 import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
@@ -280,6 +281,26 @@ fun NavGraph(
                 onEdit = { 
                     // Navigate to AddDebt screen in edit mode
                     navController.navigate(AppRoutes.AddDebt.route)
+                }
+            )
+        }
+
+        composable(
+            route = AppRoutes.ManageBudget.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
+        ) { backStackEntry ->
+            val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
+            val month = backStackEntry.arguments?.getString("month")?.toIntOrNull() ?: 1
+            val year = backStackEntry.arguments?.getString("year")?.toIntOrNull() ?: 2024
+            ManageBudgetScreen(
+                categoryName = categoryName,
+                month = month,
+                year = year,
+                onNavigateBack = { navController.popBackStack() },
+                onEdit = { 
+                    // Navigate to AddBudget screen in edit mode
+                    navController.navigate(AppRoutes.AddBudget.route)
                 }
             )
         }

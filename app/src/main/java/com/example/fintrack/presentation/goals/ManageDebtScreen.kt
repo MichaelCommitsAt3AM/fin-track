@@ -46,6 +46,7 @@ fun ManageDebtScreen(
 ) {
     val domainDebt by viewModel.currentDebt.collectAsState()
     val domainPayments by viewModel.payments.collectAsState()
+    val currency by viewModel.currencyPreference.collectAsState()
     
     // Map domain model to UI model
     val debt = domainDebt?.toUiModel(domainPayments)
@@ -176,13 +177,14 @@ fun ManageDebtScreen(
             item {
                 DebtProgressHero(
                     debt = displayDebt,
-                    paidPercentage = paidPercentage
+                    paidPercentage = paidPercentage,
+                    currency = currency
                 )
             }
 
             // Quick Stats Cards
             item {
-                DebtQuickStatsRow(debt = displayDebt)
+                DebtQuickStatsRow(debt = displayDebt, currency = currency)
             }
 
             // Make Payment Button
@@ -222,7 +224,7 @@ fun ManageDebtScreen(
             }
 
             items(displayPayments.sortedByDescending { it.date }) { payment ->
-                PaymentHistoryItem(payment = payment)
+                PaymentHistoryItem(payment = payment, currency = currency)
             }
 
             // Empty state if no payments
@@ -242,7 +244,8 @@ fun ManageDebtScreen(
                 viewModel.makePayment(debtId, amount, note)
                 showPaymentDialog = false
             },
-            minimumPayment = displayDebt.minimumPayment
+            minimumPayment = displayDebt.minimumPayment,
+            currency = currency
         )
     }
 
@@ -287,7 +290,8 @@ fun ManageDebtScreen(
 @Composable
 fun DebtProgressHero(
     debt: DebtGoal,
-    paidPercentage: Float
+    paidPercentage: Float,
+    currency: com.example.fintrack.core.domain.model.Currency
 ) {
     val animatedProgress = remember { Animatable(0f) }
 
@@ -365,7 +369,7 @@ fun DebtProgressHero(
 
             // Balance display
             Text(
-                text = "$${String.format("%,.2f", debt.currentBalance)}",
+                text = "${currency.symbol}${String.format("%,.2f", debt.currentBalance)}",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = debt.color
@@ -376,7 +380,7 @@ fun DebtProgressHero(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "of $${String.format("%,.2f", debt.originalAmount)} original",
+                text = "of ${currency.symbol}${String.format("%,.2f", debt.originalAmount)} original",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
@@ -385,7 +389,7 @@ fun DebtProgressHero(
 }
 
 @Composable
-fun DebtQuickStatsRow(debt: DebtGoal) {
+fun DebtQuickStatsRow(debt: DebtGoal, currency: com.example.fintrack.core.domain.model.Currency) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Row(
@@ -403,14 +407,14 @@ fun DebtQuickStatsRow(debt: DebtGoal) {
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Payment,
             label = "Min Payment",
-            value = "$${String.format("%.2f", debt.minimumPayment)}",
+            value = "${currency.symbol}${String.format("%.2f", debt.minimumPayment)}",
             color = Color(0xFFF39C12)
         )
     }
 }
 
 @Composable
-fun PaymentHistoryItem(payment: UiPayment) {
+fun PaymentHistoryItem(payment: UiPayment, currency: com.example.fintrack.core.domain.model.Currency) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Card(
@@ -462,7 +466,7 @@ fun PaymentHistoryItem(payment: UiPayment) {
                 }
             }
             Text(
-                text = "-$${String.format("%.2f", payment.amount)}",
+                text = "-${currency.symbol}${String.format("%.2f", payment.amount)}",
                 fontWeight = FontWeight.Bold,
                 color = FinTrackGreen,
                 style = MaterialTheme.typography.bodyLarge
@@ -505,7 +509,8 @@ fun EmptyPaymentState() {
 fun MakePaymentDialog(
     onDismiss: () -> Unit,
     onConfirm: (amount: Double, note: String) -> Unit,
-    minimumPayment: Double
+    minimumPayment: Double,
+    currency: com.example.fintrack.core.domain.model.Currency
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -523,7 +528,7 @@ fun MakePaymentDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Minimum payment: $${String.format("%.2f", minimumPayment)}",
+                    text = "Minimum payment: ${currency.symbol}${String.format("%.2f", minimumPayment)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -535,7 +540,7 @@ fun MakePaymentDialog(
                         }
                     },
                     label = { Text("Amount") },
-                    leadingIcon = { Text("$", fontWeight = FontWeight.Bold) },
+                    leadingIcon = { Text(currency.symbol, fontWeight = FontWeight.Bold) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

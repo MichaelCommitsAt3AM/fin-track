@@ -70,7 +70,8 @@ object DatabaseModule {
             // It deletes all user data. Only use during active development.
             .addMigrations(
                 FinanceDatabase.MIGRATION_1_2,
-                FinanceDatabase.MIGRATION_2_3
+                FinanceDatabase.MIGRATION_2_3,
+                FinanceDatabase.MIGRATION_3_4
             )
             .fallbackToDestructiveMigration() // TODO: Remove before production release!
             .build()

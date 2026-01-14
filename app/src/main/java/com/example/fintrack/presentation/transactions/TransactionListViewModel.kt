@@ -83,6 +83,7 @@ class TransactionListViewModel @Inject constructor(
             val displayAmount = if (transaction.type == TransactionType.EXPENSE) -transaction.amount else transaction.amount
 
             TransactionItemData(
+                id = transaction.id,
                 title = transaction.notes ?: transaction.category,
                 category = transaction.category,
                 amount = displayAmount,
@@ -127,6 +128,7 @@ class TransactionListViewModel @Inject constructor(
 
 // Updated Data Class to include dateMillis for grouping logic
 data class TransactionItemData(
+    val id: String,
     val title: String,
     val category: String,
     val amount: Double,

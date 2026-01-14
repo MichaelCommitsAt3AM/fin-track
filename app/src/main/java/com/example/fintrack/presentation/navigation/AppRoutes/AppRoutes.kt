@@ -41,6 +41,11 @@ sealed class AppRoutes(val route: String) {
     object ManageDebt : AppRoutes("manage_debt_screen/{debtId}") {
         fun createRoute(debtId: String) = "manage_debt_screen/$debtId"
     }
+    
+    object ManageBudget : AppRoutes("manage_budget_screen/{categoryName}/{month}/{year}") {
+        fun createRoute(categoryName: String, month: Int, year: Int) = 
+            "manage_budget_screen/$categoryName/$month/$year"
+    }
 
 
     // Settings feature

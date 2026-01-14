@@ -16,7 +16,8 @@ fun Transaction.toEntity(): TransactionEntity {
         date = this.date,
         notes = this.notes,
         paymentMethod = this.paymentMethod,
-        tags = this.tags
+        tags = this.tags,
+        isSynced = false // New transactions start as unsynced
     )
 }
 

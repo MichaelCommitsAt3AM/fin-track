@@ -42,4 +42,12 @@ interface TransactionDao {
     // Delete all transactions for a user (useful for logout)
     @Query("DELETE FROM transactions WHERE userId = :userId")
     suspend fun deleteAllForUser(userId:String)
+
+    // Get all unsynced transactions for a user
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND isSynced = 0 ORDER BY date DESC")
+    suspend fun getUnsyncedTransactions(userId: String): List<TransactionEntity>
+
+    // Mark a transaction as synced
+    @Query("UPDATE transactions SET isSynced = 1 WHERE id = :transactionId")
+    suspend fun markAsSynced(transactionId: String)
 }

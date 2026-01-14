@@ -13,8 +13,8 @@ import com.example.fintrack.core.data.local.model.BudgetEntity
 import com.example.fintrack.core.data.local.model.CategoryEntity
 import com.example.fintrack.core.data.local.model.TransactionEntity
 import com.example.fintrack.core.data.local.model.PaymentMethodEntity
-import com.example.fintrack.data.local.model.RecurringTransactionEntity
-import com.example.fintrack.data.local.dao.RecurringTransactionDao
+import com.example.fintrack.core.data.local.model.RecurringTransactionEntity
+import com.example.fintrack.core.data.local.dao.RecurringTransactionDao
 import com.example.fintrack.core.data.local.model.UserEntity
 import com.example.fintrack.core.data.local.dao.UserDao
 import com.example.fintrack.core.data.local.model.SavingEntity
@@ -43,7 +43,7 @@ import com.example.fintrack.core.data.local.dao.NotificationDao
         NotificationEntity::class,
         PaymentMethodEntity::class
     ],
-    version = 3 // Added isActive to PaymentMethodEntity
+    version = 4 // Added isSynced field to TransactionEntity
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -88,6 +88,15 @@ abstract class FinanceDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     """ALTER TABLE payment_methods ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1"""
+                )
+            }
+        }
+        
+        // Migration from version 3 to 4: Add isSynced column to transactions
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """ALTER TABLE transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"""
                 )
             }
         }

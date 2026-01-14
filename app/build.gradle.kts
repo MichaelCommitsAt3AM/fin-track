@@ -38,17 +38,24 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(project.property("RELEASE_STORE_FILE") as String)
-            storePassword = project.property("RELEASE_STORE_PASSWORD") as String
-            keyAlias = project.property("RELEASE_KEY_ALIAS") as String
-            keyPassword = project.property("RELEASE_KEY_PASSWORD") as String
+        if (
+            project.hasProperty("RELEASE_STORE_FILE") &&
+            project.hasProperty("RELEASE_STORE_PASSWORD") &&
+            project.hasProperty("RELEASE_KEY_ALIAS") &&
+            project.hasProperty("RELEASE_KEY_PASSWORD")
+        ) {
+            create("release") {
+                storeFile = file(project.property("RELEASE_STORE_FILE") as String)
+                storePassword = project.property("RELEASE_STORE_PASSWORD") as String
+                keyAlias = project.property("RELEASE_KEY_ALIAS") as String
+                keyPassword = project.property("RELEASE_KEY_PASSWORD") as String
+            }
         }
     }
 
+
     buildTypes {
         debug {
-            // You can leave this empty or add custom settings
             isMinifyEnabled = false
         }
         release {
@@ -57,7 +64,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+
+            signingConfigs.findByName("release")?.let {
+                signingConfig = it
+            }
         }
     }
 }
