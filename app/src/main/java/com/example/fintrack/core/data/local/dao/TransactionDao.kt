@@ -26,9 +26,10 @@ interface TransactionDao {
         WHERE userId = :userId 
         AND (isPlanned = 0 OR date <= :currentTime)
         ORDER BY date DESC
+        LIMIT :limit
     """)
-    fun getAllTransactions(userId: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
-
+    fun getAllTransactionsPaged(userId: String, limit: Int, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
+    
     // Get all transactions within a specific date range
     @Query("SELECT * FROM transactions WHERE userId  = :userId AND date BETWEEN :startDate AND :endDate")
     fun getTransactionsByDateRange(userId: String, startDate: Long, endDate: Long): Flow<List<TransactionEntity>>
@@ -40,8 +41,19 @@ interface TransactionDao {
         AND type = :type 
         AND (isPlanned = 0 OR date <= :currentTime)
         ORDER BY date DESC
+        LIMIT :limit
     """)
-    fun getTransactionsByType(userId: String, type: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
+    fun getTransactionsByTypePaged(userId: String, type: String, limit: Int, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
+
+    // Search transactions by notes or category
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE userId = :userId 
+        AND (notes LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%')
+        AND (isPlanned = 0 OR date <= :currentTime)
+        ORDER BY date DESC
+    """)
+    fun searchTransactions(userId: String, query: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
 
     // Get recent transactions, excluding planned
     @Query("""

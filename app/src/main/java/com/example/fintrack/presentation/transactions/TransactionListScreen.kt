@@ -2,6 +2,7 @@ package com.example.fintrack.presentation.transactions
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,6 +10,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,7 +51,7 @@ fun TransactionListScreen(
     val groupedTransactions by viewModel.uiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
     
-    val listState = rememberLazyListState()
+
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -114,22 +116,10 @@ fun TransactionListScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // --- Filter Tabs (All / Income / Expense) ---
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .padding(4.dp)
-            ) {
-                // FIX: Call ViewModel functions instead of setting local state manually
-                FilterTab("All", selectedFilter == "All") { viewModel.onFilterSelected("All") }
-                FilterTab("Income", selectedFilter == "Income") { viewModel.onFilterSelected("Income") }
-                FilterTab(
-                    text = "Expense", 
-                    isSelected = selectedFilter == "Expense",
-                    selectedContainerColor = MaterialTheme.colorScheme.error // Red for Expense
-                ) { viewModel.onFilterSelected("Expense") }
-            }
+            TransactionListSegmentedControl(
+                selectedFilter = selectedFilter,
+                onFilterSelected = { viewModel.onFilterSelected(it) }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -168,6 +158,19 @@ fun TransactionListScreen(
                         )
                     }
                 } else {
+                    val listState = rememberLazyListState()
+                    
+                    // Infinite Scroll Logic
+                    LaunchedEffect(listState) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                            .collect { index ->
+                                val totalItems = listState.layoutInfo.totalItemsCount
+                                if (index != null && totalItems > 0 && index >= totalItems - 5) {
+                                    viewModel.loadMore()
+                                }
+                            }
+                    }
+
                     LazyColumn(
                         state = listState,
                         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -198,39 +201,83 @@ fun TransactionListScreen(
 }
 
 @Composable
-fun RowScope.FilterTab(
-    text: String, 
-    isSelected: Boolean, 
-    selectedContainerColor: Color = MaterialTheme.colorScheme.primary,
-    onClick: () -> Unit
+fun TransactionListSegmentedControl(
+    selectedFilter: String,
+    onFilterSelected: (String) -> Unit
 ) {
-    val targetContainerColor = if (isSelected) selectedContainerColor else Color.Transparent
-    val targetContentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val tabs = listOf("All", "Income", "Expense")
     
-    val containerColor by animateColorAsState(
-        targetValue = targetContainerColor, 
-        animationSpec = tween(300),
-        label = "containerColor"
-    )
-    
-    val contentColor by animateColorAsState(
-        targetValue = targetContentColor, 
-        animationSpec = tween(300),
-        label = "contentColor"
-    )
+    // Determine the color based on selection
+    val selectedColor = when (selectedFilter) {
+        "Expense" -> MaterialTheme.colorScheme.error
+        else -> FinTrackGreen
+    }
 
-    Button(
-        onClick = onClick,
-        modifier = Modifier.weight(1f),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor, 
-            contentColor = contentColor
-        ),
-        shape = RoundedCornerShape(50),
-        elevation = ButtonDefaults.buttonElevation(0.dp),
-        contentPadding = PaddingValues(vertical = 8.dp)
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp) // Slightly taller for touch target
+            .clip(RoundedCornerShape(50)) // Fully rounded pill shape
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(4.dp)
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
+        val segmentWidth = maxWidth / tabs.size
+        val selectedIndex = tabs.indexOf(selectedFilter)
+
+        val indicatorOffset by animateDpAsState(
+            targetValue = segmentWidth * selectedIndex,
+            animationSpec = tween(durationMillis = 300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            label = "indicatorOffset"
+        )
+        
+        // Animated color for the indicator
+        val indicatorColor by animateColorAsState(
+            targetValue = selectedColor,
+            animationSpec = tween(durationMillis = 300),
+            label = "indicatorColor" 
+        )
+
+        // Sliding Indicator
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(50))
+                .background(indicatorColor)
+        )
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            tabs.forEach { tab ->
+                val isSelected = tab == selectedFilter
+
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "textColor"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .width(segmentWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(50))
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) { onFilterSelected(tab) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = tab,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = textColor,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
     }
 }
 

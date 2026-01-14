@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -44,33 +45,45 @@ class TransactionListViewModel @Inject constructor(
             initialValue = Currency.KSH
         )
 
+    private val _currentLimit = MutableStateFlow(20)
+    val currentLimit: StateFlow<Int> = _currentLimit
+
     // We need categories to map icons/colors correctly
     private val categoriesFlow = categoryRepository.getAllCategories()
 
-    // Combine transactions, categories, search, and filter into one UI state
-    val uiState = combine(
-        transactionRepository.getAllTransactions(),
-        categoriesFlow,
+    // Dynamic transaction flow based on Search, Filter, and Limit
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val transactionsFlow = combine(
         _searchQuery,
+        _selectedFilter,
+        _currentLimit
+    ) { query, filter, limit ->
+        Triple(query, filter, limit)
+    }.flatMapLatest { (query, filter, limit) ->
+        if (query.isNotEmpty()) {
+            transactionRepository.searchTransactions(query)
+        } else {
+            if (filter == "All") {
+                transactionRepository.getAllTransactionsPaged(limit)
+            } else {
+                transactionRepository.getTransactionsByTypePaged(filter.uppercase(), limit)
+            }
+        }
+    }
+
+    // Combine transactions, categories => UI State
+    val uiState = combine(
+        transactionsFlow,
+        categoriesFlow,
+        _searchQuery, // We still need query here for highlighting if needed, though filtering is done in repo now
         _selectedFilter
     ) { transactions, categories, query, filter ->
 
-        // 1. Filter by Type and Search Query
-        val filteredList = transactions.filter { transaction ->
-            val matchesSearch = transaction.notes?.contains(query, ignoreCase = true) == true ||
-                    transaction.category.contains(query, ignoreCase = true)
-
-            val matchesFilter = when (filter) {
-                "Income" -> transaction.type == TransactionType.INCOME
-                "Expense" -> transaction.type == TransactionType.EXPENSE
-                else -> true // "All"
-            }
-
-            matchesSearch && matchesFilter
-        }
-
+        // 1. Transactions are already filtered by Repo (Paged or Searched)
+        // We just map them to UI implementation
+        
         // 2. Map to UI Model (Add Icons/Colors)
-        val uiList = filteredList.map { transaction ->
+        val uiList = transactions.map { transaction ->
             val categoryInfo = categories.find { it.name == transaction.category }
 
             val icon = categoryInfo?.iconName?.let { getIconByName(it) }
@@ -80,7 +93,7 @@ class TransactionListViewModel @Inject constructor(
             val color = try { Color(android.graphics.Color.parseColor(colorHex)) } catch(e:Exception) { Color.Gray }
 
             // Adjust amount sign for display (- for expense)
-            val displayAmount = if (transaction.type == TransactionType.EXPENSE) -transaction.amount else transaction.amount
+            val displayAmount = if (transaction.type == TransactionType.INCOME) transaction.amount else -kotlin.math.abs(transaction.amount)
 
             TransactionItemData(
                 id = transaction.id,
@@ -102,12 +115,23 @@ class TransactionListViewModel @Inject constructor(
         initialValue = emptyMap()
     )
 
+    fun loadMore() {
+        if (_searchQuery.value.isEmpty()) {
+            _currentLimit.value += 20 // Load next 20 items
+        }
+    }
+    
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+        // Reset limit on search clear? Not strictly necessary as we switch flows, but good practice
+        if (query.isEmpty() && _currentLimit.value > 20) {
+           // _currentLimit.value = 20 // Optional: reset limit when clearing search
+        }
     }
 
     fun onFilterSelected(filter: String) {
         _selectedFilter.value = filter
+        _currentLimit.value = 20 // Reset limit when changing filters
     }
 
     private fun formatDate(millis: Long): String {

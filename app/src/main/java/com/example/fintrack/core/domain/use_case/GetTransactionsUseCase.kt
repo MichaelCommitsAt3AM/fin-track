@@ -11,6 +11,6 @@ class GetTransactionsUseCase @Inject constructor(
 ) {
     // We override 'invoke' so we can call the class like a function
     operator fun invoke(): Flow<List<Transaction>> {
-        return repository.getAllTransactions()
+        return repository.getAllTransactionsPaged(Int.MAX_VALUE)
     }
 }

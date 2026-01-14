@@ -141,7 +141,7 @@ class BudgetsViewModel @Inject constructor(
                 combine(
                     budgetRepository.getAllBudgetsForMonth(currentMonth, currentYear),
                     getCategoriesUseCase(),
-                    transactionRepository.getAllTransactions()
+                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
                 ) { budgets, categories, transactions ->
                     budgets.map { budget ->
                         // Find the matching category

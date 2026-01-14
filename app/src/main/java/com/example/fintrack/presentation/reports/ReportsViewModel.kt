@@ -51,7 +51,7 @@ class ReportsViewModel @Inject constructor(
         )
 
     val state: StateFlow<ReportsUiState> = combine(
-        transactionRepository.getAllTransactions(),
+        transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
         categoryRepository.getAllCategories(),
         _currentMonth,
         currencyPreference
@@ -138,7 +138,7 @@ class ReportsViewModel @Inject constructor(
     fun exportData() {
         viewModelScope.launch {
             // Fetch all transactions to export
-            val transactions = transactionRepository.getAllTransactions().first()
+            val transactions = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE).first()
 
             // Generate CSV (IO operation)
             val uri = withContext(Dispatchers.IO) {

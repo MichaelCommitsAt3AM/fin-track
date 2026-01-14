@@ -111,9 +111,9 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getAllTransactions(): Flow<List<Transaction>> {
+    override fun getAllTransactionsPaged(limit: Int): Flow<List<Transaction>> {
         val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return transactionDao.getAllTransactions(userId).map { entityList ->
+        return transactionDao.getAllTransactionsPaged(userId, limit).map { entityList ->
             entityList.map { it.toDomain() }
         }
     }
@@ -125,9 +125,16 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getTransactionsByType(type: String): Flow<List<Transaction>> {
+    override fun getTransactionsByTypePaged(type: String, limit: Int): Flow<List<Transaction>> {
         val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return transactionDao.getTransactionsByType(userId, type).map { entityList ->
+        return transactionDao.getTransactionsByTypePaged(userId, type, limit).map { entityList ->
+            entityList.map { it.toDomain() }
+        }
+    }
+
+    override fun searchTransactions(query: String): Flow<List<Transaction>> {
+        val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return transactionDao.searchTransactions(userId, query).map { entityList ->
             entityList.map { it.toDomain() }
         }
     }

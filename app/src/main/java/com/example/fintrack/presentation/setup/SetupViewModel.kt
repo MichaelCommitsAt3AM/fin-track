@@ -170,7 +170,7 @@ class SetupViewModel @Inject constructor(
     private suspend fun checkLocalData(): Boolean {
         return try {
             val categories = categoryRepository.getAllCategories().first()
-            val transactions = transactionRepository.getAllTransactions().first()
+            val transactions = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE).first()
 
             val hasData = categories.isNotEmpty() || transactions.isNotEmpty()
             AppLogger.d("SetupViewModel", "Local data check: ${categories.size} categories, ${transactions.size} transactions")
@@ -184,7 +184,7 @@ class SetupViewModel @Inject constructor(
     private suspend fun verifySync(): Boolean {
         return try {
             val categories = categoryRepository.getAllCategories().first()
-            val transactions = transactionRepository.getAllTransactions().first()
+            val transactions = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE).first()
 
             AppLogger.d("SetupViewModel", "Verification: ${categories.size} categories, ${transactions.size} transactions")
 

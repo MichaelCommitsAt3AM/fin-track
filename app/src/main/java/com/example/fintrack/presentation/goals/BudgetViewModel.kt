@@ -84,7 +84,7 @@ class BudgetViewModel @Inject constructor(
                 // Combine budgets and transactions
                 combine(
                     budgetRepository.getAllBudgetsForMonth(month, year),
-                    transactionRepository.getAllTransactions()
+                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
                 ) { budgetsList, transactionsList ->
                     budgetsList.map { budget ->
                         val spent = transactionsList
@@ -179,7 +179,7 @@ class BudgetViewModel @Inject constructor(
                 // Combine budget and transactions
                 combine(
                     budgetRepository.getAllBudgetsForMonth(month, year),
-                    transactionRepository.getAllTransactions()
+                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
                 ) { budgetsList, transactionsList ->
                     val budget = budgetsList.firstOrNull { it.categoryName == categoryName }
                     
