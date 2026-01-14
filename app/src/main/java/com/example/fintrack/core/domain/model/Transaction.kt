@@ -10,7 +10,8 @@ data class Transaction(
     val date: Long,
     val notes: String?,
     val paymentMethod: String?,
-    val tags: List<String>?
+    val tags: List<String>?,
+    val isPlanned: Boolean = false // Marks future-dated transactions as planned
 )
 
 // Using an enum for transaction type is safer in the domain layer

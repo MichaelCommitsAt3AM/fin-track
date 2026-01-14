@@ -19,21 +19,39 @@ interface TransactionDao {
     @Update
     suspend fun updateTransaction(transaction: TransactionEntity)
 
-    // Get all transactions, ordered by date (newest first)
+    // Get all NON-PLANNED transactions (current and past only), ordered by date (newest first)
     // Flow allows the UI to automatically update when data changes
-    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY date DESC")
-    fun getAllTransactions(userId: String): Flow<List<TransactionEntity>>
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE userId = :userId 
+        AND (isPlanned = 0 OR date <= :currentTime)
+        ORDER BY date DESC
+    """)
+    fun getAllTransactions(userId: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
 
     // Get all transactions within a specific date range
     @Query("SELECT * FROM transactions WHERE userId  = :userId AND date BETWEEN :startDate AND :endDate")
     fun getTransactionsByDateRange(userId: String, startDate: Long, endDate: Long): Flow<List<TransactionEntity>>
 
-    // Get transactions by type (e.g., "INCOME" or "EXPENSE")
-    @Query("SELECT * FROM transactions WHERE userId = :userId AND type = :type ORDER BY date DESC")
-    fun getTransactionsByType(userId: String, type: String): Flow<List<TransactionEntity>>
+    // Get transactions by type (e.g., "INCOME" or "EXPENSE"), excluding planned
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE userId = :userId 
+        AND type = :type 
+        AND (isPlanned = 0 OR date <= :currentTime)
+        ORDER BY date DESC
+    """)
+    fun getTransactionsByType(userId: String, type: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY date DESC LIMIT :limit")
-    fun getRecentTransactions(userId: String, limit: Int): Flow<List<TransactionEntity>>
+    // Get recent transactions, excluding planned
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE userId = :userId 
+        AND (isPlanned = 0 OR date <= :currentTime)
+        ORDER BY date DESC 
+        LIMIT :limit
+    """)
+    fun getRecentTransactions(userId: String, limit: Int, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
 
     // For batch insertion
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -46,6 +64,16 @@ interface TransactionDao {
     // Get all unsynced transactions for a user
     @Query("SELECT * FROM transactions WHERE userId = :userId AND isSynced = 0 ORDER BY date DESC")
     suspend fun getUnsyncedTransactions(userId: String): List<TransactionEntity>
+
+    // Get only planned (future) transactions
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE userId = :userId 
+        AND isPlanned = 1 
+        AND date > :currentTime
+        ORDER BY date ASC
+    """)
+    fun getPlannedTransactions(userId: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
 
     // Mark a transaction as synced
     @Query("UPDATE transactions SET isSynced = 1 WHERE id = :transactionId")

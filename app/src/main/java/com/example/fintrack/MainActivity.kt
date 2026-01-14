@@ -2,8 +2,18 @@ package com.example.fintrack
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -18,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
@@ -25,8 +37,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.ui.components.BottomNavBar
+import com.example.fintrack.presentation.MainViewModel
 import com.example.fintrack.presentation.auth.BiometricLoginScreen
 import com.example.fintrack.presentation.auth.pin.PinLoginScreen
+import com.example.fintrack.presentation.common.components.OfflineBanner
 import com.example.fintrack.presentation.navigation.AppRoutes
 import com.example.fintrack.presentation.navigation.NavGraph
 import com.example.fintrack.presentation.ui.theme.FinTrackTheme
@@ -40,6 +54,8 @@ import kotlinx.coroutines.runBlocking
 class MainActivity : FragmentActivity() { // Changed to FragmentActivity for BiometricPrompt
 
     @Inject lateinit var localAuthManager: LocalAuthManager
+    
+    private val mainViewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,38 +133,66 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
 
                     val showBottomNav = currentRoute in mainTabRoutes
 
-                    Scaffold(
-                            bottomBar = {
-                                if (showBottomNav) {
-                                    BottomNavBar(navController = navController)
-                                }
-                            },
-                            floatingActionButton = {
-                                if (showBottomNav) {
-                                    FloatingActionButton(
-                                            onClick = {
-                                                navController.navigate(
-                                                        AppRoutes.AddTransaction.route
-                                                )
-                                            },
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                                            shape = CircleShape
-                                    ) {
-                                        Icon(
-                                                imageVector = Icons.Default.Add,
-                                                contentDescription = "Add Transaction"
-                                        )
+                    // Offline banner state management
+                    val isOnline by mainViewModel.isOnline.collectAsState()
+                    var showOfflineBanner by remember { mutableStateOf(true) }
+
+                    // Reset banner visibility when coming back online
+                    LaunchedEffect(isOnline) {
+                        if (isOnline) {
+                            showOfflineBanner = true
+                        }
+                    }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Scaffold(
+                                bottomBar = {
+                                    if (showBottomNav) {
+                                        BottomNavBar(navController = navController)
                                     }
-                                }
-                            },
-                            floatingActionButtonPosition = FabPosition.End
-                    ) { paddingValues ->
-                        NavGraph(
-                                navController = navController,
-                                paddingValues = paddingValues,
-                                startDestination = startDestination
-                        )
+                                },
+                                floatingActionButton = {
+                                    if (showBottomNav) {
+                                        FloatingActionButton(
+                                                onClick = {
+                                                    navController.navigate(
+                                                            AppRoutes.AddTransaction.route
+                                                    )
+                                                },
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                                shape = CircleShape
+                                        ) {
+                                            Icon(
+                                                    imageVector = Icons.Default.Add,
+                                                    contentDescription = "Add Transaction"
+                                            )
+                                        }
+                                    }
+                                },
+                                floatingActionButtonPosition = FabPosition.End
+                        ) { paddingValues ->
+                            NavGraph(
+                                    navController = navController,
+                                    paddingValues = paddingValues,
+                                    startDestination = startDestination
+                            )
+                        }
+
+                        // Global Offline Banner
+                        AnimatedVisibility(
+                                visible = !isOnline && showOfflineBanner,
+                                enter = slideInVertically(initialOffsetY = { -it }),
+                                exit = slideOutVertically(targetOffsetY = { -it }),
+                                modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .fillMaxWidth()
+                                        .padding(WindowInsets.statusBars.asPaddingValues())
+                        ) {
+                            OfflineBanner(
+                                    onDismiss = { showOfflineBanner = false }
+                            )
+                        }
                     }
                 }
             }

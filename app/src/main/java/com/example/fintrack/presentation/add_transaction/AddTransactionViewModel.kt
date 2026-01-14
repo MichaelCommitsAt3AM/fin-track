@@ -40,7 +40,8 @@ data class AddTransactionUiState(
     val recurrenceFrequency: RecurrenceFrequency = RecurrenceFrequency.MONTHLY,
 
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isPlannedTransaction: Boolean = false // NEW: Shows if selected date is in the future
 )
 
 sealed class AddTransactionUiEvent {
@@ -122,7 +123,14 @@ class AddTransactionViewModel @Inject constructor(
             is AddTransactionUiEvent.OnDescriptionChange -> _uiState.value = _uiState.value.copy(description = event.description)
             is AddTransactionUiEvent.OnCategoryChange -> _uiState.value = _uiState.value.copy(selectedCategory = event.category)
             is AddTransactionUiEvent.OnPaymentMethodChange -> _uiState.value = _uiState.value.copy(selectedPaymentMethod = event.paymentMethod) // NEW
-            is AddTransactionUiEvent.OnDateChange -> _uiState.value = _uiState.value.copy(date = event.date)
+            is AddTransactionUiEvent.OnDateChange -> {
+                val currentTime = System.currentTimeMillis()
+                val isPlanned = event.date > currentTime
+                _uiState.value = _uiState.value.copy(
+                    date = event.date,
+                    isPlannedTransaction = isPlanned
+                )
+            }
             is AddTransactionUiEvent.OnRecurringChange -> _uiState.value = _uiState.value.copy(isRecurring = event.isRecurring)
             is AddTransactionUiEvent.OnFrequencyChange -> _uiState.value = _uiState.value.copy(recurrenceFrequency = event.frequency)
             is AddTransactionUiEvent.OnSaveTransaction -> saveTransaction()

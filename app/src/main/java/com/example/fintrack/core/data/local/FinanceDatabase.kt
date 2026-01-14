@@ -43,7 +43,7 @@ import com.example.fintrack.core.data.local.dao.NotificationDao
         NotificationEntity::class,
         PaymentMethodEntity::class
     ],
-    version = 4 // Added isSynced field to TransactionEntity
+    version = 5 // Added isPlanned field to TransactionEntity
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -97,6 +97,22 @@ abstract class FinanceDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     """ALTER TABLE transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"""
+                )
+            }
+        }
+        
+        // Migration from version 4 to 5: Add isPlanned column to transactions
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 1. Add the isPlanned column
+                database.execSQL(
+                    """ALTER TABLE transactions ADD COLUMN isPlanned INTEGER NOT NULL DEFAULT 0"""
+                )
+                
+                // 2. Mark existing future transactions as planned
+                val currentTime = System.currentTimeMillis()
+                database.execSQL(
+                    """UPDATE transactions SET isPlanned = 1 WHERE date > $currentTime"""
                 )
             }
         }

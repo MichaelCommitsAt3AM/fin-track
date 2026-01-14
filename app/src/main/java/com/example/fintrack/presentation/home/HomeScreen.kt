@@ -49,125 +49,53 @@ fun HomeScreen(
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val spendingCategories by viewModel.spendingCategories.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
-    val isOnline by viewModel.isOnline.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
 
     // 1. COLLECT THE WEEKLY SPENDING STATE HERE
     val weeklySpending by viewModel.weeklySpending.collectAsState()
 
-    var showOfflineBanner by remember { mutableStateOf(true) }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(paddingValues)
+            .padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        item {
+            HomeHeader(
+                user = currentUser,
+                onNotificationClick = { navController.navigate(AppRoutes.Notifications.route) }
+            ) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
-        ) {
-            item {
-                HomeHeader(
-                    user = currentUser,
-                    onNotificationClick = { navController.navigate(AppRoutes.Notifications.route) }
-                ) }
-
-            // 2. PASS THE DATA TO THE CARD
-            item {
-                WeeklySpendingCard(
-                    amountSpent = weeklySpending.first,   // This Week
-                    lastWeekSpent = weeklySpending.second, // Last Week
-                    currencySymbol = currency.symbol
-                )
-            }
-
-            item {
-                SpendingSection(
-                    categories = spendingCategories,
-                    isEmpty = spendingCategories.isEmpty()
-                )
-            }
-            item {
-                TransactionsSection(
-                    transactions = recentTransactions,
-                    currencySymbol = currency.symbol,
-                    onViewAllClick = {
-                        navController.navigate(AppRoutes.TransactionList.route)
-                    }
-                )
-            }
+        // 2. PASS THE DATA TO THE CARD
+        item {
+            WeeklySpendingCard(
+                amountSpent = weeklySpending.first,   // This Week
+                lastWeekSpent = weeklySpending.second, // Last Week
+                currencySymbol = currency.symbol
+            )
         }
 
-        // Offline Banner
-        AnimatedVisibility(
-            visible = !isOnline && showOfflineBanner,
-            enter = slideInVertically(initialOffsetY = { -it }),
-            exit = slideOutVertically(targetOffsetY = { -it }),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(WindowInsets.statusBars.asPaddingValues())
-        ) {
-            OfflineBanner(
-                onDismiss = { showOfflineBanner = false }
+        item {
+            SpendingSection(
+                categories = spendingCategories,
+                isEmpty = spendingCategories.isEmpty()
+            )
+        }
+        item {
+            TransactionsSection(
+                transactions = recentTransactions,
+                currencySymbol = currency.symbol,
+                onViewAllClick = {
+                    navController.navigate(AppRoutes.TransactionList.route)
+                }
             )
         }
     }
-
-    // Reset banner visibility when coming back online
-    LaunchedEffect(isOnline) {
-        if (isOnline) {
-            showOfflineBanner = true
-        }
-    }
 }
 
-@Composable
-fun OfflineBanner(onDismiss: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFFEF3C7), // Yellow-100 equivalent
-        shadowElevation = 4.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.WifiOff,
-                    contentDescription = "Offline",
-                    tint = Color(0xFF92400E), // Yellow-800
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "You are offline. Features may be limited.",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF92400E) // Yellow-800
-                )
-            }
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss",
-                    tint = Color(0xFF92400E), // Yellow-800
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-    }
-}
+
 
 @Composable
 fun HomeHeader(

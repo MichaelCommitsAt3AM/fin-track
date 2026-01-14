@@ -17,7 +17,8 @@ fun Transaction.toEntity(): TransactionEntity {
         notes = this.notes,
         paymentMethod = this.paymentMethod,
         tags = this.tags,
-        isSynced = false // New transactions start as unsynced
+        isSynced = false, // New transactions start as unsynced
+        isPlanned = this.isPlanned
     )
 }
 
@@ -31,6 +32,7 @@ fun TransactionEntity.toDomain(): Transaction {
         date = this.date,
         notes = this.notes,
         paymentMethod = this.paymentMethod,
-        tags = this.tags
+        tags = this.tags,
+        isPlanned = this.isPlanned
     )
 }

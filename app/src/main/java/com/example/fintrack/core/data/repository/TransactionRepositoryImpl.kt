@@ -43,6 +43,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun insertTransaction(transaction: Transaction) {
         val userId = getUserId() ?: throw IllegalStateException("User is not logged in")
+        val currentTime = System.currentTimeMillis()
 
         // If ID is empty, generate a new one
         val transactionId = if (transaction.id.isEmpty()) {
@@ -51,14 +52,18 @@ class TransactionRepositoryImpl @Inject constructor(
             transaction.id
         }
 
+        // Auto-mark as planned if date is in the future
+        val isPlanned = transaction.date > currentTime
+
         val transactionWithId = transaction.copy(
             id = transactionId,
-            userId = userId
+            userId = userId,
+            isPlanned = isPlanned
         )
 
         // OFFLINE-FIRST: 1. Always save locally first with isSynced = false
         transactionDao.insertTransaction(transactionWithId.toEntity())
-        Log.d("TransactionRepo", "Transaction saved locally: $transactionId")
+        Log.d("TransactionRepo", "Transaction saved locally: $transactionId ${if (isPlanned) "(Planned)" else ""}")
 
         // 2. If online, attempt to sync to Firestore immediately
         if (networkRepository.isNetworkAvailable()) {

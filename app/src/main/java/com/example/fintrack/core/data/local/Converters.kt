@@ -16,8 +16,8 @@ class Converters {
     // Tells Room how to convert a String from the database back to a List<String>
     @TypeConverter
     fun toStringList(value: String?): List<String>? {
-        // We split the string by the comma
-        return value?.split(",")?.map { it.trim() }
+        // Handle null or blank strings - return null instead of a list with empty string
+        return value?.takeIf { it.isNotBlank() }?.split(",")?.map { it.trim() }
     }
 
     // LocalDateTime converters
