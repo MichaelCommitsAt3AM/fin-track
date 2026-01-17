@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -75,22 +76,32 @@ class TransactionListViewModel @Inject constructor(
     val uiState = combine(
         transactionsFlow,
         categoriesFlow,
-        _searchQuery, // We still need query here for highlighting if needed, though filtering is done in repo now
+        _searchQuery,
         _selectedFilter
     ) { transactions, categories, query, filter ->
 
-        // 1. Transactions are already filtered by Repo (Paged or Searched)
-        // We just map them to UI implementation
-        
-        // 2. Map to UI Model (Add Icons/Colors)
+        // Optimization 1: Create a generic map for O(1) lookups & Pre-calculate UI attributes
+        // This avoids parsing colors and looking up icons for every single transaction
+        val categoryCache = categories.associateBy({ it.name }, { category ->
+            val icon = category.iconName?.let { getIconByName(it) }
+                ?: com.example.fintrack.presentation.settings.getIconByName("wallet")
+            
+            val color = try { 
+                Color(android.graphics.Color.parseColor(category.colorHex ?: "#CCCCCC")) 
+            } catch(e: Exception) { 
+                Color.Gray 
+            }
+            
+            CategoryUiCache(icon, color)
+        })
+
+        // Optimization 2: Map to UI Model using the cache
         val uiList = transactions.map { transaction ->
-            val categoryInfo = categories.find { it.name == transaction.category }
-
-            val icon = categoryInfo?.iconName?.let { getIconByName(it) }
-                ?: com.example.fintrack.presentation.settings.getIconByName("wallet") // Fallback
-
-            val colorHex = categoryInfo?.colorHex ?: "#CCCCCC"
-            val color = try { Color(android.graphics.Color.parseColor(colorHex)) } catch(e:Exception) { Color.Gray }
+            val cachedCategory = categoryCache[transaction.category]
+            
+            // Fallbacks if category not found
+            val icon = cachedCategory?.icon ?: com.example.fintrack.presentation.settings.getIconByName("wallet")
+            val color = cachedCategory?.color ?: Color.Gray
 
             // Adjust amount sign for display (- for expense)
             val displayAmount = if (transaction.type == TransactionType.INCOME) transaction.amount else -kotlin.math.abs(transaction.amount)
@@ -109,7 +120,9 @@ class TransactionListViewModel @Inject constructor(
         // 3. Group by Date
         uiList.groupBy { formatDate(it.dateMillis) }
 
-    }.stateIn(
+    }
+    .flowOn(kotlinx.coroutines.Dispatchers.Default) // Optimization 3: Run on background thread
+    .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyMap()
@@ -159,4 +172,10 @@ data class TransactionItemData(
     val icon: ImageVector,
     val color: Color,
     val dateMillis: Long
+)
+
+// Helper class for caching UI resources
+data class CategoryUiCache(
+    val icon: ImageVector,
+    val color: Color
 )
