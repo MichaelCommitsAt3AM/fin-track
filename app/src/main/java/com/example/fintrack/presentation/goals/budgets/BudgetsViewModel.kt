@@ -1,4 +1,4 @@
-package com.example.fintrack.presentation.budgets
+package com.example.fintrack.presentation.goals.budgets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,11 +9,13 @@ import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Budget
 import com.example.fintrack.core.domain.model.CategoryType
 import com.example.fintrack.core.domain.model.Currency
+import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.core.domain.use_case.GetCategoriesUseCase
 import com.example.fintrack.presentation.settings.getIconByName
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -60,15 +62,30 @@ sealed class BudgetEvent {
     data class ShowSuccess(val message: String) : BudgetEvent()
 }
 
+// Compatibility model for GoalsScreen (from old BudgetViewModel)
+data class GoalBudgetUiModel(
+    val budget: Budget,
+    val spent: Double,
+    val progress: Float
+)
+
 @HiltViewModel
 class BudgetsViewModel @Inject constructor(
     private val getCategoriesUseCase: GetCategoriesUseCase,
-    private val budgetRepository: BudgetRepository, // Inject BudgetRepository
+    private val budgetRepository: BudgetRepository,
     private val transactionRepository: TransactionRepository,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
-    // State for Budget List Screen
+    private val userId: String?
+        get() = firebaseAuth.currentUser?.uid
+
+    // Current month and year
+    private val currentMonth = Calendar.getInstance().get(Calendar.MONTH) + 1
+    private val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+
+    // State for Budget List Screen (Budgets tab)
     private val _budgetListState = MutableStateFlow(BudgetListUiState())
     val budgetListState = _budgetListState.asStateFlow()
 
@@ -76,11 +93,38 @@ class BudgetsViewModel @Inject constructor(
     private val _addBudgetState = MutableStateFlow(AddBudgetUiState())
     val addBudgetState = _addBudgetState.asStateFlow()
 
+    // State for GoalsScreen (from old BudgetViewModel)
+    private val _budgets = MutableStateFlow<List<GoalBudgetUiModel>>(emptyList())
+    val budgets: StateFlow<List<GoalBudgetUiModel>> = _budgets.asStateFlow()
+
+    // Loading and error states (for GoalsScreen compatibility)
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    // Currency preference
+    val currencyPreference = localAuthManager.currencyPreference
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            initialValue = Currency.KSH
+        )
+
+    // State for individual budget management (from old BudgetViewModel)
+    private val _currentBudget = MutableStateFlow<GoalBudgetUiModel?>(null)
+    val currentBudget: StateFlow<GoalBudgetUiModel?> = _currentBudget.asStateFlow()
+
+    private val _budgetTransactions = MutableStateFlow<List<Transaction>>(emptyList())
+    val budgetTransactions: StateFlow<List<Transaction>> = _budgetTransactions.asStateFlow()
+
     private val _eventChannel = Channel<BudgetEvent>()
     val events = _eventChannel.receiveAsFlow()
 
     init {
-        loadBudgets()
+        loadBudgetsForBudgetsScreen()
+        loadBudgetsForGoalsScreen()
         loadExpenseCategories()
         observeCurrency()
     }
@@ -110,9 +154,9 @@ class BudgetsViewModel @Inject constructor(
         }
     }
 
-    // ========== Budget List Screen Methods ==========
+    // ========== Budgets Screen Methods (from BudgetsViewModel) ==========
 
-    private fun loadBudgets() {
+    private fun loadBudgetsForBudgetsScreen() {
         viewModelScope.launch {
             _budgetListState.value = _budgetListState.value.copy(isLoading = true)
 
@@ -199,26 +243,27 @@ class BudgetsViewModel @Inject constructor(
         }
     }
 
-
-
     fun onBudgetListEvent(event: BudgetListUiEvent) {
         when (event) {
-            is BudgetListUiEvent.OnDeleteBudget -> deleteBudget(event.budget)
-            is BudgetListUiEvent.OnRefresh -> loadBudgets()
+            is BudgetListUiEvent.OnDeleteBudget -> deleteBudgetFromList(event.budget)
+            is BudgetListUiEvent.OnRefresh -> {
+                loadBudgetsForBudgetsScreen()
+                loadBudgetsForGoalsScreen()
+            }
         }
     }
 
-    private fun deleteBudget(budget: BudgetItem) {
+    private fun deleteBudgetFromList(budget: BudgetItem) {
         viewModelScope.launch {
             try {
-                // Get current month and year
                 val calendar = Calendar.getInstance()
                 val currentMonth = calendar.get(Calendar.MONTH) + 1
                 val currentYear = calendar.get(Calendar.YEAR)
 
                 budgetRepository.deleteBudget(budget.category, currentMonth, currentYear)
 
-                loadBudgets() // Reload list
+                loadBudgetsForBudgetsScreen()
+                loadBudgetsForGoalsScreen()
                 _eventChannel.send(BudgetEvent.ShowSuccess("Budget deleted"))
             } catch (e: Exception) {
                 _eventChannel.send(BudgetEvent.ShowError("Failed to delete budget"))
@@ -226,7 +271,215 @@ class BudgetsViewModel @Inject constructor(
         }
     }
 
+    // ========== Goals Screen Methods (from old BudgetViewModel) ==========
+
+    fun loadBudgetsForGoalsScreen(month: Int = currentMonth, year: Int = currentYear) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            
+            try {
+                // Calculate month start/end for transaction filtering
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.YEAR, year)
+                calendar.set(Calendar.MONTH, month - 1)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startOfMonth = calendar.timeInMillis
+
+                calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                val endOfMonth = calendar.timeInMillis
+
+                // Combine budgets and transactions
+                combine(
+                    budgetRepository.getAllBudgetsForMonth(month, year),
+                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
+                ) { budgetsList, transactionsList ->
+                    budgetsList.map { budget ->
+                        val spent = transactionsList
+                            .filter { txn ->
+                                txn.category == budget.categoryName &&
+                                txn.type == TransactionType.EXPENSE &&
+                                txn.date in startOfMonth..endOfMonth
+                            }
+                            .sumOf { it.amount }
+                        
+                        val progress = if (budget.amount > 0) (spent / budget.amount).toFloat() else 0f
+                        
+                        GoalBudgetUiModel(
+                            budget = budget,
+                            spent = spent,
+                            progress = progress
+                        )
+                    }
+                }
+                .catch { e ->
+                    _error.value = e.message
+                    _isLoading.value = false
+                }
+                .collect { uiModels ->
+                    _budgets.value = uiModels
+                    _isLoading.value = false
+                }
+            } catch (e: Exception) {
+                 _error.value = e.message
+                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun addBudget(categoryName: String, amount: Double, month: Int = currentMonth, year: Int = currentYear) {
+        userId?.let { uid ->
+            viewModelScope.launch {
+                try {
+                    _isLoading.value = true
+                    val budget = Budget(
+                        categoryName = categoryName,
+                        userId = uid,
+                        amount = amount,
+                        month = month,
+                        year = year
+                    )
+                    budgetRepository.insertBudget(budget)
+                    _isLoading.value = false
+                    loadBudgetsForGoalsScreen(month, year)
+                } catch (e: Exception) {
+                    _error.value = e.message
+                    _isLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun deleteBudget(categoryName: String, month: Int = currentMonth, year: Int = currentYear) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                budgetRepository.deleteBudget(categoryName, month, year)
+                _isLoading.value = false
+                loadBudgetsForGoalsScreen(month, year)
+            } catch (e: Exception) {
+                _error.value = e.message
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadBudgetDetails(categoryName: String, month: Int = currentMonth, year: Int = currentYear) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            
+            try {
+                // Calculate month start/end for transaction filtering
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.YEAR, year)
+                calendar.set(Calendar.MONTH, month - 1)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startOfMonth = calendar.timeInMillis
+
+                calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                val endOfMonth = calendar.timeInMillis
+
+                // Combine budget and transactions
+                combine(
+                    budgetRepository.getAllBudgetsForMonth(month, year),
+                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
+                ) { budgetsList, transactionsList ->
+                    val budget = budgetsList.firstOrNull { it.categoryName == categoryName }
+                    
+                    if (budget != null) {
+                        val categoryTransactions = transactionsList.filter { txn ->
+                            txn.category == categoryName &&
+                            txn.type == TransactionType.EXPENSE &&
+                            txn.date in startOfMonth..endOfMonth
+                        }
+                        
+                        val spent = categoryTransactions.sumOf { it.amount }
+                        val progress = if (budget.amount > 0) (spent / budget.amount).toFloat() else 0f
+                        
+                        Pair(
+                            GoalBudgetUiModel(
+                                budget = budget,
+                                spent = spent,
+                                progress = progress
+                            ),
+                            categoryTransactions
+                        )
+                    } else {
+                        null
+                    }
+                }
+                .catch { e ->
+                    _error.value = e.message
+                    _isLoading.value = false
+                }
+                .collect { data ->
+                    if (data != null) {
+                        _currentBudget.value = data.first
+                        _budgetTransactions.value = data.second
+                    }
+                    _isLoading.value = false
+                }
+            } catch (e: Exception) {
+                _error.value = e.message
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun getCurrentMonth(): Int = currentMonth
+    fun getCurrentYear(): Int = currentYear
+
+    fun clearError() {
+        _error.value = null
+    }
+
     // ========== Add/Edit Budget Screen Methods ==========
+    
+    fun loadBudgetForEdit(categoryName: String, month: Int, year: Int) {
+        viewModelScope.launch {
+            _addBudgetState.value = _addBudgetState.value.copy(isLoading = true)
+            try {
+                // Get budgets for the month and find the specific one
+                // We use first() to get the current state without observing indefinitely
+                val budgets = budgetRepository.getAllBudgetsForMonth(month, year).first()
+                val budget = budgets.find { it.categoryName == categoryName }
+
+                if (budget != null) {
+                    val amountString = if (budget.amount % 1.0 == 0.0) {
+                        budget.amount.toInt().toString()
+                    } else {
+                        budget.amount.toString()
+                    }
+
+                    _addBudgetState.value = _addBudgetState.value.copy(
+                        amount = amountString,
+                        selectedCategory = budget.categoryName,
+                        month = String.format(Locale.getDefault(), "%d-%02d", year, month),
+                        isLoading = false
+                    )
+                } else {
+                    _eventChannel.send(BudgetEvent.ShowError("Budget not found"))
+                    _addBudgetState.value = _addBudgetState.value.copy(isLoading = false)
+                }
+            } catch (e: Exception) {
+                _eventChannel.send(BudgetEvent.ShowError("Failed to load budget: ${e.message}"))
+                _addBudgetState.value = _addBudgetState.value.copy(isLoading = false)
+            }
+        }
+    }
 
     fun onAddBudgetEvent(event: AddBudgetUiEvent) {
         when (event) {
@@ -247,7 +500,7 @@ class BudgetsViewModel @Inject constructor(
     private fun saveBudget() {
         val state = _addBudgetState.value
         val amountDouble = state.amount.toDoubleOrNull()
-        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid // ADD THIS
+        val userId = firebaseAuth.currentUser?.uid
 
         // Validation
         if (userId == null) {
@@ -291,7 +544,7 @@ class BudgetsViewModel @Inject constructor(
                 // Create budget object
                 val budget = Budget(
                     categoryName = state.selectedCategory!!,
-                    userId = userId, // ADD THIS
+                    userId = userId,
                     amount = amountDouble,
                     month = monthYear.first,
                     year = monthYear.second
@@ -305,8 +558,9 @@ class BudgetsViewModel @Inject constructor(
                 // Reset form
                 resetAddBudgetForm()
 
-                // Reload budgets list
-                loadBudgets()
+                // Reload budgets lists
+                loadBudgetsForBudgetsScreen()
+                loadBudgetsForGoalsScreen()
 
                 _eventChannel.send(BudgetEvent.NavigateBack)
             } catch (e: Exception) {

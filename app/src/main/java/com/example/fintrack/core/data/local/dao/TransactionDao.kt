@@ -24,6 +24,7 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE userId = :userId 
+        AND deletedAt IS NULL
         AND (isPlanned = 0 OR date <= :currentTime)
         ORDER BY date DESC
         LIMIT :limit
@@ -31,13 +32,14 @@ interface TransactionDao {
     fun getAllTransactionsPaged(userId: String, limit: Int, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
     
     // Get all transactions within a specific date range
-    @Query("SELECT * FROM transactions WHERE userId  = :userId AND date BETWEEN :startDate AND :endDate")
+    @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL AND date BETWEEN :startDate AND :endDate")
     fun getTransactionsByDateRange(userId: String, startDate: Long, endDate: Long): Flow<List<TransactionEntity>>
 
     // Get transactions by type (e.g., "INCOME" or "EXPENSE"), excluding planned
     @Query("""
         SELECT * FROM transactions 
         WHERE userId = :userId 
+        AND deletedAt IS NULL
         AND type = :type 
         AND (isPlanned = 0 OR date <= :currentTime)
         ORDER BY date DESC
@@ -49,6 +51,7 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE userId = :userId 
+        AND deletedAt IS NULL
         AND (notes LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%')
         AND (isPlanned = 0 OR date <= :currentTime)
         ORDER BY date DESC
@@ -59,6 +62,7 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE userId = :userId 
+        AND deletedAt IS NULL
         AND (isPlanned = 0 OR date <= :currentTime)
         ORDER BY date DESC 
         LIMIT :limit
@@ -83,11 +87,20 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE userId = :userId 
+        AND deletedAt IS NULL
         AND isPlanned = 1 
         AND date > :currentTime
         ORDER BY date ASC
     """)
     fun getPlannedTransactions(userId: String, currentTime: Long = System.currentTimeMillis()): Flow<List<TransactionEntity>>
+
+    // Get a single transaction by ID
+    @Query("SELECT * FROM transactions WHERE id = :transactionId AND userId = :userId AND deletedAt IS NULL LIMIT 1")
+    fun getTransactionById(transactionId: String, userId: String): Flow<TransactionEntity?>
+
+    // Soft delete a transaction (also marks as unsynced for offline support)
+    @Query("UPDATE transactions SET deletedAt = :deletedAt, isSynced = 0 WHERE id = :transactionId")
+    suspend fun softDelete(transactionId: String, deletedAt: Long)
 
     // Mark a transaction as synced
     @Query("UPDATE transactions SET isSynced = 1 WHERE id = :transactionId")

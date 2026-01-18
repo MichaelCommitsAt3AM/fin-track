@@ -144,8 +144,8 @@ fun SettingsScreen(
                     }
                 )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.VerifiedUser, title = "Two-Factor Authentication", onClick = {})
+                // HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                // SettingsItem(icon = Icons.Default.VerifiedUser, title = "Two-Factor Authentication", onClick = {})
             }
 
             Spacer(modifier = Modifier.height(24.dp))

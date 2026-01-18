@@ -11,6 +11,10 @@ interface TransactionRepository {
 
     suspend fun updateTransaction(transaction: Transaction)
 
+    suspend fun deleteTransaction(transactionId: String)
+    
+    fun getTransactionById(transactionId: String): Flow<Transaction?>
+
     // Using Flow to get real-time updates in the UI
     fun getAllTransactionsPaged(limit: Int): Flow<List<Transaction>>
 
@@ -22,6 +26,9 @@ interface TransactionRepository {
 
     // Fetch the latest N transactions (eg limit = 3)
     fun getRecentTransactions(limit: Int): Flow<List<Transaction>>
+    
+    // Fetch planned (future-dated) transactions
+    fun getPlannedTransactions(): Flow<List<Transaction>>
 
     fun getAllRecurringTransactions(): Flow<List<RecurringTransaction>>
 

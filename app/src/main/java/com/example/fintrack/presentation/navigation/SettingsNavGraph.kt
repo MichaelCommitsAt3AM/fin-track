@@ -40,8 +40,11 @@ fun NavGraphBuilder.settingsNavGraph(
             SettingsScreen(
                 navController = navController,
                 onNavigateToLogin = {
-                    navController.navigate(AppRoutes.Login.route) {
-                        popUpTo(0) // Clear backstack on logout
+                    // Instead of navigating, restart the activity to clear all ViewModels
+                    // This prevents Firestore permission errors from active listeners
+                    (navController.context as? android.app.Activity)?.apply {
+                        finish()
+                        startActivity(intent)
                     }
                 },
                 onNavigateBack = { navController.popBackStack() },

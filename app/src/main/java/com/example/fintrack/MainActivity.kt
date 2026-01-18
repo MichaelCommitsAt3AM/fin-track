@@ -132,8 +132,7 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                     AppRoutes.Home.route,
                                     AppRoutes.Reports.route,
                                     AppRoutes.Goals.route,
-                                    AppRoutes.SettingsGraph.route,
-                                    AppRoutes.Settings.route
+                                    AppRoutes.TransactionList.route
                             )
 
                     val showBottomNav = currentRoute in mainTabRoutes

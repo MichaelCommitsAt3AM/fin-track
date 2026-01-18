@@ -1,4 +1,4 @@
-package com.example.fintrack.presentation.goals
+package com.example.fintrack.presentation.goals.saving
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,7 +9,12 @@ import com.example.fintrack.core.domain.model.Saving
 import com.example.fintrack.core.domain.repository.SavingRepository
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
@@ -47,7 +52,7 @@ class SavingViewModel @Inject constructor(
     val currencyPreference = localAuthManager.currencyPreference
         .stateIn(
             viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
+            SharingStarted.Companion.WhileSubscribed(5000),
             initialValue = Currency.KSH
         )
 
@@ -99,7 +104,6 @@ class SavingViewModel @Inject constructor(
         targetAmount: Double,
         currentAmount: Double,
         targetDate: Long,
-        category: String,
         notes: String?,
         iconName: String
     ) {
@@ -114,7 +118,6 @@ class SavingViewModel @Inject constructor(
                         targetAmount = targetAmount,
                         currentAmount = currentAmount,
                         targetDate = targetDate,
-                        category = category,
                         notes = notes,
                         iconName = iconName,
                         createdAt = System.currentTimeMillis()
@@ -169,12 +172,12 @@ class SavingViewModel @Inject constructor(
                     date = System.currentTimeMillis(),
                     note = note
                 )
-                
+
                 // Get current saving amount
                 val  currentAmount = _currentSaving.value?.currentAmount ?: 0.0
-                
+
                 savingRepository.addContribution(contribution, currentAmount)
-                
+
                 // Reload saving to get updated amount
                 loadSaving(savingId)
             } catch (e: Exception) {

@@ -43,7 +43,7 @@ import com.example.fintrack.core.data.local.dao.NotificationDao
         NotificationEntity::class,
         PaymentMethodEntity::class
     ],
-    version = 6 // Added updatedAt and deletedAt fields for incremental sync
+    version = 1
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -66,72 +66,5 @@ abstract class FinanceDatabase : RoomDatabase() {
     // This is often used for creating a Singleton instance
     companion object {
         const val DATABASE_NAME = "finance_db"
-        
-        // Migration from version 1 to 2: Add payment_methods table
-        val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    """CREATE TABLE IF NOT EXISTS payment_methods (
-                        name TEXT NOT NULL,
-                        userId TEXT NOT NULL,
-                        iconName TEXT NOT NULL,
-                        colorHex TEXT NOT NULL,
-                        isDefault INTEGER NOT NULL DEFAULT 0,
-                        PRIMARY KEY(name, userId)
-                    )""".trimIndent()
-                )
-            }
-        }
-        
-        // Migration from version 2 to 3: Add isActive column to payment_methods
-        val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    """ALTER TABLE payment_methods ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1"""
-                )
-            }
-        }
-        
-        // Migration from version 3 to 4: Add isSynced column to transactions
-        val MIGRATION_3_4 = object : Migration(3, 4) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    """ALTER TABLE transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"""
-                )
-            }
-        }
-        
-        // Migration from version 4 to 5: Add isPlanned column to transactions
-        val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                // 1. Add the isPlanned column
-                database.execSQL(
-                    """ALTER TABLE transactions ADD COLUMN isPlanned INTEGER NOT NULL DEFAULT 0"""
-                )
-                
-                // 2. Auto-mark existing future transactions as planned
-                database.execSQL(
-                    """
-                    UPDATE transactions 
-                    SET isPlanned = 1 
-                    WHERE date > ${System.currentTimeMillis()}
-                    """.trimIndent()
-                )
-            }
-        }
-        
-        // Migration from version 5 to 6: Add updatedAt and deletedAt columns
-        val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                // Add updatedAt column with current timestamp as default
-                database.execSQL(
-                    """ALTER TABLE transactions ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT ${System.currentTimeMillis()}"""
-                )
-                // Add deletedAt column (nullable for soft delete)
-                database.execSQL(
-                    """ALTER TABLE transactions ADD COLUMN deletedAt INTEGER"""
-                )
-            }
-        }
     }
 }

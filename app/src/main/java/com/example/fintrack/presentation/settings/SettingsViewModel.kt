@@ -48,13 +48,13 @@ constructor(
 
     fun onLogout() {
         viewModelScope.launch {
+            // Sign out from Firebase first
+            authRepository.signOut()
+            
             // Clear local authentication (PIN and biometric settings)
             localAuthManager.clearLocalAuth()
 
-            // Sign out from Firebase
-            authRepository.signOut()
-
-            // Navigate to login
+            // Navigate to login - MainActivity will handle the restart
             _settingsEventChannel.send(SettingsEvent.NavigateToLogin)
         }
     }

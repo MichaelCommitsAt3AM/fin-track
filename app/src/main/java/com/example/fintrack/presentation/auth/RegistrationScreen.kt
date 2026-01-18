@@ -48,6 +48,7 @@ fun RegistrationScreen(
     onNavigateToHome: () -> Unit,
     onNavigateBackToLogin: () -> Unit,
     onNavigateToEmailVerification: () -> Unit,
+    onNavigateToSetup: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -60,6 +61,7 @@ fun RegistrationScreen(
             when (event) {
                 is AuthEvent.NavigateToHome -> onNavigateToHome()
                 is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
+                is AuthEvent.NavigateToSetup -> onNavigateToSetup()
                 AuthEvent.NavigateToLogin -> onNavigateBackToLogin()
                 else -> {}
             }

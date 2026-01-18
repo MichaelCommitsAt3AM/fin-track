@@ -14,9 +14,9 @@ import com.example.fintrack.presentation.navigation.BottomNavItem
 fun BottomNavBar(navController: NavController) {
     val items = listOf(
         BottomNavItem.Home,
-        BottomNavItem.Reports,
+        BottomNavItem.Transactions,
         BottomNavItem.Goals,
-        BottomNavItem.Settings
+        BottomNavItem.Reports
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -34,7 +34,9 @@ fun BottomNavBar(navController: NavController) {
                     if (!isSelected) {
                         navController.navigate(item.route) {
                             navController.graph.startDestinationRoute?.let { route ->
-                                popUpTo(route) { saveState = true }
+                                popUpTo(route) {
+                                    saveState = true
+                                }
                             }
                             launchSingleTop = true
                             restoreState = true
@@ -50,7 +52,8 @@ fun BottomNavBar(navController: NavController) {
                 label = {
                     Text(
                         text = item.title,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

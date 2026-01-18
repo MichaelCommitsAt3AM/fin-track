@@ -27,7 +27,15 @@ sealed class AppRoutes(val route: String) {
     object Reports : AppRoutes("reports_screen")
     object Goals : AppRoutes("goals_screen")
     object Budgets : AppRoutes("budgets_screen")
-    object AddBudget : AppRoutes("add_budget_screen")
+    object AddBudget : AppRoutes("add_budget_screen?categoryName={categoryName}&month={month}&year={year}") {
+        fun createRoute(categoryName: String? = null, month: Int? = null, year: Int? = null): String {
+            return if (categoryName != null && month != null && year != null) {
+                "add_budget_screen?categoryName=$categoryName&month=$month&year=$year"
+            } else {
+                "add_budget_screen"
+            }
+        }
+    }
 
     // Notifications in home screen
     object Notifications : AppRoutes("notifications_screen")
@@ -62,8 +70,17 @@ sealed class AppRoutes(val route: String) {
     }
 
     // --- Add Transaction (FAB) ---
-    object AddTransaction : AppRoutes("add_transaction_screen")
+    object AddTransaction : AppRoutes("add_transaction_screen?transactionId={transactionId}") {
+        fun createRoute(transactionId: String? = null) = if (transactionId != null) {
+            "add_transaction_screen?transactionId=$transactionId"
+        } else {
+            "add_transaction_screen"
+        }
+    }
     object TransactionList : AppRoutes("transaction_list_screen")
+    object ManageTransaction : AppRoutes("manage_transaction_screen/{transactionId}") {
+        fun createRoute(transactionId: String) = "manage_transaction_screen/$transactionId"
+    }
     object RecurringTransactions : AppRoutes("recurring_transactions_screen")
 
     object EditRecurringTransaction : AppRoutes("edit_recurring_transaction/{transactionId}") {

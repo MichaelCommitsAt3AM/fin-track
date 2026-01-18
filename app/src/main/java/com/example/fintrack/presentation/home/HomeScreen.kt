@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import com.example.fintrack.presentation.navigation.AppRoutes
+import com.example.fintrack.presentation.navigation.BottomNavItem
 import com.example.fintrack.core.ui.components.SyncStatusOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,7 +105,15 @@ fun HomeScreen(
                         transactions = recentTransactions,
                         currencySymbol = currency.symbol,
                         onViewAllClick = {
-                            navController.navigate(AppRoutes.TransactionList.route)
+                            navController.navigate(BottomNavItem.Transactions.route) {
+                                navController.graph.startDestinationRoute?.let { route ->
+                                    popUpTo(route) {
+                                        saveState = true
+                                    }
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     )
                 }
@@ -408,7 +417,7 @@ fun SpendingItem(category: SpendingCategoryUiModel) {
 fun TransactionsSection(
     transactions: List<TransactionUiModel>,
     currencySymbol: String,
-    onViewAllClick: () -> Unit
+    onViewAllClick: (() -> Unit)?
 ) {
     Column(modifier = Modifier.padding(top = 28.dp)) {
         SectionHeader(

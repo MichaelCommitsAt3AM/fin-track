@@ -21,4 +21,6 @@ interface DebtRepository {
     fun getPaymentsForDebt(debtId: String): Flow<List<Payment>>
     
     suspend fun syncDebtsFromCloud()
+    
+    suspend fun syncUnsyncedDebts()
 }

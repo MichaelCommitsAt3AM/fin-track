@@ -269,6 +269,15 @@ class HomeViewModel @Inject constructor(
         if (_syncStatus.value is SyncStatus.Syncing) return
 
         viewModelScope.launch {
+            // Double-check: Use both flow state AND immediate check
+            // The flow might not have updated yet if network just dropped
+            if (!isOnline.value || !networkRepository.isNetworkAvailable()) {
+                _syncStatus.value = SyncStatus.Error("No internet connection")
+                delay(2000)
+                _syncStatus.value = SyncStatus.Idle
+                return@launch
+            }
+            
             _syncStatus.value = SyncStatus.Syncing
             try {
                 // Optional: Add a minimum delay here if the network is too fast

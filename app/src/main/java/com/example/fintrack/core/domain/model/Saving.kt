@@ -7,7 +7,6 @@ data class Saving(
     val targetAmount: Double,
     val currentAmount: Double,
     val targetDate: Long,
-    val category: String,
     val notes: String?,
     val iconName: String,
     val createdAt: Long

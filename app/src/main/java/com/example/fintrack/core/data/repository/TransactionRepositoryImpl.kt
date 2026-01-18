@@ -111,6 +111,37 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteTransaction(transactionId: String) {
+        val userId = getUserId() ?: throw IllegalStateException("User is not logged in")
+        val currentTime = System.currentTimeMillis()
+        
+        // Soft delete: mark transaction as deleted
+        transactionDao.softDelete(transactionId, currentTime)
+        Log.d("TransactionRepo", "Transaction soft-deleted locally: $transactionId")
+        
+        // If online, sync deletion to Firestore
+        if (networkRepository.isNetworkAvailable()) {
+            try {
+                getUserTransactionsCollection()
+                    .document(transactionId)
+                    .update("deletedAt", currentTime)
+                    .await()
+                Log.d("TransactionRepo", "Transaction deletion synced to Firestore: $transactionId")
+            } catch (e: Exception) {
+                Log.e("TransactionRepo", "Error syncing deletion to Firestore (will retry later): ${e.message}")
+            }
+        } else {
+            Log.d("TransactionRepo", "Offline - deletion will sync when online")
+        }
+    }
+
+    override fun getTransactionById(transactionId: String): Flow<Transaction?> {
+        val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(null)
+        return transactionDao.getTransactionById(transactionId, userId).map { entity ->
+            entity?.toDomain()
+        }
+    }
+
     override fun getAllTransactionsPaged(limit: Int): Flow<List<Transaction>> {
         val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
         return transactionDao.getAllTransactionsPaged(userId, limit).map { entityList ->
@@ -145,6 +176,14 @@ class TransactionRepositoryImpl @Inject constructor(
             entityList.map { it.toDomain() }
         }
     }
+    
+    override fun getPlannedTransactions(): Flow<List<Transaction>> {
+        val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return transactionDao.getPlannedTransactions(userId).map { entityList ->
+            entityList.map { it.toDomain() }
+        }
+    }
+
 
     override suspend fun syncTransactionsFromCloud() {
         getUserId()?.let { userId ->
@@ -335,17 +374,29 @@ class TransactionRepositoryImpl @Inject constructor(
 
             unsyncedTransactions.forEach { entity ->
                 try {
-                    // Convert to domain and set updatedAt
-                    val transaction = entity.toDomain().copy(
-                        updatedAt = System.currentTimeMillis()
-                    )
+                    // Check if transaction is deleted
+                    if (entity.deletedAt != null) {
+                        // For deleted transactions, just update the deletedAt field
+                        getUserTransactionsCollection()
+                            .document(entity.id)
+                            .update("deletedAt", entity.deletedAt)
+                            .await()
+                        Log.d("TransactionRepo", "Synced deletion for transaction: ${entity.id}")
+                    } else {
+                        // For normal transactions, sync the full document
+                        val transaction = entity.toDomain().copy(
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        
+                        getUserTransactionsCollection()
+                            .document(entity.id)
+                            .set(transaction) // Upload with updatedAt
+                            .await()
+                        Log.d("TransactionRepo", "Synced transaction: ${entity.id}")
+                    }
                     
-                    getUserTransactionsCollection()
-                        .document(entity.id)
-                        .set(transaction) // Upload with updatedAt
-                        .await()
+                    // Mark as synced after successful upload
                     transactionDao.markAsSynced(entity.id)
-                    Log.d("TransactionRepo", "Synced transaction: ${entity.id}")
                 } catch (e: Exception) {
                     Log.e("TransactionRepo", "Failed to sync transaction ${entity.id}: ${e.message}")
                 }

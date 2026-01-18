@@ -29,4 +29,12 @@ interface CategoryDao {
     // Delete all categories for a user (logout)
     @Query("DELETE FROM categories WHERE userId = :userId")
     suspend fun deleteAllForUser(userId: String)
+
+    // Mark a category as synced
+    @Query("UPDATE categories SET isSynced = 1 WHERE name = :name AND userId = :userId")
+    suspend fun markAsSynced(name: String, userId: String)
+
+    // Get all unsynced categories for a user
+    @Query("SELECT * FROM categories WHERE userId = :userId AND isSynced = 0")
+    suspend fun getUnsyncedCategories(userId: String): List<CategoryEntity>
 }

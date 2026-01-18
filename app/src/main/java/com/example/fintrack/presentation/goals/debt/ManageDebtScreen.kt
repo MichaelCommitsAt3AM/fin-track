@@ -1,8 +1,9 @@
-package com.example.fintrack.presentation.goals
+package com.example.fintrack.presentation.goals.debt
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -22,101 +23,110 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Mock data class removed - using GoalUtils models
-import com.example.fintrack.core.domain.model.Saving
+// Mock data class for demonstration
+import com.example.fintrack.core.domain.model.DebtType
+import com.example.fintrack.presentation.goals.DebtGoal
+import com.example.fintrack.presentation.goals.GoalDanger
+import com.example.fintrack.presentation.goals.GoalWarning
+import com.example.fintrack.presentation.goals.saving.StatCard
+import com.example.fintrack.presentation.goals.UiPayment
+import com.example.fintrack.presentation.goals.toUiModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ManageSavingScreen(
-    savingId: String,
+fun ManageDebtScreen(
+    debtId: String,
     onNavigateBack: () -> Unit,
     onEdit: () -> Unit = {},
-    viewModel: SavingViewModel = hiltViewModel()
+    viewModel: DebtViewModel = hiltViewModel()
 ) {
-    val domainSaving by viewModel.currentSaving.collectAsState()
-    val domainContributions by viewModel.contributions.collectAsState()
+    val domainDebt by viewModel.currentDebt.collectAsState()
+    val domainPayments by viewModel.payments.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
     
     // Map domain model to UI model
-    val saving = domainSaving?.toUiModel(domainContributions)
+    val debt = domainDebt?.toUiModel(domainPayments)
     
-    // Load saving data when screen opens
-    LaunchedEffect(savingId) {
-        viewModel.loadSaving(savingId)
+    // Load debt data when screen opens
+    LaunchedEffect(debtId) {
+        viewModel.loadDebt(debtId)
     }
     
-    // Mock data for preview - will be replaced by actual saving
-    val mockSaving = remember {
-        when (savingId) {
-            "laptop" -> SavingGoal(
-                id = "laptop",
-                title = "New Laptop",
-                targetAmount = 2000.0,
-                currentAmount = 1200.0,
-                targetDate = System.currentTimeMillis() + 60L * 24 * 60 * 60 * 1000, // 60 days
-                category = "Technology",
-                icon = Icons.Default.Computer,
-                color = Color(0xFF10B981),
-                contributions = listOf(
-                    UiContribution("1", 500.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000, "Initial deposit"),
-                    UiContribution("2", 300.0, System.currentTimeMillis() - 20L * 24 * 60 * 60 * 1000),
-                    UiContribution("3", 200.0, System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000, "Bonus money"),
-                    UiContribution("4", 200.0, System.currentTimeMillis() - 2L * 24 * 60 * 60 * 1000)
+    // Mock data for preview - will be replaced by actual debt
+    val mockDebt = remember {
+        when (debtId) {
+            "student_loan" -> DebtGoal(
+                id = "student_loan",
+                title = "Student Loan",
+                originalAmount = 8000.0,
+                currentBalance = 5400.0,
+                minimumPayment = 250.0,
+                dueDate = System.currentTimeMillis() + 15L * 24 * 60 * 60 * 1000, // 15 days
+                interestRate = 4.5,
+                icon = Icons.Default.School,
+                color = GoalDanger,
+                debtType = DebtType.I_OWE,
+                payments = listOf(
+                    UiPayment(
+                        "1",
+                        1000.0,
+                        System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000,
+                        "Initial payment"
+                    ),
+                    UiPayment("2", 800.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
+                    UiPayment("3", 500.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
+                    UiPayment(
+                        "4",
+                        300.0,
+                        System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000,
+                        "Extra payment"
+                    )
                 )
             )
-            "vacation" -> SavingGoal(
-                id = "vacation",
-                title = "Vacation",
-                targetAmount = 3500.0,
-                currentAmount = 875.0,
-                targetDate = System.currentTimeMillis() + 90L * 24 * 60 * 60 * 1000,
-                category = "Travel",
-                icon = Icons.Default.BeachAccess,
-                color = Color(0xFF3B82F6),
-                contributions = listOf(
-                    UiContribution("1", 500.0, System.currentTimeMillis() - 45L * 24 * 60 * 60 * 1000),
-                    UiContribution("2", 375.0, System.currentTimeMillis() - 15L * 24 * 60 * 60 * 1000)
-                )
-            )
-            else -> SavingGoal(
-                id = "emergency",
-                title = "Emergency Fund",
-                targetAmount = 10000.0,
-                currentAmount = 8000.0,
-                targetDate = System.currentTimeMillis() + 120L * 24 * 60 * 60 * 1000,
-                category = "Safety",
-                icon = Icons.Default.HealthAndSafety,
-                color = Color(0xFFA855F7),
-                contributions = listOf(
-                    UiContribution("1", 5000.0, System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000, "Starting fund"),
-                    UiContribution("2", 1500.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
-                    UiContribution("3", 1000.0, System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
-                    UiContribution("4", 500.0, System.currentTimeMillis() - 5L * 24 * 60 * 60 * 1000)
+            else -> DebtGoal(
+                id = "credit_card",
+                title = "Credit Card",
+                originalAmount = 2000.0,
+                currentBalance = 1250.0,
+                minimumPayment = 45.0,
+                dueDate = System.currentTimeMillis() + 5L * 24 * 60 * 60 * 1000, // 5 days
+                interestRate = 18.9,
+                icon = Icons.Default.CreditCard,
+                color = GoalWarning,
+                debtType = DebtType.I_OWE,
+                payments = listOf(
+                    UiPayment("1", 500.0, System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000),
+                    UiPayment(
+                        "2",
+                        250.0,
+                        System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000,
+                        "Monthly payment"
+                    )
                 )
             )
         }
     }
     
-    // Use actual saving or mock for safety
-    val displaySaving = saving ?: mockSaving
-    val displayContributions = displaySaving.contributions
+    // Use actual debt or mock for safety
+    val displayDebt = debt ?: mockDebt
+    val displayPayments = displayDebt.payments
 
-    var showContributionDialog by remember { mutableStateOf(false) }
+    var showPaymentDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
-    val percentage = (displaySaving.currentAmount / displaySaving.targetAmount).toFloat().coerceIn(0f, 1f)
+    val paidPercentage = ((displayDebt.originalAmount - displayDebt.currentBalance) / displayDebt.originalAmount).toFloat().coerceIn(0f, 1f)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -124,7 +134,7 @@ fun ManageSavingScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        displaySaving.title,
+                        displayDebt.title,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     ) 
@@ -147,7 +157,7 @@ fun ManageSavingScreen(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Edit Goal") },
+                                text = { Text("Edit Debt") },
                                 onClick = {
                                     showMenu = false
                                     onEdit()
@@ -155,7 +165,7 @@ fun ManageSavingScreen(
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete Goal", color = MaterialTheme.colorScheme.error) },
+                                text = { Text("Delete Debt", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
                                     showDeleteDialog = true
@@ -187,76 +197,76 @@ fun ManageSavingScreen(
         ) {
             // Hero Section - Circular Progress
             item {
-                SavingProgressHero(
-                    saving = displaySaving,
-                    percentage = percentage,
+                DebtProgressHero(
+                    debt = displayDebt,
+                    paidPercentage = paidPercentage,
                     currency = currency
                 )
             }
 
             // Quick Stats Cards
             item {
-                QuickStatsRow(saving = displaySaving, percentage = percentage, currency = currency)
+                DebtQuickStatsRow(debt = displayDebt, currency = currency)
             }
 
-            // Add Contribution Button
+            // Make Payment Button
             item {
                 Button(
-                    onClick = { showContributionDialog = true },
+                    onClick = { showPaymentDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = displaySaving.color
+                        containerColor = FinTrackGreen
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = Icons.Default.Payment,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Add Contribution",
+                        "Make Payment",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            // Contribution History Section
+            // Payment History Section
             item {
                 Text(
-                    text = "Contribution History",
+                    text = "Payment History",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
-            items(displayContributions.sortedByDescending { it.date }) { contribution ->
-                ContributionHistoryItem(contribution = contribution, currency = currency)
+            items(displayPayments.sortedByDescending { it.date }) { payment ->
+                PaymentHistoryItem(payment = payment, currency = currency)
             }
 
-            // Empty state if no contributions
-            if (displayContributions.isEmpty()) {
+            // Empty state if no payments
+            if (displayPayments.isEmpty()) {
                 item {
-                    EmptyContributionState()
+                    EmptyPaymentState()
                 }
             }
         }
     }
 
-    // Contribution Dialog
-    if (showContributionDialog) {
-        AddContributionDialog(
-            onDismiss = { showContributionDialog = false },
+    // Payment Dialog
+    if (showPaymentDialog) {
+        MakePaymentDialog(
+            onDismiss = { showPaymentDialog = false },
             onConfirm = { amount, note ->
-                viewModel.addContribution(savingId, amount, note)
-                showContributionDialog = false
+                viewModel.makePayment(debtId, amount, note)
+                showPaymentDialog = false
             },
-            color = displaySaving.color,
+            minimumPayment = displayDebt.minimumPayment,
             currency = currency
         )
     }
@@ -272,14 +282,14 @@ fun ManageSavingScreen(
                     tint = MaterialTheme.colorScheme.error
                 ) 
             },
-            title = { Text("Delete Saving Goal?") },
+            title = { Text("Delete Debt?") },
             text = { 
-                Text("Are you sure you want to delete \"${displaySaving.title}\"? This action cannot be undone.") 
+                Text("Are you sure you want to delete \"${displayDebt.title}\"? This action cannot be undone.") 
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteSaving(savingId)
+                        viewModel.deleteDebt(debtId)
                         showDeleteDialog = false
                         onNavigateBack()
                     },
@@ -300,16 +310,16 @@ fun ManageSavingScreen(
 }
 
 @Composable
-fun SavingProgressHero(
-    saving: SavingGoal,
-    percentage: Float,
-    currency: com.example.fintrack.core.domain.model.Currency
+fun DebtProgressHero(
+    debt: DebtGoal,
+    paidPercentage: Float,
+    currency: Currency
 ) {
     val animatedProgress = remember { Animatable(0f) }
 
-    LaunchedEffect(percentage) {
+    LaunchedEffect(paidPercentage) {
         animatedProgress.animateTo(
-            targetValue = percentage,
+            targetValue = paidPercentage,
             animationSpec = tween(durationMillis = 1000, easing = LinearEasing)
         )
     }
@@ -320,7 +330,7 @@ fun SavingProgressHero(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
         )
@@ -343,10 +353,10 @@ fun SavingProgressHero(
                     )
                 }
 
-                // Progress circle
+                // Progress circle - shows paid percentage in green
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawArc(
-                        color = saving.color,
+                        color = FinTrackGreen,
                         startAngle = -90f,
                         sweepAngle = 360f * animatedProgress.value,
                         useCenter = false,
@@ -357,20 +367,20 @@ fun SavingProgressHero(
                 // Center content
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = saving.icon,
+                        imageVector = debt.icon,
                         contentDescription = null,
-                        tint = saving.color,
+                        tint = debt.color,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "${(percentage * 100).toInt()}%",
+                        text = "${(paidPercentage * 100).toInt()}%",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Complete",
+                        text = "Paid Off",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -379,25 +389,29 @@ fun SavingProgressHero(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Amount display
+            // Balance display
             Text(
-                text = "${currency.symbol}${String.format("%,.2f", saving.currentAmount)}",
+                text = "${currency.symbol}${String.format("%,.2f", debt.currentBalance)}",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = saving.color
+                color = debt.color
             )
             Text(
-                text = "of ${currency.symbol}${String.format("%,.2f", saving.targetAmount)}",
+                text = "Remaining Balance",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "of ${currency.symbol}${String.format("%,.2f", debt.originalAmount)} original",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
     }
 }
 
 @Composable
-fun QuickStatsRow(saving: SavingGoal, percentage: Float, currency: com.example.fintrack.core.domain.model.Currency) {
-    val remaining = saving.targetAmount - saving.currentAmount
+fun DebtQuickStatsRow(debt: DebtGoal, currency: Currency) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Row(
@@ -407,73 +421,22 @@ fun QuickStatsRow(saving: SavingGoal, percentage: Float, currency: com.example.f
         StatCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.CalendarToday,
-            label = "Deadline",
-            value = dateFormat.format(Date(saving.targetDate)),
-            color = Color(0xFF6366F1)
+            label = "Due Date",
+            value = dateFormat.format(Date(debt.dueDate)),
+            color = Color(0xFFE74C3C)
         )
         StatCard(
             modifier = Modifier.weight(1f),
-            icon = Icons.Default.TrendingUp,
-            label = "Remaining",
-            value = "${currency.symbol}${String.format("%,.0f", remaining)}",
-            color = Color(0xFFF59E0B)
+            icon = Icons.Default.Payment,
+            label = "Min Payment",
+            value = "${currency.symbol}${String.format("%.2f", debt.minimumPayment)}",
+            color = Color(0xFFF39C12)
         )
     }
 }
 
 @Composable
-fun StatCard(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    label: String,
-    value: String,
-    color: Color
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-}
-
-@Composable
-fun ContributionHistoryItem(contribution: UiContribution, currency: com.example.fintrack.core.domain.model.Currency) {
+fun PaymentHistoryItem(payment: UiPayment, currency: Currency) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     Card(
@@ -481,7 +444,7 @@ fun ContributionHistoryItem(contribution: UiContribution, currency: com.example.
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
         )
@@ -505,7 +468,7 @@ fun ContributionHistoryItem(contribution: UiContribution, currency: com.example.
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = FinTrackGreen,
                         modifier = Modifier.size(20.dp)
@@ -513,19 +476,19 @@ fun ContributionHistoryItem(contribution: UiContribution, currency: com.example.
                 }
                 Column {
                     Text(
-                        text = if (contribution.note.isNotEmpty()) contribution.note else "Contribution",
+                        text = if (payment.note.isNotEmpty()) payment.note else "Payment",
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = dateFormat.format(Date(contribution.date)),
+                        text = dateFormat.format(Date(payment.date)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Text(
-                text = "+${currency.symbol}${String.format("%.2f", contribution.amount)}",
+                text = "-${currency.symbol}${String.format("%.2f", payment.amount)}",
                 fontWeight = FontWeight.Bold,
                 color = FinTrackGreen,
                 style = MaterialTheme.typography.bodyLarge
@@ -535,7 +498,7 @@ fun ContributionHistoryItem(contribution: UiContribution, currency: com.example.
 }
 
 @Composable
-fun EmptyContributionState() {
+fun EmptyPaymentState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -543,20 +506,20 @@ fun EmptyContributionState() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = Icons.Default.AccountBalance,
+            imageVector = Icons.Default.Payment,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier.size(64.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No contributions yet",
+            text = "No payments yet",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
         Text(
-            text = "Start saving by adding your first contribution",
+            text = "Start reducing your debt by making your first payment",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             textAlign = TextAlign.Center
@@ -565,11 +528,11 @@ fun EmptyContributionState() {
 }
 
 @Composable
-fun AddContributionDialog(
+fun MakePaymentDialog(
     onDismiss: () -> Unit,
     onConfirm: (amount: Double, note: String) -> Unit,
-    color: Color,
-    currency: com.example.fintrack.core.domain.model.Currency
+    minimumPayment: Double,
+    currency: Currency
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -578,14 +541,19 @@ fun AddContributionDialog(
         onDismissRequest = onDismiss,
         icon = { 
             Icon(
-                Icons.Default.Add, 
+                Icons.Default.Payment, 
                 contentDescription = null,
-                tint = color
+                tint = FinTrackGreen
             ) 
         },
-        title = { Text("Add Contribution") },
+        title = { Text("Make Payment") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = "Minimum payment: ${currency.symbol}${String.format("%.2f", minimumPayment)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 OutlinedTextField(
                     value = amount,
                     onValueChange = {
@@ -614,15 +582,15 @@ fun AddContributionDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val contributionAmount = amount.toDoubleOrNull()
-                    if (contributionAmount != null && contributionAmount > 0) {
-                        onConfirm(contributionAmount, note)
+                    val paymentAmount = amount.toDoubleOrNull()
+                    if (paymentAmount != null && paymentAmount > 0) {
+                        onConfirm(paymentAmount, note)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = color),
+                colors = ButtonDefaults.buttonColors(containerColor = FinTrackGreen),
                 enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
             ) {
-                Text("Add")
+                Text("Make Payment")
             }
         },
         dismissButton = {

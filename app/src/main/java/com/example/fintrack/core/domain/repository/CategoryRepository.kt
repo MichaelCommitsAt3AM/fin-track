@@ -15,4 +15,5 @@ interface CategoryRepository {
     suspend fun deleteCategory(category: Category)
     suspend fun initDefaultCategories()
     suspend fun syncCategoriesFromCloud()
+    suspend fun syncUnsyncedCategories() // Sync local unsynced categories to cloud
 }

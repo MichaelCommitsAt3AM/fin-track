@@ -1,4 +1,4 @@
-package com.example.fintrack.presentation.goals
+package com.example.fintrack.presentation.goals.debt
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,7 +10,12 @@ import com.example.fintrack.core.domain.model.Payment
 import com.example.fintrack.core.domain.repository.DebtRepository
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
@@ -48,7 +53,7 @@ class DebtViewModel @Inject constructor(
     val currencyPreference = localAuthManager.currencyPreference
         .stateIn(
             viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
+            SharingStarted.Companion.WhileSubscribed(5000),
             initialValue = Currency.KSH
         )
 
@@ -174,12 +179,12 @@ class DebtViewModel @Inject constructor(
                     date = System.currentTimeMillis(),
                     note = note
                 )
-                
+
                 // Get current debt balance
                 val currentBalance = _currentDebt.value?.currentBalance ?: 0.0
-                
+
                 debtRepository.makePayment(payment, currentBalance)
-                
+
                 // Reload debt to get updated balance
                 loadDebt(debtId)
             } catch (e: Exception) {

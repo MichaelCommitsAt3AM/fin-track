@@ -15,8 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.fintrack.presentation.add_transaction.AddTransactionScreen
 import com.example.fintrack.presentation.auth.BiometricLoginScreen
 import com.example.fintrack.presentation.auth.EmailVerificationScreen
@@ -24,19 +26,20 @@ import com.example.fintrack.presentation.auth.ForgotPasswordScreen
 import com.example.fintrack.presentation.auth.LoginScreen
 import com.example.fintrack.presentation.auth.pin.PinLoginScreen
 import com.example.fintrack.presentation.auth.RegistrationScreen
-import com.example.fintrack.presentation.budgets.AddBudgetScreen
-import com.example.fintrack.presentation.goals.AddDebtScreen
-import com.example.fintrack.presentation.goals.AddSavingScreen
+import com.example.fintrack.presentation.goals.budgets.AddBudgetScreen
+import com.example.fintrack.presentation.goals.debt.AddDebtScreen
+import com.example.fintrack.presentation.goals.saving.AddSavingScreen
 import com.example.fintrack.presentation.goals.GoalsScreen
-import com.example.fintrack.presentation.goals.ManageSavingScreen
-import com.example.fintrack.presentation.goals.ManageDebtScreen
-import com.example.fintrack.presentation.goals.ManageBudgetScreen
+import com.example.fintrack.presentation.goals.saving.ManageSavingScreen
+import com.example.fintrack.presentation.goals.debt.ManageDebtScreen
+import com.example.fintrack.presentation.goals.budgets.ManageBudgetScreen
 import com.example.fintrack.presentation.home.HomeScreen
 import com.example.fintrack.presentation.notifications.NotificationScreen
 import com.example.fintrack.presentation.profile_setup.ProfileSetupScreen
 import com.example.fintrack.presentation.reports.ReportsScreen
 import com.example.fintrack.presentation.setup.SetupScreen
 import com.example.fintrack.presentation.transactions.TransactionListScreen
+import com.example.fintrack.presentation.transactions.ManageTransactionScreen
 
 @Composable
 fun NavGraph(
@@ -106,6 +109,11 @@ fun NavGraph(
                 onNavigateToEmailVerification = {
                     navController.navigate(AppRoutes.VerifyEmail.route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
+                    }
+                },
+                onNavigateToSetup = {
+                    navController.navigate(AppRoutes.Setup.route) {
+                        popUpTo(AppRoutes.Register.route) { inclusive = true }
                     }
                 }
             )
@@ -222,16 +230,40 @@ fun NavGraph(
             )
         }
 
+        composable(
+            route = BottomNavItem.Transactions.route,
+            enterTransition = { fadeIn(animationSpec = tabCrossfadeSpec) },
+            exitTransition = { fadeOut(animationSpec = tabCrossfadeSpec) }
+        ) {
+            TransactionListScreen(
+                onNavigateToTransaction = { transactionId ->
+                    navController.navigate(AppRoutes.ManageTransaction.createRoute(transactionId))
+                }
+            )
+        }
+
         // --- Detail / Feature Screens ---
         // Using slide animations (IntOffset)
 
         composable(
             route = AppRoutes.AddBudget.route,
+            arguments = listOf(
+                navArgument("categoryName") { nullable = true },
+                navArgument("month") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("year") { type = NavType.IntType; defaultValue = -1 }
+            ),
             enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
             exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
-        ) {
+        ) { backStackEntry ->
+            val categoryName = backStackEntry.arguments?.getString("categoryName")
+            val month = backStackEntry.arguments?.getInt("month").takeIf { it != -1 }
+            val year = backStackEntry.arguments?.getInt("year").takeIf { it != -1 }
+
             AddBudgetScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                editCategoryName = categoryName,
+                editMonth = month,
+                editYear = year
             )
         }
 
@@ -302,7 +334,7 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onEdit = { 
                     // Navigate to AddBudget screen in edit mode
-                    navController.navigate(AppRoutes.AddBudget.route)
+                    navController.navigate(AppRoutes.AddBudget.createRoute(categoryName, month, year))
                 }
             )
         }
@@ -323,24 +355,38 @@ fun NavGraph(
         )
 
         composable(
-            route = AppRoutes.AddTransaction.route,
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
-        ) {
-            AddTransactionScreen(
+            route = AppRoutes.ManageTransaction.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
+        ) { backStackEntry ->
+            val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+            ManageTransactionScreen(
+                transactionId = transactionId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
-                onNavigateToPaymentMethods = { navController.navigate(AppRoutes.PaymentMethods.route) }
+                onEdit = {
+                    navController.navigate(AppRoutes.AddTransaction.createRoute(transactionId))
+                }
             )
         }
 
         composable(
-            route = AppRoutes.TransactionList.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = detailSlideSpec) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = detailSlideSpec) }
-        ) {
-            TransactionListScreen(
-                onNavigateBack = { navController.popBackStack() }
+            route = AppRoutes.AddTransaction.route,
+            arguments = listOf(
+                navArgument("transactionId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
+            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = detailSlideSpec) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = detailSlideSpec) }
+        ) { backStackEntry ->
+            val transactionId = backStackEntry.arguments?.getString("transactionId")
+            AddTransactionScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToManageCategories = { navController.navigate(AppRoutes.ManageCategories.route) },
+                onNavigateToPaymentMethods = { navController.navigate(AppRoutes.PaymentMethods.route) },
+                transactionId = transactionId
             )
         }
     }

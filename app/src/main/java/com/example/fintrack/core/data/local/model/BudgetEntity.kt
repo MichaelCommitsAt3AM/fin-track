@@ -13,5 +13,8 @@ data class BudgetEntity(
     val userId: String,
     val amount: Double, // The total budget amount for the month
     val month: Int, // e.g., 1 for January, 12 for December
-    val year: Int
+    val year: Int,
+    val isSynced: Boolean = true,
+    val deletedAt: Long? = null,
+    val updatedAt: Long = System.currentTimeMillis()
 )

@@ -1,4 +1,4 @@
-package com.example.fintrack.presentation.budgets
+package com.example.fintrack.presentation.goals.budgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

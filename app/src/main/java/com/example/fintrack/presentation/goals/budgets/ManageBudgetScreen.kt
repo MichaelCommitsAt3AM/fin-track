@@ -1,15 +1,15 @@
-package com.example.fintrack.presentation.goals
+package com.example.fintrack.presentation.goals.budgets
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -21,14 +21,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.Transaction
+import com.example.fintrack.presentation.goals.GoalDanger
+import com.example.fintrack.presentation.goals.GoalGreen
+import com.example.fintrack.presentation.goals.saving.StatCard
+import com.example.fintrack.presentation.goals.getCategoryColor
+import com.example.fintrack.presentation.goals.getCategoryIcon
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,7 +45,7 @@ fun ManageBudgetScreen(
     year: Int,
     onNavigateBack: () -> Unit,
     onEdit: () -> Unit = {},
-    viewModel: BudgetViewModel = hiltViewModel()
+    viewModel: BudgetsViewModel = hiltViewModel()
 ) {
     val budgetData by viewModel.currentBudget.collectAsStateWithLifecycle()
     val transactions by viewModel.budgetTransactions.collectAsStateWithLifecycle()
@@ -216,7 +221,7 @@ fun ManageBudgetScreen(
 @Composable
 fun BudgetProgressHero(
     budget: GoalBudgetUiModel,
-    currency: com.example.fintrack.core.domain.model.Currency
+    currency: Currency
 ) {
     val animatedProgress = remember { Animatable(0f) }
 
@@ -236,7 +241,7 @@ fun BudgetProgressHero(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
         )
@@ -326,7 +331,7 @@ fun BudgetQuickStatsRow(
     budget: GoalBudgetUiModel,
     month: Int,
     year: Int,
-    currency: com.example.fintrack.core.domain.model.Currency
+    currency: Currency
 ) {
     val remaining = (budget.budget.amount - budget.spent).coerceAtLeast(0.0)
     
@@ -362,7 +367,7 @@ fun BudgetQuickStatsRow(
 @Composable
 fun BudgetTransactionItem(
     transaction: Transaction,
-    currency: com.example.fintrack.core.domain.model.Currency
+    currency: Currency
 ) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
@@ -371,7 +376,7 @@ fun BudgetTransactionItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
         )

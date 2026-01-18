@@ -43,14 +43,42 @@ private val filterOrder = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionListScreen(
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
+    onNavigateToTransaction: ((String) -> Unit)? = null,
     viewModel: TransactionListViewModel = hiltViewModel()
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val groupedTransactions by viewModel.uiState.collectAsState()
+    val plannedTransactions by viewModel.plannedUiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
     
+    // Check if any planned transaction applies tomorrow
+    val hasTransactionTomorrow = remember(plannedTransactions) {
+        val tomorrowStart = java.util.Calendar.getInstance().apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        
+        val tomorrowEnd = java.util.Calendar.getInstance().apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, 23)
+            set(java.util.Calendar.MINUTE, 59)
+            set(java.util.Calendar.SECOND, 59)
+            set(java.util.Calendar.MILLISECOND, 999)
+        }.timeInMillis
+        
+        plannedTransactions.any { it.dateMillis in tomorrowStart..tomorrowEnd }
+    }
+    
+    // Auto-expand if transaction applies tomorrow, otherwise collapsed by default
+    var isPlannedExpanded by remember(hasTransactionTomorrow) { 
+        mutableStateOf(hasTransactionTomorrow) 
+    }
+
 
 
     Scaffold(
@@ -59,8 +87,11 @@ fun TransactionListScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Transactions", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    // Only show back button when used as detail screen
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
                     }
                 },
                 actions = {
@@ -176,6 +207,59 @@ fun TransactionListScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
+                        // Planned Transactions Section (only show if there are planned transactions)
+                        if (plannedTransactions.isNotEmpty()) {
+                            item(key = "planned_header") {
+                                PlannedTransactionsHeader(
+                                    isExpanded = isPlannedExpanded,
+                                    count = plannedTransactions.size,
+                                    onToggle = { isPlannedExpanded = !isPlannedExpanded }
+                                )
+                            }
+                            
+                            // Wrap planned transactions in AnimatedVisibility for smooth animation
+                            item(key = "planned_content") {
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = isPlannedExpanded,
+                                    enter = androidx.compose.animation.expandVertically(
+                                        animationSpec = androidx.compose.animation.core.spring(
+                                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                                        )
+                                    ) + androidx.compose.animation.fadeIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300)
+                                    ),
+                                    exit = androidx.compose.animation.shrinkVertically(
+                                        animationSpec = androidx.compose.animation.core.spring(
+                                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+                                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                                        )
+                                    ) + androidx.compose.animation.fadeOut(
+                                        animationSpec = androidx.compose.animation.core.tween(200)
+                                    )
+                                ) {
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        plannedTransactions.forEach { transaction ->
+                                            PlannedTransactionItem(
+                                                transaction = transaction,
+                                                currencySymbol = currency.symbol,
+                                                onClick = { onNavigateToTransaction?.invoke(transaction.id) }
+                                            )
+                                        }
+                                        
+                                        // Divider after planned transactions
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 8.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Regular Transactions
                         groupedTransactions.forEach { (date, transactions) ->
                             item(key = date) {
                                 Text(
@@ -189,7 +273,11 @@ fun TransactionListScreen(
                                 items = transactions,
                                 key = { it.id }
                             ) { transaction ->
-                                TransactionListItem(transaction, currency.symbol)
+                                TransactionListItem(
+                                    transaction,
+                                    currency.symbol,
+                                    onClick = { onNavigateToTransaction?.invoke(transaction.id) }
+                                )
                             }
                         }
                     }
@@ -282,7 +370,11 @@ fun TransactionListSegmentedControl(
 }
 
 @Composable
-fun TransactionListItem(item: TransactionItemData, currencySymbol: String) {
+fun TransactionListItem(
+    item: TransactionItemData,
+    currencySymbol: String,
+    onClick: () -> Unit = {}
+) {
     val amountColor = if (item.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
     val amountString = if (item.amount > 0) "+$currencySymbol ${"%.2f".format(item.amount)}" else "-$currencySymbol ${"%.2f".format(kotlin.math.abs(item.amount))}"
 
@@ -291,6 +383,7 @@ fun TransactionListItem(item: TransactionItemData, currencySymbol: String) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -320,6 +413,162 @@ fun TransactionListItem(item: TransactionItemData, currencySymbol: String) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        // Amount
+        Text(
+            text = amountString,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = amountColor
+        )
+    }
+}
+
+@Composable
+fun PlannedTransactionsHeader(
+    isExpanded: Boolean,
+    count: Int,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)) // Match transaction item radius
+            .background(MaterialTheme.colorScheme.surfaceContainerLow) // Match app UI
+            .clickable(onClick = onToggle)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp) // Increased spacing
+        ) {
+            // Icon Box matching transaction items
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            Column {
+                Text(
+                    text = "Planned Transactions",
+                    style = MaterialTheme.typography.bodyLarge, // Match transaction title
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "$count planned",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        Icon(
+            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (isExpanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun PlannedTransactionItem(
+    transaction: TransactionItemData,
+    currencySymbol: String,
+    onClick: () -> Unit = {}
+) {
+    val amountColor = if (transaction.amount > 0) FinTrackGreen else MaterialTheme.colorScheme.error
+    val amountString = if (transaction.amount > 0) "+$currencySymbol ${"%.2f".format(transaction.amount)}" else "-$currencySymbol ${"%.2f".format(kotlin.math.abs(transaction.amount))}"
+
+    // Format date for planned transaction
+    val dateText = remember(transaction.dateMillis) {
+        val cal = java.util.Calendar.getInstance()
+        val tomorrow = java.util.Calendar.getInstance().apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        
+        val transactionCal = java.util.Calendar.getInstance().apply {
+            timeInMillis = transaction.dateMillis
+        }
+        
+        // Check if it's tomorrow
+        val isTomorrow = transactionCal.get(java.util.Calendar.YEAR) == tomorrow.get(java.util.Calendar.YEAR) &&
+                transactionCal.get(java.util.Calendar.DAY_OF_YEAR) == tomorrow.get(java.util.Calendar.DAY_OF_YEAR)
+        
+        if (isTomorrow) {
+            "Applies Tomorrow"
+        } else {
+            val formatter = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+            formatter.format(java.util.Date(transaction.dateMillis))
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon Box
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(transaction.color.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = transaction.icon, contentDescription = null, tint = transaction.color)
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Text Info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = transaction.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = transaction.category,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "•",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = dateText,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (dateText == "Applies Tomorrow") FontWeight.Bold else FontWeight.Normal,
+                    color = if (dateText == "Applies Tomorrow") 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         // Amount

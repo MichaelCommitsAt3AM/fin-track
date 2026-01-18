@@ -14,7 +14,6 @@ fun SavingEntity.toDomain(): Saving {
         targetAmount = targetAmount,
         currentAmount = currentAmount,
         targetDate = targetDate,
-        category = category,
         notes = notes,
         iconName = iconName,
         createdAt = createdAt
@@ -30,7 +29,6 @@ fun Saving.toEntity(): SavingEntity {
         targetAmount = targetAmount,
         currentAmount = currentAmount,
         targetDate = targetDate,
-        category = category,
         notes = notes,
         iconName = iconName,
         createdAt = createdAt

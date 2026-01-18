@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.fintrack.presentation.goals.budgets.BudgetsViewModel
+import com.example.fintrack.presentation.goals.debt.DebtViewModel
+import com.example.fintrack.presentation.goals.saving.SavingViewModel
 import com.example.fintrack.presentation.navigation.AppRoutes
 import java.text.SimpleDateFormat
 import java.util.*
@@ -42,7 +44,7 @@ fun GoalsScreen(
     paddingValues: PaddingValues,
     savingViewModel: SavingViewModel = hiltViewModel(),
     debtViewModel: DebtViewModel = hiltViewModel(),
-    budgetViewModel: BudgetViewModel = hiltViewModel()
+    budgetViewModel: BudgetsViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf("Budgets") }
 
@@ -79,7 +81,7 @@ fun GoalsScreen(
                 Button(
                     onClick = {
                         when (selectedTab) {
-                            "Budgets" -> navController.navigate(AppRoutes.AddBudget.route)
+                            "Budgets" -> navController.navigate(AppRoutes.AddBudget.createRoute())
                             "Savings" -> navController.navigate(AppRoutes.AddSaving.route)
                             "Debts" -> navController.navigate(AppRoutes.AddDebt.route)
                         }

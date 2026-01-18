@@ -1,4 +1,4 @@
-package com.example.fintrack.presentation.budgets
+package com.example.fintrack.presentation.goals.budgets
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -27,10 +27,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun AddBudgetScreen(
     onNavigateBack: () -> Unit,
+    editCategoryName: String? = null,
+    editMonth: Int? = null,
+    editYear: Int? = null,
     viewModel: BudgetsViewModel = hiltViewModel()
 ) {
     val state by viewModel.addBudgetState.collectAsState()
     val context = LocalContext.current
+    val isEditMode by remember(editCategoryName) { derivedStateOf { editCategoryName != null } }
+
+    LaunchedEffect(editCategoryName, editMonth, editYear) {
+        if (editCategoryName != null && editMonth != null && editYear != null) {
+            viewModel.loadBudgetForEdit(editCategoryName, editMonth, editYear)
+        }
+    }
 
     LaunchedEffect(key1 = true) {
         viewModel.events.collect { event ->
@@ -55,7 +65,7 @@ fun AddBudgetScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Add New Budget",
+                        text = if (isEditMode) "Edit Budget" else "Add New Budget",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )

@@ -1,6 +1,7 @@
-package com.example.fintrack.presentation.goals
+package com.example.fintrack.presentation.goals.debt
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +24,8 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,40 +35,46 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import com.example.fintrack.core.ui.components.CustomDatePickerDialog
+import com.example.fintrack.presentation.goals.debt.DebtViewModel
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.example.fintrack.presentation.ui.theme.SpendingBills
+import kotlinx.coroutines.CoroutineScope
+import java.text.SimpleDateFormat
+import java.util.Locale
+import com.example.fintrack.core.domain.model.DebtType as DomainDebtType
+
+enum class DebtType {
+    I_OWE, OWED_TO_ME
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddSavingScreen(
+fun AddDebtScreen(
     onNavigateBack: () -> Unit,
-    viewModel: SavingViewModel = hiltViewModel()
+    viewModel: DebtViewModel = hiltViewModel()
 ) {
     val currency by viewModel.currencyPreference.collectAsState()
-    
-    // State Hoisting
-    var targetAmount by remember { mutableStateOf("") }
-    var currentAmount by remember { mutableStateOf("") }
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    var selectedIcon by remember { mutableStateOf<ImageVector>(Icons.Default.Savings) }
 
-    // Date Picker State for target date
+    // State Hoisting
+    var debtType by remember { mutableStateOf(DebtType.I_OWE) }
+    var amount by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
+    var interest by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    // Date Picker State
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDateMillis by remember { mutableStateOf<Long?>(null) }
 
-    // Icon Selection Dialog
-    var showIconPicker by remember { mutableStateOf(false) }
-
-    val activeColor = FinTrackGreen
+    val activeColor = if (debtType == DebtType.I_OWE) SpendingBills else FinTrackGreen
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0), // Let imePadding handle insets
+        // 1. CHANGE: Use safeDrawing to respect system bars and keyboard awareness
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Add Saving Goal", fontWeight = FontWeight.Bold) },
+                title = { Text("Add Debt", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -75,41 +86,35 @@ fun AddSavingScreen(
             )
         },
         bottomBar = {
-            SaveSavingButton(
-                activeColor = activeColor,
-                onClick = {
-                    // Save to database via ViewModel
-                    val targetAmountValue = targetAmount.toDoubleOrNull() ?: 0.0
-                    val currentAmountValue = currentAmount.toDoubleOrNull() ?: 0.0
-                    
-                    if (title.isNotBlank() && targetAmountValue > 0) {
-                        viewModel.addSaving(
-                            title = title,
-                            targetAmount = targetAmountValue,
-                            currentAmount = currentAmountValue,
-                            targetDate = selectedDateMillis ?: System.currentTimeMillis(),
-                            category = category,
-                            notes = notes,
-                            iconName = when (selectedIcon) {
-                                Icons.Default.Savings -> "Savings"
-                                Icons.Default.Computer -> "Computer"
-                                Icons.Default.BeachAccess -> "BeachAccess"
-                                Icons.Default.DirectionsCar -> "DirectionsCar"
-                                Icons.Default.Home -> "Home"
-                                Icons.Default.School -> "School"
-                                Icons.Default.HealthAndSafety -> "HealthAndSafety"
-                                Icons.Default.CardGiftcard -> "CardGiftcard"
-                                Icons.Default.Flight -> "Flight"
-                                Icons.Default.Phone -> "Phone"
-                                Icons.Default.Watch -> "Watch"
-                                Icons.Default.ShoppingBag -> "ShoppingBag"
-                                else -> "Savings"
-                            }
-                        )
-                        onNavigateBack()
+            // 2. CHANGE: Apply IME padding to the container of the bottom bar
+            // This ensures the button moves UP with the keyboard
+            Box(modifier = Modifier.fillMaxWidth().imePadding()) {
+                SaveDebtButton(
+                    activeColor = activeColor,
+                    onClick = {
+                        val amountValue = amount.toDoubleOrNull() ?: 0.0
+                        val interestValue = interest.toDoubleOrNull() ?: 0.0
+
+                        if (title.isNotBlank() && amountValue > 0) {
+                            viewModel.addDebt(
+                                title = title,
+                                originalAmount = amountValue,
+                                currentBalance = amountValue,
+                                minimumPayment = 0.0,
+                                dueDate = selectedDateMillis ?: System.currentTimeMillis(),
+                                interestRate = interestValue,
+                                notes = notes,
+                                iconName = "CreditCard",
+                                debtType = when (debtType) {
+                                    DebtType.I_OWE -> DomainDebtType.I_OWE
+                                    DebtType.OWED_TO_ME -> DomainDebtType.OWED_TO_ME
+                                }
+                            )
+                            onNavigateBack()
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     ) { paddingValues ->
         val scrollState = rememberScrollState()
@@ -119,26 +124,25 @@ fun AddSavingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding() // Automatically adds padding when keyboard appears
+                // 3. CHANGE: REMOVED .imePadding() here.
+                // The paddingValues passed by Scaffold already account for the
+                // BottomBar (which is now riding the keyboard).
                 .padding(paddingValues)
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Icon Display Section
-            Spacer(modifier = Modifier.height(16.dp))
-            SavingIconDisplay(
-                selectedIcon = selectedIcon,
-                activeColor = activeColor,
-                onClick = { showIconPicker = true }
+            // Extracted Component: DebtTypeSelector
+            DebtTypeSelector(
+                selectedType = debtType,
+                onTypeSelected = { debtType = it },
+                activeColor = activeColor
             )
 
-            // Target Amount Section
             Spacer(modifier = Modifier.height(32.dp))
-            SavingAmountSection(
-                amount = targetAmount,
-                onAmountChange = { targetAmount = it },
+            AmountSection(
+                amount = amount,
+                onAmountChange = { amount = it },
                 activeColor = activeColor,
-                label = "Target Amount",
                 currencySymbol = currency.symbol
             )
 
@@ -146,23 +150,24 @@ fun AddSavingScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Form Section
-            SavingFormSection(
+            FormSection(
                 title = title,
                 onTitleChange = { title = it },
-                currentAmount = currentAmount,
-                onCurrentAmountChange = { currentAmount = it },
-                category = category,
-                onCategoryChange = { category = it },
                 selectedDateMillis = selectedDateMillis,
                 onDateClick = { showDatePicker = true },
+                interest = interest,
+                onInterestChange = { interest = it },
                 notes = notes,
                 onNotesChange = { notes = it },
                 bringIntoViewRequester = bringIntoViewRequester,
                 coroutineScope = coroutineScope
             )
 
-    // Date Picker Dialog
+            // Add extra space at bottom so user can scroll fields above the button if needed
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+
     if (showDatePicker) {
         CustomDatePickerDialog(
             selectedDateMillis = selectedDateMillis ?: System.currentTimeMillis(),
@@ -173,66 +178,14 @@ fun AddSavingScreen(
             onDismiss = { showDatePicker = false }
         )
     }
-            Spacer(modifier = Modifier.height(100.dp))
-        }
-    }
-
-
-
-    // Icon Picker Dialog
-    if (showIconPicker) {
-        IconPickerDialog(
-            onDismiss = { showIconPicker = false },
-            onIconSelected = { icon ->
-                selectedIcon = icon
-                showIconPicker = false
-            },
-            activeColor = activeColor
-        )
-    }
 }
 
-// --- Icon Display Section ---
+// --- Optimization 1: Isolate Amount Input & Fix Intrinsic Measurement ---
 @Composable
-fun SavingIconDisplay(
-    selectedIcon: ImageVector,
-    activeColor: Color,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
-    ) {
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(activeColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = selectedIcon,
-                contentDescription = "Saving Icon",
-                tint = activeColor,
-                modifier = Modifier.size(40.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Tap to change icon",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-// --- Amount Section ---
-@Composable
-fun SavingAmountSection(
+fun AmountSection(
     amount: String,
     onAmountChange: (String) -> Unit,
     activeColor: Color,
-    label: String,
     currencySymbol: String
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -251,7 +204,7 @@ fun SavingAmountSection(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            SavingAmountField(
+            AmountField(
                 amount = amount,
                 onAmountChange = onAmountChange,
                 activeColor = activeColor
@@ -261,7 +214,7 @@ fun SavingAmountSection(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = label,
+            text = "Total Amount",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
@@ -269,8 +222,9 @@ fun SavingAmountSection(
     }
 }
 
+
 @Composable
-fun SavingAmountField(
+fun AmountField(
     amount: String,
     onAmountChange: (String) -> Unit,
     activeColor: Color
@@ -278,7 +232,7 @@ fun SavingAmountField(
     TextField(
         value = amount,
         onValueChange = {
-            if (it.matches(Regex("""^\d*\.?\d{0,2}$"""))) {
+            if (it.matches(Regex("""\d*\.?\d{0,2}"""))) {
                 onAmountChange(it)
             }
         },
@@ -306,25 +260,25 @@ fun SavingAmountField(
             unfocusedIndicatorColor = Color.Transparent,
             cursorColor = activeColor
         ),
-        modifier = Modifier.widthIn(min = 140.dp)
+        modifier = Modifier
+            .widthIn(min = 140.dp)
     )
 }
 
-// --- Form Section ---
+
+// --- Optimization 2: Isolate Form Fields ---
 @Composable
-fun SavingFormSection(
+fun FormSection(
     title: String,
     onTitleChange: (String) -> Unit,
-    currentAmount: String,
-    onCurrentAmountChange: (String) -> Unit,
-    category: String,
-    onCategoryChange: (String) -> Unit,
     selectedDateMillis: Long?,
     onDateClick: () -> Unit,
+    interest: String,
+    onInterestChange: (String) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     bringIntoViewRequester: BringIntoViewRequester,
-    coroutineScope: kotlinx.coroutines.CoroutineScope
+    coroutineScope: CoroutineScope
 ) {
     Column(
         modifier = Modifier
@@ -332,12 +286,13 @@ fun SavingFormSection(
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        SavingFormField(
-            label = "GOAL NAME",
-            icon = Icons.Default.Flag,
+        DebtFormField(
+            label = "TITLE / PERSON",
+            icon = Icons.Default.Person,
             value = title,
             onValueChange = onTitleChange,
-            placeholder = "e.g. New Laptop, Vacation, Emergency Fund"
+            placeholder = "e.g. Car Loan or John Doe",
+            trailingIcon = Icons.Default.Contacts
         )
 
         Row(
@@ -345,30 +300,14 @@ fun SavingFormSection(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                SavingFormField(
-                    label = "CURRENT SAVED",
-                    icon = Icons.Default.AccountBalance,
-                    value = currentAmount,
-                    onValueChange = {
-                        if (it.matches(Regex("""^\d*\.?\d{0,2}$"""))) {
-                            onCurrentAmountChange(it)
-                        }
-                    },
-                    placeholder = "0.00",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    trailingLabel = "$"
-                )
-            }
-
-            Box(modifier = Modifier.weight(1f)) {
-                SavingFormField(
-                    label = "TARGET DATE",
+                DebtFormField(
+                    label = "DUE DATE",
                     icon = Icons.Default.CalendarToday,
                     value = selectedDateMillis?.let {
-                        java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(it)
+                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(it)
                     } ?: "",
                     onValueChange = {},
-                    placeholder = "Select",
+                    placeholder = "Select Date",
                     readOnly = true,
                     trailingIcon = Icons.Default.ExpandMore,
                     modifier = Modifier.clickable { onDateClick() }
@@ -379,24 +318,28 @@ fun SavingFormSection(
                         .clickable { onDateClick() }
                 )
             }
+
+            Box(modifier = Modifier.width(120.dp)) {
+                DebtFormField(
+                    label = "INTEREST",
+                    icon = null,
+                    value = interest,
+                    onValueChange = onInterestChange,
+                    placeholder = "0",
+                    trailingLabel = "%",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
         }
 
-        SavingFormField(
-            label = "CATEGORY",
-            icon = Icons.Default.Category,
-            value = category,
-            onValueChange = onCategoryChange,
-            placeholder = "e.g. Travel, Electronics, Education"
-        )
-
-        SavingFormField(
+        DebtFormField(
             label = "NOTES",
             icon = Icons.Default.Description,
             value = notes,
             onValueChange = onNotesChange,
-            placeholder = "Add any details or motivation...",
+            placeholder = "Add any details here...",
             singleLine = false,
-            minLines = 3,
+            minLines = 1,
             modifier = Modifier
                 .bringIntoViewRequester(bringIntoViewRequester)
                 .onFocusEvent { focusState ->
@@ -410,12 +353,15 @@ fun SavingFormSection(
     }
 }
 
-// --- Save Button ---
+// --- Optimization 3: Isolate Button & Animation ---
 @Composable
-fun SaveSavingButton(
+fun SaveDebtButton(
     activeColor: Color,
     onClick: () -> Unit
 ) {
+    // We animate the color HERE, locally.
+    // Changing 'amount' at the top level does not trigger this animation calc.
+    // Changing 'debtType' triggers this, but efficient layout boundaries protect the rest.
     val animatedColor by animateColorAsState(
         targetValue = activeColor,
         label = "ButtonColor",
@@ -438,16 +384,100 @@ fun SaveSavingButton(
                 containerColor = animatedColor
             )
         ) {
-            Text("Save Goal", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Save Debt", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(8.dp))
             Icon(Icons.Default.Check, contentDescription = null)
         }
     }
 }
 
-// --- Form Field Component ---
 @Composable
-fun SavingFormField(
+fun DebtTypeSelector(
+    selectedType: DebtType,
+    onTypeSelected: (DebtType) -> Unit,
+    activeColor: Color
+) {
+    val density = LocalDensity.current
+    var boxWidthPx by remember { mutableIntStateOf(0) } // Optimized primitive state
+
+    // Animate color locally for the selector background
+    val animatedSelectorColor by animateColorAsState(targetValue = activeColor, label = "SelectorColor")
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
+            .padding(4.dp)
+            .onSizeChanged { boxWidthPx = it.width }
+    ) {
+        val highlightX by animateDpAsState(
+            targetValue = if (selectedType == DebtType.I_OWE) 0.dp else with(density) { (boxWidthPx / 2f).toDp() },
+            label = "highlight"
+        )
+
+        Box(
+            modifier = Modifier
+                .offset(x = highlightX)
+                .fillMaxWidth(0.5f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(8.dp))
+                .background(animatedSelectorColor)
+        )
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            TypeOption(
+                modifier = Modifier.weight(1f),
+                isSelected = selectedType == DebtType.I_OWE,
+                text = "I Owe",
+                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                onClick = { onTypeSelected(DebtType.I_OWE) }
+            )
+            TypeOption(
+                modifier = Modifier.weight(1f),
+                isSelected = selectedType == DebtType.OWED_TO_ME,
+                text = "Owed to Me",
+                icon = Icons.Default.CallReceived,
+                onClick = { onTypeSelected(DebtType.OWED_TO_ME) }
+            )
+        }
+    }
+}
+
+@Composable
+fun TypeOption(
+    modifier: Modifier,
+    isSelected: Boolean,
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = text,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun DebtFormField(
     label: String,
     icon: ImageVector?,
     value: String,
@@ -501,81 +531,4 @@ fun SavingFormField(
             modifier = Modifier.fillMaxWidth()
         )
     }
-}
-
-// --- Icon Picker Dialog ---
-@Composable
-fun IconPickerDialog(
-    onDismiss: () -> Unit,
-    onIconSelected: (ImageVector) -> Unit,
-    activeColor: Color
-) {
-    val savingIcons = listOf(
-        Icons.Default.Savings to "Savings",
-        Icons.Default.Computer to "Technology",
-        Icons.Default.BeachAccess to "Vacation",
-        Icons.Default.DirectionsCar to "Car",
-        Icons.Default.Home to "Home",
-        Icons.Default.School to "Education",
-        Icons.Default.HealthAndSafety to "Emergency",
-        Icons.Default.CardGiftcard to "Gift",
-        Icons.Default.Flight to "Travel",
-        Icons.Default.Phone to "Phone",
-        Icons.Default.Watch to "Watch",
-        Icons.Default.ShoppingBag to "Shopping"
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Choose Icon", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                savingIcons.chunked(4).forEach { rowIcons ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        rowIcons.forEach { (icon, label) ->
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onIconSelected(icon) }
-                                    .padding(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(activeColor.copy(alpha = 0.1f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = label,
-                                        tint = activeColor,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = activeColor)
-            }
-        }
-    )
 }

@@ -145,7 +145,7 @@ fun CategoryDetailScreen(
                 value = state.name,
                 onValueChange = { viewModel.onNameChange(it) },
                 label = "Category Name",
-                placeholder = "e.g., Groceries"
+                placeholder = if (state.type == CategoryType.INCOME) "e.g., Salary" else "e.g., Groceries"
             )
 
             Spacer(modifier = Modifier.height(24.dp))
