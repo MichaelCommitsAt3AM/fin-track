@@ -20,3 +20,4 @@ google-services.json
 *.log
 logs/
 error.log
+app/release/

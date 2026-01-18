@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.fintrack.core.common.NotificationHelper
+import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import dagger.assisted.Assisted
@@ -40,11 +41,15 @@ class BudgetCheckWorker @AssistedInject constructor(
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.timeInMillis
 
         calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
         val endDate = calendar.timeInMillis
 
         // Get all budgets for current month
@@ -60,7 +65,12 @@ class BudgetCheckWorker @AssistedInject constructor(
             // Note: Category matching should be robust (case insensitive, trim)
             val spent = transactions
                 .filter { it.category.equals(budget.categoryName, ignoreCase = true) }
-                .sumOf { it.amount }
+                .sumOf { 
+                    when (it.type) {
+                        TransactionType.EXPENSE -> it.amount
+                        TransactionType.INCOME -> -it.amount
+                    }
+                }
 
             if (budget.amount > 0) {
                 val percentage = spent / budget.amount
