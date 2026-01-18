@@ -72,6 +72,60 @@ class TransactionListViewModel @Inject constructor(
         }
     }
 
+    // Planned transactions flow - always fetch planned transactions
+    val plannedTransactions = transactionRepository.getPlannedTransactions()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Planned transactions UI State
+    val plannedUiState = combine(
+        plannedTransactions,
+        categoriesFlow
+    ) { transactions, categories ->
+        // Create category cache
+        val categoryCache = categories.associateBy({ it.name }, { category ->
+            val icon = category.iconName?.let { getIconByName(it) }
+                ?: com.example.fintrack.presentation.settings.getIconByName("wallet")
+            
+            val color = try { 
+                Color(android.graphics.Color.parseColor(category.colorHex ?: "#CCCCCC")) 
+            } catch(e: Exception) { 
+                Color.Gray 
+            }
+            
+            CategoryUiCache(icon, color)
+        })
+
+        // Map to UI Model
+        transactions.map { transaction ->
+            val cachedCategory = categoryCache[transaction.category]
+            
+            val icon = cachedCategory?.icon ?: com.example.fintrack.presentation.settings.getIconByName("wallet")
+            val color = cachedCategory?.color ?: Color.Gray
+
+            val displayAmount = if (transaction.type == TransactionType.INCOME) transaction.amount else -kotlin.math.abs(transaction.amount)
+
+            TransactionItemData(
+                id = transaction.id,
+                title = transaction.notes ?: transaction.category,
+                category = transaction.category,
+                amount = displayAmount,
+                icon = icon,
+                color = color,
+                dateMillis = transaction.date
+            )
+        }
+    }
+    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     // Combine transactions, categories => UI State
     val uiState = combine(
         transactionsFlow,

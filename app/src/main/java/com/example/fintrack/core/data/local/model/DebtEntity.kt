@@ -17,5 +17,8 @@ data class DebtEntity(
     val notes: String?,
     val iconName: String, // Store icon identifier as string
     val debtType: String, // "I_OWE" or "OWED_TO_ME"
-    val createdAt: Long
+    val createdAt: Long,
+    val isSynced: Boolean = true,
+    val deletedAt: Long? = null,
+    val updatedAt: Long = System.currentTimeMillis()
 )

@@ -144,8 +144,8 @@ fun SettingsScreen(
                     }
                 )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.VerifiedUser, title = "Two-Factor Authentication", onClick = {})
+                // HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                // SettingsItem(icon = Icons.Default.VerifiedUser, title = "Two-Factor Authentication", onClick = {})
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -186,11 +186,11 @@ fun SettingsScreen(
 
             // Support Section
             SettingsSection(title = "Support") {
-                SettingsItem(icon = Icons.AutoMirrored.Filled.HelpCenter, title = "Help & Support", onClick = {})
+                SettingsItem(icon = Icons.AutoMirrored.Filled.HelpCenter, title = "Help & Support", onClick = { navController.navigate(AppRoutes.HelpSupport.route) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.Gavel, title = "Terms of Service", onClick = {})
+                SettingsItem(icon = Icons.Default.Gavel, title = "Terms of Service", onClick = { navController.navigate(AppRoutes.TermsOfService.route) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.PrivacyTip, title = "Privacy Policy", onClick = {})
+                SettingsItem(icon = Icons.Default.PrivacyTip, title = "Privacy Policy", onClick = { navController.navigate(AppRoutes.PrivacyPolicy.route) })
             }
 
             Spacer(modifier = Modifier.height(32.dp))

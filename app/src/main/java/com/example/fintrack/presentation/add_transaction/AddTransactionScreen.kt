@@ -89,7 +89,8 @@ import com.example.fintrack.core.domain.model.TransactionType
 fun AddTransactionScreen(
     onNavigateBack: () -> Unit,
     onNavigateToManageCategories: () -> Unit,
-    onNavigateToPaymentMethods: () -> Unit, // NEW PARAMETER
+    onNavigateToPaymentMethods: () -> Unit,
+    transactionId: String? = null, // NEW: Optional transaction ID for edit mode
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -98,6 +99,11 @@ fun AddTransactionScreen(
 
     val relevantCategories = remember(state.categories, state.transactionType) {
         state.categories.filter { it.type.name == state.transactionType.name }
+    }
+
+    // Load transaction data if editing
+    LaunchedEffect(transactionId) {
+        viewModel.loadTransaction(transactionId)
     }
 
     LaunchedEffect(key1 = true) {
@@ -117,7 +123,7 @@ fun AddTransactionScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0), // Let imePadding handle insets
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Add Transaction", fontWeight = FontWeight.Bold) },
+                title = { Text(if (state.isEditMode) "Edit Transaction" else "Add Transaction", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -266,7 +272,11 @@ fun AddTransactionScreen(
                 if (state.isLoading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Add Transaction", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (state.isEditMode) "Save Changes" else "Add Transaction",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

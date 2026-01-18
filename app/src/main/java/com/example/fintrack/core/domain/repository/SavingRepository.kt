@@ -21,4 +21,6 @@ interface SavingRepository {
     fun getContributionsForSaving(savingId: String): Flow<List<Contribution>>
     
     suspend fun syncSavingsFromCloud()
+    
+    suspend fun syncUnsyncedSavings()
 }

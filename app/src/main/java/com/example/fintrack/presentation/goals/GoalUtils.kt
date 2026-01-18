@@ -80,7 +80,6 @@ data class SavingGoal(
     val targetAmount: Double,
     val currentAmount: Double,
     val targetDate: Long,
-    val category: String,
     val icon: ImageVector,
     val color: Color,
     val contributions: List<UiContribution>
@@ -126,9 +125,8 @@ fun Saving.toUiModel(contributions: List<com.example.fintrack.core.domain.model.
         targetAmount = this.targetAmount,
         currentAmount = this.currentAmount,
         targetDate = this.targetDate,
-        category = this.category,
         icon = iconFromName(this.iconName),
-        color = getCategoryColor(this.category),
+        color = Color(0xFF10B981), // Default green for savings
         contributions = contributions.map { it.toUiModel() }
     )
 }

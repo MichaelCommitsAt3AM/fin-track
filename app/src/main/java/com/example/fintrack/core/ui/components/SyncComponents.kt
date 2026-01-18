@@ -33,14 +33,18 @@ fun SyncStatusOverlay(
     // Determine visibility
     val isVisible = status !is SyncStatus.Idle
 
-    // Keep track of the last non-idle status to show during exit animation
-    var activeStatus by remember { mutableStateOf<SyncStatus?>(null) }
-    if (status !is SyncStatus.Idle) {
-        activeStatus = status
+    // Track last non-idle status with non-null default to ensure AnimatedVisibility is always composed
+    var activeStatus by remember { mutableStateOf<SyncStatus>(status) }
+    
+    // Update activeStatus when status changes to non-idle
+    LaunchedEffect(status) {
+        if (status !is SyncStatus.Idle) {
+            activeStatus = status
+        }
     }
 
-    // Use activeStatus for rendering content. If null (initial state), we don't render.
-    val currentStatus = activeStatus ?: return
+    // Always compose AnimatedVisibility so Compose can track state transitions
+    // This ensures the enter animation plays on first appearance
 
     // Animated visibility with slide from top
     AnimatedVisibility(
@@ -61,6 +65,9 @@ fun SyncStatusOverlay(
         ) + fadeOut(animationSpec = tween(700)),
         modifier = modifier
     ) {
+        // Use activeStatus for rendering - shows last non-idle state during exit animation
+        val currentStatus = activeStatus
+        
         // Determine colors and content based on status
         val (gradientColors, iconColor, icon, text, showProgress) = when (currentStatus) {
             is SyncStatus.Syncing -> SyncUIConfig(
@@ -93,7 +100,7 @@ fun SyncStatusOverlay(
                 text = currentStatus.message,
                 showProgress = false
             )
-            else -> return@AnimatedVisibility
+            else -> return@AnimatedVisibility // Don't render content for Idle state
         }
 
         // Animated scale for entrance

@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.fintrack.core.data.local.LocalAuthManager
@@ -62,14 +63,87 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
     
     private val mainViewModel: MainViewModel by viewModels()
 
+    private var lastBackgroundTimestamp: Long = 0
+    private var isFirstLaunch = true
+    private var isSecurityEnabled = false
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) {
+            lastBackgroundTimestamp = System.currentTimeMillis()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (lastBackgroundTimestamp > 0) {
+            val timeAway = System.currentTimeMillis() - lastBackgroundTimestamp
+            val oneMinute = 60 * 1000L
+            val tenMinutes = 10 * oneMinute
+            val thirtyMinutes = 30 * oneMinute
+
+            if (timeAway > thirtyMinutes) {
+                // > 30 mins: Restart app (Session Expiry)
+                val intent = intent
+                finish()
+                startActivity(intent)
+            } else if (timeAway > tenMinutes) {
+                // > 10 mins: Lock app
+                // Only if biometric is enabled (checked inside ViewModel state or we check here)
+                 // For simplicity, we trigger the lock. The UI will decide if it shows Pin/Biometric or nothing (if disabled).
+                 // However, the current UI logic relies on `isAppLocked` which wraps the whole content.
+                 // We need to ensure we don't lock if the user has disabled security.
+                 // We can check localAuthManager again or rely on the previous state.
+                 // Since isAppLocked controls the overlay, setting it to true shows the lock screen.
+                 // We should only set it to true if security IS enabled.
+                 
+                 // We can't access the flow value easily here without blocking.
+                 // Better approach: Set the flag in ViewModel. The ViewModel can check preference before updating state?
+                 // Or we just set it, and the UI (which observes preference) decides?
+                 // Current UI: `if (isAppLocked) { ... }`
+                 // `isAppLocked` was initialized with `isBiometricEnabled`.
+                 // So we should only set it to true if we know security is enabled.
+                 
+                 // Let's use the local scope in setContent? No, onStart is outside.
+                 // We will optimistically lock. But we need to know if we SHOULD lock.
+                 // Ideally, we persist "isSecurityEnabled" in a simple var in MainActivity during onCreate?
+                 if (isSecurityEnabled) {
+                     mainViewModel.setAppLocked(true)
+                 }
+            }
+            lastBackgroundTimestamp = 0
+        }
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // Check biometric status synchronously before content is set to prevent UI flash
-        // In a production app, you might use a splash screen instead of runBlocking
+        // Check security status synchronously (Biometric OR PIN)
         val isBiometricEnabled = runBlocking { localAuthManager.isBiometricEnabled.first() }
+        val hasPin = runBlocking { localAuthManager.hasPinSet() }
+        isSecurityEnabled = isBiometricEnabled || hasPin // Store for lifecycle checks
+
+        // Initialize ViewModel state
+        if (isFirstLaunch) {
+            mainViewModel.setAppLocked(isSecurityEnabled)
+            isFirstLaunch = false
+        }
+        
+        // Keep isSecurityEnabled updated
+        // We observe both Biometric and PIN state
+        lifecycleScope.launch {
+            kotlinx.coroutines.flow.combine(
+                localAuthManager.isBiometricEnabled,
+                localAuthManager.userPin
+            ) { bioEnabled, pin ->
+                bioEnabled || (pin != null)
+            }.collect { enabled ->
+                isSecurityEnabled = enabled
+            }
+        }
 
         setContent {
             val themePreference by localAuthManager.themePreference.collectAsState(initial = "Dark")
@@ -83,9 +157,12 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
 
             FinTrackTheme(darkTheme = useDarkTheme) {
                 // State to control the app lock.
-                // If biometric is enabled in settings, we start locked.
-                var isAppLocked by remember { mutableStateOf(isBiometricEnabled) }
-                var showPinLock by remember { mutableStateOf(false) }
+                // Observed from ViewModel now.
+                val isAppLocked by mainViewModel.isAppLocked.collectAsState()
+                
+                // If Biometric is disabled but app is locked (because PIN is set), default to PIN screen
+                val isBiometricEnabled by localAuthManager.isBiometricEnabled.collectAsState(initial = false)
+                var showPinLock by remember(isBiometricEnabled) { mutableStateOf(!isBiometricEnabled) }
 
                 if (isAppLocked) {
                     Surface(
@@ -94,17 +171,17 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                     ) {
                         if (showPinLock) {
                             PinLoginScreen(
-                                    onPinVerified = { isAppLocked = false },
+                                    onPinVerified = { mainViewModel.setAppLocked(false) },
                                     onUseBiometrics = { showPinLock = false },
                                     onForgotPin = {
                                         // Unlock to allow navigation to recovery flows
-                                        isAppLocked = false
+                                        mainViewModel.setAppLocked(false)
                                     },
-                                    isBiometricAvailable = true
+                                    isBiometricAvailable = isBiometricEnabled
                             )
                         } else {
                             BiometricLoginScreen(
-                                    onSuccess = { isAppLocked = false },
+                                    onSuccess = { mainViewModel.setAppLocked(false) },
                                     onUsePin = { showPinLock = true }
                             )
                         }
@@ -132,8 +209,7 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                     AppRoutes.Home.route,
                                     AppRoutes.Reports.route,
                                     AppRoutes.Goals.route,
-                                    AppRoutes.SettingsGraph.route,
-                                    AppRoutes.Settings.route
+                                    AppRoutes.TransactionList.route
                             )
 
                     val showBottomNav = currentRoute in mainTabRoutes

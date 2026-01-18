@@ -81,81 +81,78 @@ fun ManageCategoriesScreen(
                 .padding(horizontal = 16.dp)
         ) {
             // --- Type Toggle with Animation ---
+            val expenseColor = Color(0xFFE53935)
+            val incomeColor = MaterialTheme.colorScheme.primary
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            var boxWidthPx by remember { mutableStateOf(0) }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .padding(4.dp)
+                    .onSizeChanged { boxWidthPx = it.width }
             ) {
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                var boxWidthPx by remember { mutableStateOf(0) }
+                val highlightX by animateDpAsState(
+                    targetValue = if (selectedTab == CategoryType.EXPENSE) {
+                        0.dp
+                    } else {
+                        with(density) { (boxWidthPx / 2f).toDp() }
+                    },
+                    label = "highlight"
+                )
 
+                // 🔵 Sliding highlight
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
-                        .onSizeChanged { boxWidthPx = it.width }
-                ) {
-                    val highlightX by animateDpAsState(
-                        targetValue = if (selectedTab == CategoryType.EXPENSE) {
-                            0.dp
-                        } else {
-                            with(density) { (boxWidthPx / 2f).toDp() }
-                        },
-                        label = "tab_highlight"
-                    )
+                        .offset(x = highlightX)
+                        .fillMaxWidth(0.5f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (selectedTab == CategoryType.EXPENSE)
+                                expenseColor
+                            else incomeColor
+                        )
+                )
 
-                    // Sliding highlight
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // EXPENSE
                     Box(
                         modifier = Modifier
-                            .offset(x = highlightX)
-                            .fillMaxWidth(0.5f)
+                            .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.background)
-                            .shadow(2.dp, RoundedCornerShape(6.dp))
-                    )
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { viewModel.onTabSelected(CategoryType.EXPENSE) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Expense",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedTab == CategoryType.EXPENSE)
+                                Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                    Row(modifier = Modifier.fillMaxSize()) {
-                        // EXPENSES
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { viewModel.onTabSelected(CategoryType.EXPENSE) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Expenses",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (selectedTab == CategoryType.EXPENSE)
-                                    MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        // INCOME
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { viewModel.onTabSelected(CategoryType.INCOME) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Income",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (selectedTab == CategoryType.INCOME)
-                                    MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    // INCOME
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { viewModel.onTabSelected(CategoryType.INCOME) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Income",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedTab == CategoryType.INCOME)
+                                Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

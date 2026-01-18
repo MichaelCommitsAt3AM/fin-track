@@ -26,6 +26,9 @@ import com.example.fintrack.presentation.settings.recurring.RecurringTransaction
 import com.example.fintrack.presentation.settings.security.SetPasswordScreen
 import com.example.fintrack.presentation.settings.notifications.NotificationSettingsScreen
 import com.example.fintrack.presentation.settings.payment_methods.PaymentMethodsScreen
+import com.example.fintrack.presentation.settings.support.HelpSupportScreen
+import com.example.fintrack.presentation.settings.support.PrivacyPolicyScreen
+import com.example.fintrack.presentation.settings.support.TermsOfServiceScreen
 
 fun NavGraphBuilder.settingsNavGraph(
     navController: NavHostController,
@@ -40,8 +43,11 @@ fun NavGraphBuilder.settingsNavGraph(
             SettingsScreen(
                 navController = navController,
                 onNavigateToLogin = {
-                    navController.navigate(AppRoutes.Login.route) {
-                        popUpTo(0) // Clear backstack on logout
+                    // Instead of navigating, restart the activity to clear all ViewModels
+                    // This prevents Firestore permission errors from active listeners
+                    (navController.context as? android.app.Activity)?.apply {
+                        finish()
+                        startActivity(intent)
                     }
                 },
                 onNavigateBack = { navController.popBackStack() },
@@ -61,8 +67,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 2. Manage Profile Screen
         composable(
             route = AppRoutes.ManageProfile.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             ManageProfileScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -72,8 +88,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 3: Manage Sign-in Methods Screen
         composable(
             route = AppRoutes.ManageSignInMethods.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             ManageSignInMethodsScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -84,8 +110,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 4: Set Password Screen
         composable(
             route = AppRoutes.SetPassword.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             SetPasswordScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -95,8 +131,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 4a: Notification Settings Screen
         composable(
             route = AppRoutes.NotificationSettings.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             NotificationSettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -106,8 +152,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 4b: Payment Methods Screen
         composable(
             route = AppRoutes.PaymentMethods.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             PaymentMethodsScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -117,27 +173,52 @@ fun NavGraphBuilder.settingsNavGraph(
         // 5. Manage Categories Screen
         composable(
             route = AppRoutes.ManageCategories.route,
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             ManageCategoriesScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
                     navController.navigate(AppRoutes.AddCategory.route)
                 },
-                onNavigateToEditCategory = { categoryName -> navController.navigate(AppRoutes.EditCategory.createRoute(categoryName))}
+                onNavigateToEditCategory = { categoryName ->
+                    navController.navigate(
+                        AppRoutes.EditCategory.createRoute(
+                            categoryName
+                        )
+                    )
+                }
             )
         }
 
         // 6. Recurring Transactions Screen
         composable(
             route = AppRoutes.RecurringTransactions.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             RecurringTransactionsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEditRecurringTransaction = { transactionId ->
-                    navController.navigate(AppRoutes.EditRecurringTransaction.createRoute(transactionId))
+                    navController.navigate(
+                        AppRoutes.EditRecurringTransaction.createRoute(
+                            transactionId
+                        )
+                    )
                 }
             )
         }
@@ -145,8 +226,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 7. Add Category Screen (Slide Up)
         composable(
             route = AppRoutes.AddCategory.route,
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             CategoryDetailScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -157,8 +248,18 @@ fun NavGraphBuilder.settingsNavGraph(
         composable(
             route = AppRoutes.EditCategory.route,
             arguments = listOf(navArgument("categoryName") { type = NavType.StringType }),
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            exitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             CategoryDetailScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -169,8 +270,18 @@ fun NavGraphBuilder.settingsNavGraph(
         composable(
             route = AppRoutes.EditRecurringTransaction.route,
             arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(300)
+                )
+            }
         ) { backStackEntry ->
             val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
             EditRecurringTransactionScreen(
@@ -183,8 +294,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 10. Biometric Setup Screen (PIN)
         composable(
             route = AppRoutes.BiometricSetup.route,
-            enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) },
-            exitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             val context = LocalContext.current
 
@@ -192,7 +313,8 @@ fun NavGraphBuilder.settingsNavGraph(
                 onSetupComplete = { _ ->
                     // PIN is saved. Now check if we can offer Fingerprint.
                     val biometricManager = BiometricManager.from(context)
-                    val canAuthenticate = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    val canAuthenticate =
+                        biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
 
                     if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
                         // Has hardware -> Go to Fingerprint Setup
@@ -211,8 +333,18 @@ fun NavGraphBuilder.settingsNavGraph(
         // 11. Fingerprint Setup Screen (NEW)
         composable(
             route = AppRoutes.FingerprintSetup.route,
-            enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(300)) },
-            exitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(300)) }
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
         ) {
             FingerprintSetupScreen(
                 onSetupComplete = {
@@ -223,6 +355,67 @@ fun NavGraphBuilder.settingsNavGraph(
                     // User skipped fingerprint. Pop back to Settings.
                     navController.popBackStack(AppRoutes.Settings.route, inclusive = false)
                 }
+            )
+        }
+
+        // 12. Privacy Policy Screen
+        composable(
+            route = AppRoutes.PrivacyPolicy.route,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
+        ) {
+            PrivacyPolicyScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        // 13. Terms of Service Screen
+        composable(
+            route = AppRoutes.TermsOfService.route,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
+        ) {
+            TermsOfServiceScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        // 14. Help & Support Screen
+        composable(
+            route = AppRoutes.HelpSupport.route,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
+        ) {
+            HelpSupportScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

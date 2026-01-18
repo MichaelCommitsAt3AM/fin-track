@@ -14,5 +14,7 @@ interface BudgetRepository {
 
     suspend fun deleteBudget(categoryName: String, month: Int, year: Int) // ADD THIS
 
-    suspend fun syncBudgetsFromCloud() // ADD THIS
+    suspend fun syncBudgetsFromCloud()
+
+    suspend fun syncUnsyncedBudgets()
 }

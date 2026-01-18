@@ -4,9 +4,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.fintrack.presentation.navigation.AppRoutes
 
 sealed class BottomNavItem(
     val route: String,
@@ -19,10 +19,10 @@ sealed class BottomNavItem(
         icon = Icons.Default.Home
     )
 
-    object Reports : BottomNavItem(
-        route = AppRoutes.Reports.route,
-        title = "Reports",
-        icon = Icons.Default.BarChart
+    object Transactions : BottomNavItem(
+        route = AppRoutes.TransactionList.route,
+        title = "Transactions",
+        icon = Icons.Default.Receipt
     )
 
     object Goals : BottomNavItem(
@@ -31,9 +31,9 @@ sealed class BottomNavItem(
         icon = Icons.Default.Flag
     )
 
-    object Settings : BottomNavItem(
-        route = AppRoutes.SettingsGraph.route,
-        title = "Settings",
-        icon = Icons.Default.Settings
+    object Reports : BottomNavItem(
+        route = AppRoutes.Reports.route,
+        title = "Reports",
+        icon = Icons.Default.BarChart
     )
 }

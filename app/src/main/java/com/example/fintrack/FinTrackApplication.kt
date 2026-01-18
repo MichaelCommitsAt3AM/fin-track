@@ -52,6 +52,39 @@ class FinTrackApplication : Application(), Configuration.Provider {
             transactionSyncWork
         )
 
+        // Schedule Budget Sync Worker
+        val budgetSyncWork = OneTimeWorkRequestBuilder<com.example.fintrack.core.worker.BudgetSyncWorker>()
+            .setConstraints(syncConstraints)
+            .build()
+            
+        workManager.enqueueUniqueWork(
+            com.example.fintrack.core.worker.BudgetSyncWorker.WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            budgetSyncWork
+        )
+
+        // Schedule Saving Sync Worker
+        val savingSyncWork = OneTimeWorkRequestBuilder<com.example.fintrack.core.worker.SavingSyncWorker>()
+            .setConstraints(syncConstraints)
+            .build()
+            
+        workManager.enqueueUniqueWork(
+            com.example.fintrack.core.worker.SavingSyncWorker.WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            savingSyncWork
+        )
+
+        // Schedule Debt Sync Worker
+        val debtSyncWork = OneTimeWorkRequestBuilder<com.example.fintrack.core.worker.DebtSyncWorker>()
+            .setConstraints(syncConstraints)
+            .build()
+            
+        workManager.enqueueUniqueWork(
+            com.example.fintrack.core.worker.DebtSyncWorker.WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            debtSyncWork
+        )
+
         // Schedule Budget Check (Daily)
         val budgetWork = PeriodicWorkRequestBuilder<BudgetCheckWorker>(1, TimeUnit.DAYS)
             .build()

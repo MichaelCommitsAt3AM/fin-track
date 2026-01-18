@@ -2,15 +2,25 @@
 
 FinTrack is a modern, feature-rich Android application built to help users manage their personal finances effectively. It tracks income, expenses, budgets, savings goals, and debts, providing valuable insights through interactive charts and real-time notifications.
 
-## 📱 Features
+## � Download
+
+You can download the latest version of the app from the [GitHub Releases](https://github.com/MichaelCommitsAt3AM/fin-track/releases/)page.
+
+## �📱 Features
 
 ### 🔐 Security & Authentication
 - **Secure Login/Signup**: Email/Password authentication via Firebase Auth and Google Sign-In.
-- **Biometric Lock**: Fingerprint transaction/app locking support for enhanced privacy.
-- **PIN Protection**: 4-digit PIN fallback for quick access.
+- **Smart Lock**: Biometric (Fingerprint) lock with automatic PIN fallback if biometrics are disabled or skipped.
+- **PIN Protection**: Secure, hashed 4-digit PIN for quick and reliable access.
+
+### 📡 Offline-First Access
+- **Full Offline Support**: Continue adding transactions, goals, and debts even without internet.
+- **Background Sync**: Data automatically syncs with the cloud (Firestore) as soon as you're back online using WorkManager.
+- **Local Persistence**: Powered by Room Database for instant load times.
 
 ### 💸 Financial Tracking
 - **Transaction Logging**: Add income and expense transactions with categories, dates, and notes.
+- **Custom Payment Methods**: Manage your own payment types (e.g., Cash, M-Pesa, Card) with default selection.
 - **Dynamic Dashboard**: Overview of current balance, recent transactions, and spending summaries.
 - **Visual Analytics**: Interactive charts (Bar/Pie) powered by Vico to visualize spending patterns.
 
@@ -42,62 +52,65 @@ FinTrack is a modern, feature-rich Android application built to help users manag
 - **Local Database**: Room (SQLite)
 - **Cloud Backend**: Firebase (Auth, Firestore)
 - **Asynchronous**: Coroutines & Flow
-- **Background Tasks**: WorkManager
+- **Background Tasks**: WorkManager (Sync & Notifications)
+- **Offline Sync**: Custom Offline-First Repository Pattern
 - **Navigation**: Jetpack Navigation Compose
 - **Charting**: Vico
 - **Image Loading**: Coil
 
-## 📂 Project Structure
 
-The project follows a modular Clean Architecture approach:
 
-```
-com.example.fintrack
-├── core                # Core utilities, data/domain layers, common components
-│   ├── common          # Helper classes (NotificationHelper, Extensions)
-│   ├── data            # Repositories, DAOs, Entities, Mappers
-│   ├── di              # Hilt Modules (Network, Database, Repository)
-│   ├── domain          # UseCases, Repository Interfaces, Models
-│   ├── worker          # Background Workers (BudgetCheck, GoalCheck, DebtCheck)
-│   └── utils           # Utility functions
-├── presentation        # UI Layer (Screens, ViewModels, Components)
-│   ├── auth            # Login, Registration, Biometrics
-│   ├── dashboard       # Main Dashboard, Transaction lists
-│   ├── goals           # Savings, Debts, Budgets screens
-│   ├── settings        # App settings, Profile
-│   ├── theme           # Compose Theme and Color definitions
-│   └── navigation      # Navigation Graph and Routes
-└── FinTrackApplication.kt # App Entry Point
-```
+[//]: # (## 🚀 Getting Started)
 
-## 🚀 Getting Started
+[//]: # ()
+[//]: # (### Prerequisites)
 
-### Prerequisites
-- Android Studio Ladybug or newer.
-- JDK 17.
-- Firebase Account.
+[//]: # (- Android Studio Ladybug or newer.)
 
-### Setup
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/yourusername/fintrack.git
-    ```
-2.  **Firebase Configuration**:
-    - Create a project in the [Firebase Console](https://console.firebase.google.com/).
-    - Add an Android app with package `com.example.fintrack`.
-    - Download `google-services.json` and place it in the `app/` directory.
-    - Enable **Authentication** (Email/Password, Google).
-    - Enable **Firestore Database**.
-3.  **Build and Run**:
-    - Open the project in Android Studio.
-    - Sync Gradle.
-    - Run on an Emulator or Physical Device (Android 8.0+ recommended).
+[//]: # (- JDK 17.)
 
-## 🧪 Testing
+[//]: # (- Firebase Account.)
 
-The project includes:
-- **Local Unit Tests**: For ViewModels and Utility logic.
-- **Manual Verification**: See `walkthrough.md` for detailed verification steps for features like Notifications and Biometrics.
+[//]: # ()
+[//]: # (### Setup)
+
+[//]: # (1.  **Clone the repository**:)
+
+[//]: # (    ```bash)
+
+[//]: # (    git clone https://github.com/MichaelCommitsAt3AM/fin-track.git)
+
+[//]: # (    ```)
+
+[//]: # (2.  **Firebase Configuration**:)
+
+[//]: # (    - Create a project in the [Firebase Console]&#40;https://console.firebase.google.com/&#41;.)
+
+[//]: # (    - Add an Android app with package `com.example.fintrack`.)
+
+[//]: # (    - Download `google-services.json` and place it in the `app/` directory.)
+
+[//]: # (    - Enable **Authentication** &#40;Email/Password, Google&#41;.)
+
+[//]: # (    - Enable **Firestore Database**.)
+
+[//]: # (3.  **Build and Run**:)
+
+[//]: # (    - Open the project in Android Studio.)
+
+[//]: # (    - Sync Gradle.)
+
+[//]: # (    - Run on an Emulator or Physical Device &#40;Android 8.0+ recommended&#41;.)
+
+[//]: # ()
+[//]: # (## 🧪 Testing)
+
+[//]: # ()
+[//]: # (The project includes:)
+
+[//]: # (- **Local Unit Tests**: For ViewModels and Utility logic.)
+
+[//]: # (- **Manual Verification**: See `walkthrough.md` for detailed verification steps for features like Notifications and Biometrics.)
 
 ## 📄 License
 

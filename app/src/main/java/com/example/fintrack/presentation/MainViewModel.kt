@@ -75,4 +75,17 @@ class MainViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = null
     )
+
+    // App Lock State
+    // Controlled by MainActivity based on background activity time
+    private val _isAppLocked = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isAppLocked: StateFlow<Boolean> = _isAppLocked.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    fun setAppLocked(locked: Boolean) {
+        _isAppLocked.value = locked
+    }
 }

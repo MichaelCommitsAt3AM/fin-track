@@ -41,7 +41,9 @@ data class AddTransactionUiState(
 
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isPlannedTransaction: Boolean = false // NEW: Shows if selected date is in the future
+    val isPlannedTransaction: Boolean = false, // NEW: Shows if selected date is in the future
+    val isEditMode: Boolean = false, // NEW: Indicates if editing existing transaction
+    val transactionId: String? = null // NEW: ID of transaction being edited
 )
 
 sealed class AddTransactionUiEvent {
@@ -111,6 +113,38 @@ class AddTransactionViewModel @Inject constructor(
         }
     }
 
+    fun loadTransaction(transactionId: String?) {
+        if (transactionId.isNullOrEmpty()) return
+        
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            transactionRepository.getTransactionById(transactionId).collect { transaction ->
+                if (transaction != null) {
+                    val currentTime = System.currentTimeMillis()
+                    val isPlanned = transaction.date > currentTime
+                    
+                    _uiState.value = _uiState.value.copy(
+                        transactionId = transactionId,
+                        isEditMode = true,
+                        transactionType = transaction.type,
+                        amount = transaction.amount.toString(),
+                        description = transaction.notes ?: "",
+                        selectedCategory = transaction.category,
+                        selectedPaymentMethod = transaction.paymentMethod,
+                        date = transaction.date,
+                        isPlannedTransaction = isPlanned,
+                        isLoading = false
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Transaction not found"
+                    )
+                }
+            }
+        }
+    }
+
     fun onEvent(event: AddTransactionUiEvent) {
         when (event) {
             is AddTransactionUiEvent.OnTypeChange -> {
@@ -165,22 +199,28 @@ class AddTransactionViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true)
 
         viewModelScope.launch {
-            // 1. Save Immediate Transaction
             val transaction = Transaction(
-                id = "",
+                id = state.transactionId ?: "", // Use existing ID if editing
                 userId = userId,
                 type = state.transactionType,
                 amount = amountDouble,
                 category = state.selectedCategory,
                 date = state.date,
                 notes = state.description.ifBlank { null },
-                paymentMethod = state.selectedPaymentMethod, // Use selected payment method
+                paymentMethod = state.selectedPaymentMethod,
                 tags = null
             )
-            transactionRepository.insertTransaction(transaction)
+            
+            if (state.isEditMode && !state.transactionId.isNullOrEmpty()) {
+                // Update existing transaction
+                transactionRepository.updateTransaction(transaction)
+            } else {
+                // Create new transaction
+                transactionRepository.insertTransaction(transaction)
+            }
 
-            // 2. Save Recurring Rule (If enabled)
-            if (state.isRecurring) {
+            // 2. Save Recurring Rule (If enabled) - Only for new transactions
+            if (state.isRecurring && !state.isEditMode) {
                 val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
 
                 val recurringRule = RecurringTransaction(

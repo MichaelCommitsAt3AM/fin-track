@@ -12,15 +12,20 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.example.fintrack.core.data.local.LocalAuthManager
+import com.example.fintrack.core.domain.model.Currency
+
 data class ProfileSetupUiState(
     val fullName: String = "",
     val avatarUrl: String = "",
     val isLoading: Boolean = false,
-    val isGoogleSignIn: Boolean = false
+    val isGoogleSignIn: Boolean = false,
+    val selectedCurrency: Currency = Currency.KSH
 )
 
 sealed class ProfileSetupUiEvent {
     data class OnFullNameChange(val name: String) : ProfileSetupUiEvent()
+    data class OnCurrencyChange(val currency: Currency) : ProfileSetupUiEvent()
     object OnCompleteSetup : ProfileSetupUiEvent()
     object OnSkip : ProfileSetupUiEvent()
 }
@@ -34,7 +39,8 @@ sealed class ProfileSetupEvent {
 @HiltViewModel
 class ProfileSetupViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileSetupUiState())
@@ -76,6 +82,9 @@ class ProfileSetupViewModel @Inject constructor(
             is ProfileSetupUiEvent.OnFullNameChange -> {
                 _uiState.value = _uiState.value.copy(fullName = event.name)
             }
+            is ProfileSetupUiEvent.OnCurrencyChange -> {
+                _uiState.value = _uiState.value.copy(selectedCurrency = event.currency)
+            }
             is ProfileSetupUiEvent.OnCompleteSetup -> completeSetup()
             is ProfileSetupUiEvent.OnSkip -> skipSetup()
         }
@@ -106,6 +115,9 @@ class ProfileSetupViewModel @Inject constructor(
                     )
                     userRepository.updateUser(updatedUser)
 
+                    // SAVE CURRENCY PREFERENCE
+                    localAuthManager.setCurrencyPreference(state.selectedCurrency)
+
                     _eventChannel.send(ProfileSetupEvent.ShowSuccess("Profile updated!"))
                     _eventChannel.send(ProfileSetupEvent.NavigateToHome)
                 } else {
@@ -122,6 +134,10 @@ class ProfileSetupViewModel @Inject constructor(
 
     private fun skipSetup() {
         viewModelScope.launch {
+            // Even if skipping, we might want to set a default currency if they selected one?
+            // For now, let's assume skip means "don't save anything new"
+            // OR if the user DID interact with the currency selector, we should probably save it?
+            // Safer to just navigate home as per "Skip" definition.
             _eventChannel.send(ProfileSetupEvent.NavigateToHome)
         }
     }

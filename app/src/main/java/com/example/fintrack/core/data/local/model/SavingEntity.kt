@@ -12,8 +12,10 @@ data class SavingEntity(
     val targetAmount: Double,
     val currentAmount: Double,
     val targetDate: Long,
-    val category: String,
     val notes: String?,
     val iconName: String, // Store icon identifier as string
-    val createdAt: Long
+    val createdAt: Long,
+    val isSynced: Boolean = true,
+    val deletedAt: Long? = null,
+    val updatedAt: Long = System.currentTimeMillis()
 )

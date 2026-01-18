@@ -6,6 +6,7 @@ import com.example.fintrack.core.data.mapper.toDomain
 import com.example.fintrack.core.data.mapper.toEntity
 import com.example.fintrack.core.domain.model.Category
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.repository.NetworkRepository
 import com.example.fintrack.core.domain.model.CategoryType
 import com.example.fintrack.core.data.local.model.CategoryEntity
 import com.google.firebase.auth.FirebaseAuth
@@ -18,7 +19,8 @@ import javax.inject.Inject
 class CategoryRepositoryImpl @Inject constructor(
     private val categoryDao: CategoryDao, // Hilt will inject this
     private val firestore: FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val networkRepository: NetworkRepository
 ) : CategoryRepository {
 
     private fun getUserId(): String? = firebaseAuth.currentUser?.uid
@@ -43,19 +45,21 @@ class CategoryRepositoryImpl @Inject constructor(
 
 
     override suspend fun insertCategory(category: Category) {
+        val userId = getUserId() ?: throw IllegalStateException("User is not logged in")
         val entity = category.toEntity()
 
-        // 1. Save locally
+        // OFFLINE-FIRST: 1. Always save locally first with isSynced = false
         categoryDao.insertCategory(entity)
+        Log.d("CategoryRepo", "Category saved locally: ${category.name}")
 
-        // 2. Save to Firestore with consistent field names
-        getUserId()?.let {
+        // 2. If online, attempt to sync to Firestore immediately
+        if (networkRepository.isNetworkAvailable()) {
             try {
                 val firestoreData = hashMapOf(
                     "name" to entity.name,
                     "userId" to entity.userId,
-                    "icon" to entity.iconName,  // Map iconName to icon
-                    "color" to entity.colorHex,  // Map colorHex to color
+                    "icon" to entity.iconName,
+                    "color" to entity.colorHex,
                     "type" to entity.type,
                     "isDefault" to entity.isDefault
                 )
@@ -64,10 +68,13 @@ class CategoryRepositoryImpl @Inject constructor(
                     .document(category.name)
                     .set(firestoreData)
                     .await()
-                Log.d("CategoryRepo", "Category saved: ${category.name}")
+                categoryDao.markAsSynced(category.name, userId)
+                Log.d("CategoryRepo", "Category synced to Firestore: ${category.name}")
             } catch (e: Exception) {
-                Log.e("CategoryRepo", "Error saving category to cloud: ${e.message}")
+                Log.e("CategoryRepo", "Error syncing to Firestore (will retry later): ${e.message}")
             }
+        } else {
+            Log.d("CategoryRepo", "Offline - category will sync when online")
         }
     }
 
@@ -93,11 +100,14 @@ class CategoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertAllCategories(categories: List<Category>) {
+        val userId = getUserId() ?: throw IllegalStateException("User is not logged in")
+        
         // 1. Save locally
         categoryDao.insertAll(categories.map { it.toEntity() })
+        Log.d("CategoryRepo", "Saved ${categories.size} categories locally")
 
-        // 2. Save to cloud (Batch writing)
-        getUserId()?.let {
+        // 2. Save to cloud (Batch writing) if online
+        if (networkRepository.isNetworkAvailable()) {
             try {
                 val batch = firestore.batch()
                 val collectionRef = getUserCategoriesCollection()
@@ -106,18 +116,26 @@ class CategoryRepositoryImpl @Inject constructor(
                     val docRef = collectionRef.document(category.name)
                     val categoryData = hashMapOf(
                         "name" to category.name,
-                        "userId" to category.userId, // ADD THIS
+                        "userId" to category.userId,
                         "icon" to category.iconName,
                         "color" to category.colorHex,
                         "type" to category.type.name,
                         "isDefault" to category.isDefault
                     )
-                    batch.set(docRef, category)
+                    batch.set(docRef, categoryData)
                 }
                 batch.commit().await()
+                
+                // Mark all as synced
+                categories.forEach { category ->
+                    categoryDao.markAsSynced(category.name, userId)
+                }
+                Log.d("CategoryRepo", "Categories synced to Firestore")
             } catch (e: Exception) {
-                Log.e("CategoryRepo", "Error saving categories to cloud: ${e.message}")
+                Log.e("CategoryRepo", "Error saving categories to cloud (will retry later): ${e.message}")
             }
+        } else {
+            Log.d("CategoryRepo", "Offline - categories will sync when online")
         }
     }
 
@@ -141,10 +159,11 @@ class CategoryRepositoryImpl @Inject constructor(
                         val entity = CategoryEntity(
                             name = doc.id,
                             userId = userId,
-                            iconName = doc.getString("icon") ?: doc.getString("iconName") ?: "", // Handle both field names
+                            iconName = doc.getString("icon") ?: doc.getString("iconName") ?: "",
                             colorHex = doc.getString("color") ?: doc.getString("colorHex") ?: "",
                             type = doc.getString("type") ?: "",
-                            isDefault = doc.getBoolean("isDefault") ?: false
+                            isDefault = doc.getBoolean("isDefault") ?: false,
+                            isSynced = true // Mark as synced since it's from cloud
                         )
                         Log.d("CategoryRepo", "Mapped category: ${entity.name}")
                         entity
@@ -165,6 +184,49 @@ class CategoryRepositoryImpl @Inject constructor(
                 Log.e("CategoryRepo", "Sync failed: ${e.message}", e)
             }
         } ?: Log.e("CategoryRepo", "Cannot sync: User ID is null")
+    }
+
+    override suspend fun syncUnsyncedCategories() {
+        val userId = getUserId() ?: run {
+            Log.e("CategoryRepo", "Cannot sync: User not logged in")
+            return
+        }
+
+        if (!networkRepository.isNetworkAvailable()) {
+            Log.d("CategoryRepo", "Network unavailable, skipping category sync")
+            return
+        }
+
+        try {
+            val unsyncedCategories = categoryDao.getUnsyncedCategories(userId)
+            Log.d("CategoryRepo", "Found ${unsyncedCategories.size} unsynced categories")
+
+            unsyncedCategories.forEach { entity ->
+                try {
+                    val categoryData = hashMapOf(
+                        "name" to entity.name,
+                        "userId" to entity.userId,
+                        "icon" to entity.iconName,
+                        "color" to entity.colorHex,
+                        "type" to entity.type,
+                        "isDefault" to entity.isDefault
+                    )
+                    
+                    getUserCategoriesCollection()
+                        .document(entity.name)
+                        .set(categoryData)
+                        .await()
+                    categoryDao.markAsSynced(entity.name, userId)
+                    Log.d("CategoryRepo", "Synced category: ${entity.name}")
+                } catch (e: Exception) {
+                    Log.e("CategoryRepo", "Failed to sync category ${entity.name}: ${e.message}")
+                }
+            }
+
+            Log.d("CategoryRepo", "Category sync completed")
+        } catch (e: Exception) {
+            Log.e("CategoryRepo", "Error during category sync: ${e.message}", e)
+        }
     }
 
 }
