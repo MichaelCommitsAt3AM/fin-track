@@ -60,7 +60,9 @@ import kotlinx.coroutines.launch
 class MainActivity : FragmentActivity() { // Changed to FragmentActivity for BiometricPrompt
 
     @Inject lateinit var localAuthManager: LocalAuthManager
-    
+    @Inject lateinit var settingsIntegration: com.example.fintrack.presentation.navigation.SettingsIntegration
+    @Inject lateinit var onboardingIntegration: com.example.fintrack.presentation.navigation.OnboardingIntegration
+
     private val mainViewModel: MainViewModel by viewModels()
 
     private var lastBackgroundTimestamp: Long = 0
@@ -197,7 +199,13 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                         when {
                             currentUser == null -> AppRoutes.Login.route
                             !currentUser.isEmailVerified -> AppRoutes.VerifyEmail.route
-                            else -> AppRoutes.Home.route
+                            else -> {
+                                // Check if variant-specific onboarding is needed
+                                val onboardingRoute = runBlocking { 
+                                    onboardingIntegration.getStartDestinationIfRequired() 
+                                }
+                                onboardingRoute ?: AppRoutes.Home.route
+                            }
                         }
                     }
 
@@ -300,7 +308,9 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                         navController = navController,
                                         paddingValues = paddingValues,
                                         startDestination = startDestination,
-                                        onOpenDrawer = { scope.launch { drawerState.open() } }
+                                        onOpenDrawer = { scope.launch { drawerState.open() } },
+                                        settingsIntegration = settingsIntegration,
+                                        onboardingIntegration = onboardingIntegration
                                 )
                             }
                         }

@@ -20,11 +20,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+
+// Helper for combining 4 flows
+private data class Tuple4<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+
+// Helper for combining 5 flows
+private data class Tuple5<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D, val e: E)
 
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
@@ -38,6 +45,14 @@ class TransactionListViewModel @Inject constructor(
 
     private val _selectedFilter = MutableStateFlow("All") // "All", "Income", "Expense"
     val selectedFilter: StateFlow<String> = _selectedFilter
+    
+    // Secondary filter for transaction source
+    private val _selectedSourceFilter = MutableStateFlow("All") // "All", "Manual", "M-Pesa"
+    val selectedSourceFilter: StateFlow<String> = _selectedSourceFilter
+    
+    // View More dropdown state
+    private val _isSourceFilterExpanded = MutableStateFlow(false)
+    val isSourceFilterExpanded: StateFlow<Boolean> = _isSourceFilterExpanded
 
     val currencyPreference = localAuthManager.currencyPreference
         .stateIn(
@@ -52,22 +67,38 @@ class TransactionListViewModel @Inject constructor(
     // We need categories to map icons/colors correctly
     private val categoriesFlow = categoryRepository.getAllCategories()
 
-    // Dynamic transaction flow based on Search, Filter, and Limit
+    // Dynamic transaction flow based on Search, Filter, Source Filter, and Limit
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val transactionsFlow = combine(
         _searchQuery,
         _selectedFilter,
+        _selectedSourceFilter,
         _currentLimit
-    ) { query, filter, limit ->
-        Triple(query, filter, limit)
-    }.flatMapLatest { (query, filter, limit) ->
-        if (query.isNotEmpty()) {
+    ) { query, filter, sourceFilter, limit ->
+        Tuple4(query, filter, sourceFilter, limit)
+    }.flatMapLatest { (query, filter, sourceFilter, limit) ->
+        val baseFlow = if (query.isNotEmpty()) {
             transactionRepository.searchTransactions(query)
         } else {
             if (filter == "All") {
                 transactionRepository.getAllTransactionsPaged(limit)
             } else {
                 transactionRepository.getTransactionsByTypePaged(filter.uppercase(), limit)
+            }
+        }
+        
+        // Apply source filter on top of base flow
+        baseFlow.map { transactions ->
+            when (sourceFilter) {
+                "Manual" -> transactions.filter { transaction ->
+                    // Manual transactions: do NOT have M-Pesa or Auto-imported tags
+                    !(transaction.tags?.any { it == "M-Pesa" || it == "Auto-imported" } ?: false)
+                }
+                "M-Pesa" -> transactions.filter { transaction ->
+                    // M-Pesa transactions: have M-Pesa tag
+                    transaction.tags?.contains("M-Pesa") ?: false
+                }
+                else -> transactions // "All" - no filtering
             }
         }
     }
@@ -199,6 +230,15 @@ class TransactionListViewModel @Inject constructor(
     fun onFilterSelected(filter: String) {
         _selectedFilter.value = filter
         _currentLimit.value = 20 // Reset limit when changing filters
+    }
+    
+    fun onSourceFilterSelected(source: String) {
+        _selectedSourceFilter.value = source
+        _currentLimit.value = 20 // Reset pagination
+    }
+    
+    fun toggleSourceFilterExpanded() {
+        _isSourceFilterExpanded.value = !_isSourceFilterExpanded.value
     }
 
     private fun formatDate(millis: Long): String {

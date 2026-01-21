@@ -33,7 +33,11 @@ import com.example.fintrack.presentation.settings.support.TermsOfServiceScreen
 fun NavGraphBuilder.settingsNavGraph(
     navController: NavHostController,
     paddingValues: PaddingValues,
+    settingsIntegration: SettingsIntegration? = null
 ) {
+    // 0. Register Variant Specific Routes
+    settingsIntegration?.apply { addSettingsRoutes(navController) }
+
     navigation(
         route = AppRoutes.SettingsGraph.route,
         startDestination = AppRoutes.Settings.route
@@ -60,7 +64,8 @@ fun NavGraphBuilder.settingsNavGraph(
                 onNavigateToPaymentMethods = {
                     navController.navigate(AppRoutes.PaymentMethods.route)
                 },
-                paddingValues = paddingValues
+                paddingValues = paddingValues,
+                settingsIntegration = settingsIntegration
             )
         }
 

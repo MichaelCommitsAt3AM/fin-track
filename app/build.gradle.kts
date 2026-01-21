@@ -70,6 +70,25 @@ android {
             }
         }
     }
+
+    flavorDimensions += "distribution"
+    
+    productFlavors {
+        create("store") {
+            dimension = "distribution"
+            isDefault = true
+            // Google Services enabled for store variant
+        }
+        
+        create("personal") {
+            dimension = "distribution"
+            // applicationIdSuffix = ".personal" // Commented out to match google-services.json for Google Sign-In
+            // Note: This prevents side-by-side installation with 'store' flavor
+        }
+    }
+    
+    // Conditionally apply Google Services only to store variant
+    // applicationVariants.all block removed to enable Google Services for personal flavor
 }
 
 dependencies {

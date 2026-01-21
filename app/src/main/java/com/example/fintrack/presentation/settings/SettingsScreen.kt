@@ -46,7 +46,8 @@ fun SettingsScreen(
     onNavigateToPaymentMethods: () -> Unit,
     navController: NavController,
     paddingValues: PaddingValues,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    settingsIntegration: com.example.fintrack.presentation.navigation.SettingsIntegration? = null
 ) {
     // Observe states from ViewModel
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
@@ -180,6 +181,11 @@ fun SettingsScreen(
                     trailingText = themePreference,
                     onClick = { showThemeSheet = true }
                 )
+
+                // Variant-specific settings (e.g. M-Pesa for Personal)
+                if (navController is androidx.navigation.NavHostController) {
+                    settingsIntegration?.SettingsEntryPoint(navController)
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

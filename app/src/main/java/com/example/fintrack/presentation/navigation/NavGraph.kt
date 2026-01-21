@@ -47,7 +47,9 @@ fun NavGraph(
     navController: NavHostController,
     paddingValues: PaddingValues,
     startDestination: String,
-    onOpenDrawer: () -> Unit = {}
+    onOpenDrawer: () -> Unit = {},
+    settingsIntegration: SettingsIntegration? = null,
+    onboardingIntegration: OnboardingIntegration? = null
 ) {
     // --- Animation Specs ---
 
@@ -72,6 +74,15 @@ fun NavGraph(
         startDestination = startDestination,
         modifier = Modifier
     ) {
+        // --- Variant Specific Onboarding Routes ---
+        onboardingIntegration?.apply {
+            addOnboardingRoutes(navController) {
+                // On complete, navigate to Home and clear back stack
+                navController.navigate(BottomNavItem.Home.route) {
+                    popUpTo(0) // clear all
+                }
+            }
+        }
         // --- Auth Routes ---
         composable(
             route = AppRoutes.Login.route,
@@ -352,7 +363,8 @@ fun NavGraph(
 
         settingsNavGraph(
             navController = navController,
-            paddingValues  = paddingValues
+            paddingValues  = paddingValues,
+            settingsIntegration = settingsIntegration
         )
 
         composable(

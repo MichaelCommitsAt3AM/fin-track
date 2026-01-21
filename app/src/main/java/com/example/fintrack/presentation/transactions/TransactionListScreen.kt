@@ -49,6 +49,8 @@ fun TransactionListScreen(
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val selectedSourceFilter by viewModel.selectedSourceFilter.collectAsState()
+    val isSourceFilterExpanded by viewModel.isSourceFilterExpanded.collectAsState()
     val groupedTransactions by viewModel.uiState.collectAsState()
     val plannedTransactions by viewModel.plannedUiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
@@ -138,6 +140,43 @@ fun TransactionListScreen(
                 selectedFilter = selectedFilter,
                 onFilterSelected = { viewModel.onFilterSelected(it) }
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // --- View More Button ---
+            ViewMoreButton(
+                isExpanded = isSourceFilterExpanded,
+                onClick = { viewModel.toggleSourceFilterExpanded() }
+            )
+            
+            // --- Secondary Source Filter (Manual / M-Pesa) ---
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isSourceFilterExpanded,
+                enter = androidx.compose.animation.expandVertically(
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                        stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                    )
+                ) + androidx.compose.animation.fadeIn(
+                    animationSpec = androidx.compose.animation.core.tween(300)
+                ),
+                exit = androidx.compose.animation.shrinkVertically(
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+                        stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                    )
+                ) + androidx.compose.animation.fadeOut(
+                    animationSpec = androidx.compose.animation.core.tween(200)
+                )
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TransactionSourceSegmentedControl(
+                        selectedSource = selectedSourceFilter,
+                        onSourceSelected = { viewModel.onSourceFilterSelected(it) }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -341,6 +380,107 @@ fun TransactionListSegmentedControl(
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                             indication = null
                         ) { onFilterSelected(tab) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = tab,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = textColor,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ViewMoreButton(
+    isExpanded: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "View More",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(
+            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (isExpanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+fun TransactionSourceSegmentedControl(
+    selectedSource: String,
+    onSourceSelected: (String) -> Unit
+) {
+    val tabs = listOf("All", "Manual", "M-Pesa")
+    
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(4.dp)
+    ) {
+        val segmentWidth = maxWidth / tabs.size
+        val selectedIndex = tabs.indexOf(selectedSource)
+
+        val indicatorOffset by animateDpAsState(
+            targetValue = segmentWidth * selectedIndex,
+            animationSpec = tween(durationMillis = 300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            label = "indicatorOffset"
+        )
+        
+        // Use FinTrackGreen for all options
+        val indicatorColor = FinTrackGreen
+
+        // Sliding Indicator
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(50))
+                .background(indicatorColor)
+        )
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            tabs.forEach { tab ->
+                val isSelected = tab == selectedSource
+
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "textColor"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .width(segmentWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(50))
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) { onSourceSelected(tab) },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
