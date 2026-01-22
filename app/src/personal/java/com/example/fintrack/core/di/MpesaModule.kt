@@ -33,12 +33,6 @@ abstract class MpesaModule {
 
     @Binds
     @Singleton
-    abstract fun bindSettingsIntegration(
-        impl: com.example.fintrack.presentation.settings.mpesa.MpesaSettingsIntegrationImpl
-    ): com.example.fintrack.presentation.navigation.SettingsIntegration
-
-    @Binds
-    @Singleton
     abstract fun bindOnboardingIntegration(
         impl: com.example.fintrack.presentation.onboarding.MpesaOnboardingIntegrationImpl
     ): com.example.fintrack.presentation.navigation.OnboardingIntegration

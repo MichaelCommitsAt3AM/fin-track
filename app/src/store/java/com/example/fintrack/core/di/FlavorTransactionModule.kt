@@ -22,10 +22,4 @@ abstract class FlavorTransactionModule {
     abstract fun bindExternalTransactionRepository(
         storeTransactionRepository: StoreTransactionRepository
     ): ExternalTransactionRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindSettingsIntegration(
-        impl: com.example.fintrack.presentation.settings.StoreSettingsIntegrationImpl
-    ): com.example.fintrack.presentation.navigation.SettingsIntegration
 }

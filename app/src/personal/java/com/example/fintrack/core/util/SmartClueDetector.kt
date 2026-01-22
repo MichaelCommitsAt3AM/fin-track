@@ -10,21 +10,26 @@ class SmartClueDetector {
         // Category-based keyword mappings
         private val TRANSPORT_KEYWORDS = setOf(
             "UBER", "BOLT", "LITTLE", "MATATU", "BUS", "TAXI", "PETROL", "FUEL",
-            "SHELL", "TOTAL", "ENGEN", "KOBIL", "RUBIS", "OLA", "PARKING"
+            "SHELL", "TOTAL", "ASTROL", "LEADWAY", "ENGEN", "KOBIL", "RUBIS", "OLA", "PARKING"
         )
         
         private val FOOD_KEYWORDS = setOf(
-            "RESTAURANT", "CAFE", "COFFEE", "PIZZA", "KFC", "SUBWAY", "JAVA",
+            "RESTAURANT", "CAFE", "COFFEE", "PIZZA", "CHICKEN", "KFC", "SUBWAY", "JAVA",
             "ARTCAFFE", "NAIVAS", "CARREFOUR", "QUICKMART", "CHANDARANA",
             "TUSKYS", "UCHUMI", "SUPERMARKET", "GROCERY", "BUTCHERY"
         )
         
         private val UTILITIES_KEYWORDS = setOf(
             "KPLC", "POWER", "ELECTRICITY", "WATER", "NAIROBI WATER",
-            "DSTV", "GOTV", "ZUKU", "SAFARICOM", "AIRTEL", "TELKOM",
+            "DSTV", "GOTV", "ZUKU", "TELKOM", "FAIBA",
             "INTERNET", "WIFI"
         )
-        
+
+        private val WALLET_KEYWORDS = setOf(
+            "AIRTEL MONEY", "T-KASH", "MTN MONEY", "ORANGE MONEY", "PAYPAL"
+        )
+
+
         private val ENTERTAINMENT_KEYWORDS = setOf(
             "CINEMA", "MOVIE", "IMAX", "NETFLIX", "SPOTIFY", "SHOWMAX",
             "GYM", "FITNESS", "CLUB", "BAR", "PUB"
@@ -36,12 +41,16 @@ class SmartClueDetector {
         )
         
         private val SHOPPING_KEYWORDS = setOf(
-            "JUMIA", "AMAZON", "SHOP", "STORE", "MALL", "BOUTIQUE",
+            "JUMIA", "AMAZON", "SHOP", "SUPERMARKET", "SUPERMARKETS", "STORE", "MALL", "BOUTIQUE",
             "FASHION", "CLOTHING", "SHOES"
         )
         
         private val AIRTIME_KEYWORDS = setOf(
             "AIRTIME", "SAFARICOM AIRTIME", "AIRTEL AIRTIME"
+        )
+
+        private val DATA_KEYWORDS = setOf(
+            "SAFARICOM DATA BUNDLES", "AIRTEL DATA BUNDLES"
         )
         
         private val EDUCATION_KEYWORDS = setOf(
@@ -92,7 +101,14 @@ class SmartClueDetector {
                 clues.add("UTILITIES:$keyword")
             }
         }
-        
+
+        WALLET_KEYWORDS.forEach { keyword ->
+            if (searchText.contains(keyword)) {
+                clues.add("TRANSFER:$keyword")
+            }
+        }
+
+
         ENTERTAINMENT_KEYWORDS.forEach { keyword ->
             if (searchText.contains(keyword)) {
                 clues.add("ENTERTAINMENT:$keyword")
@@ -116,7 +132,13 @@ class SmartClueDetector {
                 clues.add("AIRTIME:$keyword")
             }
         }
-        
+
+        DATA_KEYWORDS.forEach { keyword ->
+            if (searchText.contains(keyword)) {
+                clues.add("DATA:$keyword")
+            }
+        }
+
         EDUCATION_KEYWORDS.forEach { keyword ->
             if (searchText.contains(keyword)) {
                 clues.add("EDUCATION:$keyword")
