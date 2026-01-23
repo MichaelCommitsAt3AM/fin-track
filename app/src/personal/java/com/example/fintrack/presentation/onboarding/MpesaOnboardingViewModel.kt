@@ -251,7 +251,7 @@ class MpesaOnboardingViewModel @Inject constructor(
                 if (txn != null) {
                     com.example.fintrack.core.util.AppLogger.d(
                         "CategoryDebug", 
-                        "  [${index + 1}] $receipt | KES ${txn.amount} | ${txn.merchantName ?: txn.paybillNumber ?: "Unknown"} | ${java.text.SimpleDateFormat("dd/MM/yy", java.util.Locale.getDefault()).format(txn.timestamp)}"
+                        "  [${index + 1}] $receipt | KES ${txn.amount} | ${txn.merchantName ?: txn.paybillNumber ?: "Unknown"} | ${java.text.SimpleDateFormat("dd/MM/yy", java.util.Locale.getDefault()).format(txn.timestamp)} | Clues: ${txn.smartClues}"
                     )
                 } else {
                     com.example.fintrack.core.util.AppLogger.d("CategoryDebug", "  [${index + 1}] $receipt (Transaction not found in cache)")

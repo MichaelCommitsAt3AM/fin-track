@@ -20,42 +20,42 @@ class MpesaSmsParser(
 
         // 1. SENT MONEY - handles both regular sends and agent transactions
         private val SENT_MONEY_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+(.+?)\s+(\d+)?.*?on\s+([\d/]+)""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+(.+?)\s+(\d+)?.*?on\s+([\d/]+)""",
             RegexOption.IGNORE_CASE
         )
 
         private val WALLET_TRANSFER_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+(AIRTEL MONEY|T\-?KASH|MTN|ORANGE MONEY|PAYPAL|EAZZY PAY).*?account\s+(\d{9,12})""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+(AIRTEL MONEY|T\-?KASH|MTN|ORANGE MONEY|PAYPAL|EAZZY PAY).*?account\s+(\d{9,12})""",
             RegexOption.IGNORE_CASE
         )
 
         // 2. RECEIVED MONEY - simplified to catch all variations
         private val RECEIVED_MONEY_PATTERN = Regex(
-            """(?i)confirmed\.?\s+(?:you\s+have\s+)?received\s+ksh\.?\s*([\d,]+\.?\d*)\s+from\s+(.+?)\s+(?:Bulk\s+)?Account\s+(\d+)\s+on""",
+            """(?i)confirmed\.?\s*(?:you\s+have\s+)?received\s+ksh\.?\s*([\d,]+\.?\d*)\s+from\s+(.+?)\s+(?:Bulk\s+)?Account\s+(\d+)\s+on""",
             RegexOption.IGNORE_CASE
         )
 
         // Alternative pattern for simple received money (no account number)
         private val RECEIVED_MONEY_SIMPLE_PATTERN = Regex(
-            """(?i)confirmed\.?\s+you\s+have\s+received\s+ksh\.?\s*([\d,]+\.?\d*)\s+from\s+(.+?)\s+(\d+)?\s+on""",
+            """(?i)confirmed\.?\s*you\s+have\s+received\s+ksh\.?\s*([\d,]+\.?\d*)\s+from\s+(.+?)\s+(\d+)?\s+on""",
             RegexOption.IGNORE_CASE
         )
 
         // 3. PAYBILL - more flexible matching
         private val PAYBILL_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+to\s+(.+?)\.?\s+(?:for\s+account\s+|account\s+)?([^\s.]+?)?\s+on""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+to\s+(.+?)\.?\s+(?:for\s+account\s+|account\s+)?([^\s.]+?)?\s+on""",
             RegexOption.IGNORE_CASE
         )
 
         // 4. TILL NUMBER
         private val TILL_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+(?:to|for)\s+till\s+(?:number\s+)?(\d+)""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+(?:to|for)\s+till\s+(?:number\s+)?(\d+)""",
             RegexOption.IGNORE_CASE
         )
 
         // 5. BUY GOODS / GENERIC MERCHANT (maps to PAYBILL or TILL)
         private val BUY_GOODS_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+to\s+([^.]+?)(?:\s+on\s+[\d/]+|\.)""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+to\s+([^.]+?)(?:\s+on\s+[\d/]+|\.)""",
             RegexOption.IGNORE_CASE
         )
 
@@ -72,25 +72,25 @@ class MpesaSmsParser(
 
         // 7. WITHDRAW (from agent)
         private val WITHDRAW_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+withdrawn.*?from\s+(.+?)\s+""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+withdrawn.*?from\s+(.+?)\s+""",
             RegexOption.IGNORE_CASE
         )
 
         // 8. DEPOSIT (to agent)
         private val DEPOSIT_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+deposited.*?to\s+(.+?)\s+""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+deposited.*?to\s+(.+?)\s+""",
             RegexOption.IGNORE_CASE
         )
 
         // 9. FULIZA (M-Pesa overdraft) - maps to WITHDRAW since it's money spent
         private val FULIZA_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+.*?fuliza""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+.*?fuliza""",
             RegexOption.IGNORE_CASE
         )
 
         // 10. DATA BUNDLES
         private val DATA_BUNDLES_PATTERN = Regex(
-            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+SAFARICOM\s+DATA\s+BUNDLES""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+SAFARICOM\s+DATA\s+BUNDLES""",
             RegexOption.IGNORE_CASE
         )
 

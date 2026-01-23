@@ -89,72 +89,38 @@ class SmartClueDetector {
         val searchText = "${merchantName?.uppercase() ?: ""} ${smsBody?.uppercase() ?: ""}"
         
         // Detect category keywords
-        TRANSPORT_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("TRANSPORT:$keyword")
+        // Split into words for exact matching of single-word keywords
+        val words = searchText.split(Regex("[^A-Z]+")).filter { it.isNotEmpty() }.toSet()
+
+        fun checkCategory(keywords: Set<String>, currentCategory: String) {
+            keywords.forEach { keyword ->
+                // If keyword contains non-letters (e.g. "T-KASH", "NAIROBI WATER"), treat as phrase
+                val isPhrase = keyword.any { !it.isLetter() }
+                
+                if (isPhrase) {
+                    if (searchText.contains(keyword)) {
+                        clues.add("$currentCategory:$keyword")
+                    }
+                } else {
+                    // Exact word match to avoid "BUS" matching "BUSINESS" or "OLA" matching "NICHOLAS"
+                    if (words.contains(keyword)) {
+                        clues.add("$currentCategory:$keyword")
+                    }
+                }
             }
         }
         
-        FOOD_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("FOOD:$keyword")
-            }
-        }
-
-        SUPERMARKET_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("SUPERMARKET:$keyword")
-            }
-        }
-        
-        UTILITIES_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("UTILITIES:$keyword")
-            }
-        }
-
-        WALLET_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("TRANSFER:$keyword")
-            }
-        }
-
-
-        ENTERTAINMENT_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("ENTERTAINMENT:$keyword")
-            }
-        }
-        
-        HEALTH_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("HEALTH:$keyword")
-            }
-        }
-        
-        SHOPPING_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("SHOPPING:$keyword")
-            }
-        }
-        
-        AIRTIME_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("AIRTIME:$keyword")
-            }
-        }
-
-        DATA_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("DATA:$keyword")
-            }
-        }
-
-        EDUCATION_KEYWORDS.forEach { keyword ->
-            if (searchText.contains(keyword)) {
-                clues.add("EDUCATION:$keyword")
-            }
-        }
+        checkCategory(TRANSPORT_KEYWORDS, "TRANSPORT")
+        checkCategory(FOOD_KEYWORDS, "FOOD")
+        checkCategory(SUPERMARKET_KEYWORDS, "SUPERMARKET")
+        checkCategory(UTILITIES_KEYWORDS, "UTILITIES")
+        checkCategory(WALLET_KEYWORDS, "TRANSFER")
+        checkCategory(ENTERTAINMENT_KEYWORDS, "ENTERTAINMENT")
+        checkCategory(HEALTH_KEYWORDS, "HEALTH")
+        checkCategory(SHOPPING_KEYWORDS, "SHOPPING")
+        checkCategory(AIRTIME_KEYWORDS, "AIRTIME")
+        checkCategory(DATA_KEYWORDS, "DATA")
+        checkCategory(EDUCATION_KEYWORDS, "EDUCATION")
         
         return clues.toList()
     }
