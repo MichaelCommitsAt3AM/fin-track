@@ -32,11 +32,15 @@ class MpesaAnalyticsEngine @Inject constructor(
             val clues = smartClueDetector.detectClues(result.merchantName, null)
             val suggestedCategory = smartClueDetector.suggestCategory(clues)
             
+            val recentEntities = mpesaDao.getTransactionsByMerchantName(result.merchantName, 5)
+            val recentTransactions = com.example.fintrack.core.data.mapper.MpesaTransactionMapper.toDomainList(recentEntities)
+
             MerchantFrequency(
                 merchantName = result.merchantName,
                 transactionCount = result.frequency,
                 totalAmount = result.totalAmount,
-                suggestedCategory = suggestedCategory
+                suggestedCategory = suggestedCategory,
+                recentTransactions = recentTransactions
             )
         }
         

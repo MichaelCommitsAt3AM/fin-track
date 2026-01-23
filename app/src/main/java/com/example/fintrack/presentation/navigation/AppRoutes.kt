@@ -12,6 +12,7 @@ sealed class AppRoutes(val route: String) {
     object VerifyEmail : AppRoutes("verify_email_screen")
     object ProfileSetup : AppRoutes("profile_setup_screen")
     object Setup : AppRoutes("setup_screen")
+    object MpesaOnboarding : AppRoutes("mpesa_onboarding_route")
 
     // --- Biometric & Security Flow ---
     object BiometricLock : AppRoutes("biometric_lock_screen")

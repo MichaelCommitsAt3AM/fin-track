@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -277,7 +279,9 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                 )
                             }
                         ) {
+                            val isEdgeToEdge = currentRoute == "mpesa_onboarding"
                             Scaffold(
+                                    contentWindowInsets = if (isEdgeToEdge) WindowInsets(0.dp) else WindowInsets.systemBars,
                                     bottomBar = {
                                         if (showBottomNav) {
                                             BottomNavBar(navController = navController)

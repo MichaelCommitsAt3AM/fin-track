@@ -91,7 +91,8 @@ fun NavGraph(
         ) {
             LoginScreen(
                 onNavigateToSetup = {
-                    navController.navigate(AppRoutes.Setup.route) {
+                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    navController.navigate(route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
                 },
@@ -124,7 +125,8 @@ fun NavGraph(
                     }
                 },
                 onNavigateToSetup = {
-                    navController.navigate(AppRoutes.Setup.route) {
+                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    navController.navigate(route) {
                         popUpTo(AppRoutes.Register.route) { inclusive = true }
                     }
                 }
@@ -143,7 +145,8 @@ fun NavGraph(
                     }
                 },
                 onNavigateToSetup = {
-                    navController.navigate(AppRoutes.Setup.route) {
+                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    navController.navigate(route) {
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
                 },
@@ -159,7 +162,8 @@ fun NavGraph(
         ) {
             ProfileSetupScreen(
                 onNavigateToHome = {
-                    navController.navigate(AppRoutes.Setup.route) {
+                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    navController.navigate(route) {
                         popUpTo(AppRoutes.ProfileSetup.route) { inclusive = true }
                     }
                 }

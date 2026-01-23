@@ -97,6 +97,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePaymentMethodDao(database: FinanceDatabase) = database.paymentMethodDao()
+    
+    @Provides
+    @Singleton
+    fun provideMpesaCategoryMappingDao(database: FinanceDatabase) = database.mpesaCategoryMappingDao()
 
     @Provides
     @Singleton

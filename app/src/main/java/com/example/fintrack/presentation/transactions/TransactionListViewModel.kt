@@ -10,6 +10,7 @@ import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.repository.ExternalTransactionRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.presentation.settings.getIconByName
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
@@ -36,6 +37,7 @@ private data class Tuple5<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D,
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
+    private val externalTransactionRepository: ExternalTransactionRepository,
     private val categoryRepository: CategoryRepository,
     private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
@@ -77,7 +79,8 @@ class TransactionListViewModel @Inject constructor(
     ) { query, filter, sourceFilter, limit ->
         Tuple4(query, filter, sourceFilter, limit)
     }.flatMapLatest { (query, filter, sourceFilter, limit) ->
-        val baseFlow = if (query.isNotEmpty()) {
+        // Get manual transactions
+        val manualFlow = if (query.isNotEmpty()) {
             transactionRepository.searchTransactions(query)
         } else {
             if (filter == "All") {
@@ -87,18 +90,45 @@ class TransactionListViewModel @Inject constructor(
             }
         }
         
-        // Apply source filter on top of base flow
-        baseFlow.map { transactions ->
-            when (sourceFilter) {
-                "Manual" -> transactions.filter { transaction ->
-                    // Manual transactions: do NOT have M-Pesa or Auto-imported tags
-                    !(transaction.tags?.any { it == "M-Pesa" || it == "Auto-imported" } ?: false)
+        // Get M-Pesa transactions (converted to Transaction model)
+        val mpesaFlow = externalTransactionRepository.observeNewTransactions()
+        
+        // Combine manual + M-Pesa transactions
+        combine(manualFlow, mpesaFlow) { manual, mpesa ->
+            // Apply source filtering
+            val filteredTransactions = when (sourceFilter) {
+                "Manual" -> manual
+                "M-Pesa" -> mpesa
+                else -> {
+                    // Combine both sources and sort by date (newest first)
+                    (manual + mpesa).sortedByDescending { it.date }
                 }
-                "M-Pesa" -> transactions.filter { transaction ->
-                    // M-Pesa transactions: have M-Pesa tag
-                    transaction.tags?.contains("M-Pesa") ?: false
+            }
+            
+            // Apply type filter (Income/Expense/All)
+            val typeFiltered = when (filter) {
+                "Income" -> filteredTransactions.filter { it.type == TransactionType.INCOME }
+                "Expense" -> filteredTransactions.filter { it.type == TransactionType.EXPENSE }
+                else -> filteredTransactions
+            }
+            
+            // Apply search filter if query exists
+            val searchFiltered = if (query.isNotEmpty()) {
+                typeFiltered.filter { transaction ->
+                    transaction.notes?.contains(query, ignoreCase = true) == true ||
+                    transaction.category.contains(query, ignoreCase = true) ||
+                    transaction.paymentMethod?.contains(query, ignoreCase = true) == true
                 }
-                else -> transactions // "All" - no filtering
+            } else {
+                typeFiltered
+            }
+            
+            // Apply pagination limit (only when not searching)
+            if (query.isEmpty() && sourceFilter != "M-Pesa") {
+                // M-Pesa is limited at source (50 items), no need to limit again
+                searchFiltered.take(limit)
+            } else {
+                searchFiltered
             }
         }
     }

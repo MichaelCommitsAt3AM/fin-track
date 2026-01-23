@@ -88,6 +88,12 @@ class MpesaSmsParser(
             RegexOption.IGNORE_CASE
         )
 
+        // 10. DATA BUNDLES
+        private val DATA_BUNDLES_PATTERN = Regex(
+            """(?i)confirmed\.?\s+ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+SAFARICOM\s+DATA\s+BUNDLES""",
+            RegexOption.IGNORE_CASE
+        )
+
         // RECEIPT NUMBER extraction
         private val RECEIPT_PATTERN = Regex(
             """(?i)(?:receipt\s+)?([A-Z0-9]{10,})""",
@@ -142,6 +148,7 @@ class MpesaSmsParser(
         // Try to parse as different transaction types in priority order
         parseWalletTransfer(smsBody)?.let { return it }
         parseMshwariTransfer(smsBody)?.let { return it }
+        parseDataBundles(smsBody)?.let { return it }
         parseSentMoney(smsBody)?.let { return it }
         parseReceivedMoney(smsBody)?.let { return it }
         parsePaybill(smsBody)?.let { return it }
@@ -452,6 +459,27 @@ class MpesaSmsParser(
             transactionCost = transactionCost,
             newBalance = newBalance,
             smartClues = listOf("LOAN:FULIZA")
+        )
+    }
+
+    private fun parseDataBundles(smsBody: String): ParsedMpesaTransaction? {
+        val match = DATA_BUNDLES_PATTERN.find(smsBody) ?: return null
+
+        val amount = parseAmount(match.groupValues[1])
+        val receipt = extractReceipt(smsBody)
+        val transactionCost = extractTransactionCost(smsBody)
+        val newBalance = extractBalance(smsBody)
+        val smartClues = listOf("DATA:BUNDLES", "SAFARICOM:DATA")
+
+        return ParsedMpesaTransaction(
+            mpesaReceiptNumber = receipt ?: "UNKNOWN",
+            amount = amount,
+            type = TransactionType.EXPENSE,
+            transactionType = MpesaTransactionType.PAYBILL, // Treating as a bill payment
+            merchantName = "DATA BUNDLES",
+            transactionCost = transactionCost,
+            newBalance = newBalance,
+            smartClues = smartClues
         )
     }
 

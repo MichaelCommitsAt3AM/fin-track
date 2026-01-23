@@ -15,8 +15,12 @@ class SmartClueDetector {
         
         private val FOOD_KEYWORDS = setOf(
             "RESTAURANT", "CAFE", "COFFEE", "PIZZA", "CHICKEN", "KFC", "SUBWAY", "JAVA",
-            "ARTCAFFE", "NAIVAS", "CARREFOUR", "QUICKMART", "CHANDARANA",
-            "TUSKYS", "UCHUMI", "SUPERMARKET", "GROCERY", "BUTCHERY"
+            "ARTCAFFE", 
+            "TUSKYS", "UCHUMI", "GROCERY", "BUTCHERY", "BAKERY", "HOTEL", "LOUNGE"
+        )
+        
+        private val SUPERMARKET_KEYWORDS = setOf(
+            "SUPERMARKET", "SUPERMARKETS", "NAIVAS", "CARREFOUR", "QUICKMART", "CHANDARANA", "CLEANSHELF", "MATHAI"
         )
         
         private val UTILITIES_KEYWORDS = setOf(
@@ -41,7 +45,8 @@ class SmartClueDetector {
         )
         
         private val SHOPPING_KEYWORDS = setOf(
-            "JUMIA", "AMAZON", "SHOP", "SUPERMARKET", "SUPERMARKETS", "STORE", "MALL", "BOUTIQUE",
+            "JUMIA", "AMAZON", "KILIMALL", "JIJI", "ALIBABA", "EBAY", "ALIEXPRESS", 
+            "SHOP", "STORE", "MALL", "BOUTIQUE",
             "FASHION", "CLOTHING", "SHOES"
         )
         
@@ -93,6 +98,12 @@ class SmartClueDetector {
         FOOD_KEYWORDS.forEach { keyword ->
             if (searchText.contains(keyword)) {
                 clues.add("FOOD:$keyword")
+            }
+        }
+
+        SUPERMARKET_KEYWORDS.forEach { keyword ->
+            if (searchText.contains(keyword)) {
+                clues.add("SUPERMARKET:$keyword")
             }
         }
         

@@ -45,7 +45,8 @@ data class MerchantFrequency(
     val merchantName: String,
     val transactionCount: Int,
     val totalAmount: Double,
-    val suggestedCategory: String?
+    val suggestedCategory: String?,
+    val recentTransactions: List<com.example.fintrack.core.domain.model.MpesaTransaction> = emptyList()
 )
 
 /**
@@ -66,5 +67,6 @@ data class OnboardingInsights(
     val totalTransactions: Int = 0,
     val frequentMerchants: List<MerchantFrequency> = emptyList(),
     val recurringPaybills: List<RecurringPaybill> = emptyList(),
+    val categorySuggestions: List<com.example.fintrack.core.domain.model.CategorySuggestion> = emptyList(),
     val isLoading: Boolean = false
 )

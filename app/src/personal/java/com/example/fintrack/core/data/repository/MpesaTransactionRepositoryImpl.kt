@@ -15,6 +15,8 @@ import com.example.fintrack.core.util.MpesaSmsParser
 import com.example.fintrack.core.util.ParsedMpesaTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+
 import kotlinx.coroutines.flow.map
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -38,10 +40,10 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
          * Parser version for schema evolution.
          * Increment when improving regex patterns to allow selective re-parsing.
          */
-        const val PARSER_VERSION = 1
+        const val PARSER_VERSION = 2
     }
-    
-    override suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod) {
+
+    override suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod): List<MpesaTransaction> {
         Log.d(TAG, "Starting M-Pesa SMS sync with lookback period: ${lookbackPeriod.months} months")
         
         val startTimestamp = lookbackPeriod.getStartTimestamp()
@@ -69,6 +71,7 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
                 
                 var processedCount = 0
                 var skippedCount = 0
+                var updatedCount = 0
                 
                 while (it.moveToNext()) {
                     val smsId = it.getLong(idIndex)
@@ -82,9 +85,18 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
                     // Parse first to get receipt number (real dedupe key)
                     val parsed = parser.parseSms(smsBody) ?: continue
                     
-                    // Skip if already processed (dedupe by receipt number)
-                    if (dao.getTransactionByReceiptNumber(parsed.mpesaReceiptNumber) != null) {
-                        skippedCount++
+                    // Check if exists
+                    val existing = dao.getTransactionByReceiptNumber(parsed.mpesaReceiptNumber)
+                    
+                    if (existing != null) {
+                        // Check if we need to re-parse due to version update
+                        if (existing.parserVersion < PARSER_VERSION) {
+                            if (storeTransaction(parsed, smsBody, smsDate, uniqueSmsId)) {
+                                updatedCount++
+                            }
+                        } else {
+                            skippedCount++
+                        }
                         continue
                     }
                     
@@ -94,8 +106,15 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
                     }
                 }
                 
-                Log.d(TAG, "M-Pesa sync completed: $processedCount new, $skippedCount skipped")
+                Log.d(TAG, "M-Pesa sync completed: $processedCount new, $updatedCount updated, $skippedCount skipped")
             }
+            
+            // Return all transactions in the lookback period (both new and existing)
+            val endTime = System.currentTimeMillis()
+            // We use the dao directly or the flow helper. Since we are in suspend, we can just consume the flow.
+            // Using a distinct query would be more efficient if we had a suspend getAll... but flow.first() is fine.
+            return getTransactionsByDateRange(startTimestamp, endTime).first()
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing M-Pesa SMS", e)
             throw e

@@ -17,7 +17,7 @@ interface MpesaTransactionRepository {
      * 
      * @param lookbackPeriod How far back to scan for M-Pesa SMS messages
      */
-    suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod = LookbackPeriod.THREE_MONTHS)
+    suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod = LookbackPeriod.THREE_MONTHS): List<MpesaTransaction>
     
     /**
      * Parse and store a single M-Pesa SMS message.

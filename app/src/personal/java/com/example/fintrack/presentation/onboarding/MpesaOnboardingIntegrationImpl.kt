@@ -12,20 +12,16 @@ class MpesaOnboardingIntegrationImpl @Inject constructor(
     private val preferences: MpesaOnboardingPreferences
 ) : OnboardingIntegration {
 
-    companion object {
-        const val ROUTE_MPESA_ONBOARDING = "mpesa_onboarding"
-    }
-
     override suspend fun getStartDestinationIfRequired(): String? {
         val isComplete = preferences.isOnboardingCompleted.first()
-        return if (!isComplete) ROUTE_MPESA_ONBOARDING else null
+        return if (!isComplete) com.example.fintrack.presentation.navigation.AppRoutes.MpesaOnboarding.route else null
     }
 
     override fun NavGraphBuilder.addOnboardingRoutes(
         navController: NavHostController,
         onOnboardingComplete: () -> Unit
     ) {
-        composable(ROUTE_MPESA_ONBOARDING) {
+        composable(com.example.fintrack.presentation.navigation.AppRoutes.MpesaOnboarding.route) {
             MpesaOnboardingScreen(
                 onComplete = onOnboardingComplete,
                 onSkip = onOnboardingComplete

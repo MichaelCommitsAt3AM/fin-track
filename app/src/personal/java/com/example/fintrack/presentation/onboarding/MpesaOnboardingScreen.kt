@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.fintrack.core.domain.model.onboarding.OnboardingStep
 import com.example.fintrack.presentation.onboarding.steps.CompletionStep
@@ -26,25 +27,33 @@ fun MpesaOnboardingScreen(
     val currentStep by viewModel.currentStep.collectAsState()
     
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .statusBarsPadding()
         ) {
             // Progress indicator
+            val targetProgress = when (currentStep) {
+                OnboardingStep.Welcome -> 0.15f
+                OnboardingStep.Permissions -> 0.30f
+                OnboardingStep.Syncing -> 0.45f
+                OnboardingStep.Insights -> 0.60f
+                OnboardingStep.CategorySuggestions -> 0.80f
+                OnboardingStep.Completion -> 1f
+                else -> 0f
+            }
+
+            val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = targetProgress,
+                label = "OnboardingProgress"
+            )
+
             LinearProgressIndicator(
-                progress = { 
-                    when (currentStep) {
-                        OnboardingStep.Welcome -> 0.20f
-                        OnboardingStep.Permissions -> 0.40f
-                        OnboardingStep.Syncing -> 0.60f
-                        OnboardingStep.Insights -> 0.80f
-                        OnboardingStep.Completion -> 1f
-                        else -> 0f
-                    }
-                },
+                progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth()
             )
             
@@ -70,6 +79,11 @@ fun MpesaOnboardingScreen(
                 OnboardingStep.Insights -> InsightsStep(
                     viewModel = viewModel,
                     onNext = { viewModel.nextStep() }
+                )
+                
+                OnboardingStep.CategorySuggestions -> com.example.fintrack.presentation.onboarding.steps.CategorySuggestionsStep(
+                    viewModel = viewModel,
+                    onNext = { viewModel.nextStep() } // Used for skipping
                 )
                 
                 OnboardingStep.Completion -> CompletionStep(

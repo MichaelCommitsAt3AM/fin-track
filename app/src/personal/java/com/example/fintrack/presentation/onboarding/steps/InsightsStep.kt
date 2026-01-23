@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.fintrack.core.domain.model.onboarding.OnboardingInsights
 import com.example.fintrack.presentation.onboarding.MpesaOnboardingViewModel
 import com.example.fintrack.presentation.ui.theme.FinTrackGreen
 
@@ -32,93 +33,115 @@ fun InsightsStep(
     onNext: () -> Unit
 ) {
     val insights by viewModel.insights.collectAsState()
-    
-    Column(
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState())
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Text(
-            text = "Your Patterns",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-        
-        Text(
-            text = "We found some interesting habits in your ${insights.totalTransactions} transactions.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Frequent Merchants Section
-        if (insights.frequentMerchants.isNotEmpty()) {
-            Text(
-                text = "Top Places You Spend",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            insights.frequentMerchants.forEach { merchant ->
-                InsightCard(
-                    icon = Icons.Default.ShoppingCart,
-                    title = merchant.merchantName,
-                    subtitle = "${merchant.transactionCount} transactions",
-                    amount = "KES ${merchant.totalAmount.toInt()}",
-                    badge = merchant.suggestedCategory
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Recurring Bills Section
-        if (insights.recurringPaybills.isNotEmpty()) {
-            Text(
-                text = "Recurring Bills",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            insights.recurringPaybills.forEach { bill ->
-                InsightCard(
-                    icon = Icons.Default.Repeat,
-                    title = bill.merchantName ?: "Paybill ${bill.paybillNumber}",
-                    subtitle = "Found ${bill.frequency} times",
-                    amount = "~ KES ${bill.averageAmount.toInt()}",
-                    badge = bill.suggestedCategory
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
-        
-        if (insights.frequentMerchants.isEmpty() && insights.recurringPaybills.isEmpty()) {
-            // Empty state
-            Text(
-                text = "No strong patterns detected yet. As you use M-Pesa more, we'll learn!",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(32.dp)
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Button(
-            onClick = onNext,
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Text("Next")
+            InsightsContent(insights, onNext)
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.InsightsContent(
+    insights: OnboardingInsights,
+    onNext: () -> Unit
+) {
+    Text(
+        text = "Your Patterns",
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold
+    )
+
+    Text(
+        text = "We found some interesting habits in your ${insights.totalTransactions} transactions.",
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    // Frequent Merchants Section
+    if (insights.frequentMerchants.isNotEmpty()) {
+        Text(
+            text = "Top Places You Spend",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        insights.frequentMerchants.forEach { merchant ->
+            androidx.compose.runtime.LaunchedEffect(merchant) {
+                android.util.Log.d("InsightsStep", "Top Place: ${merchant.merchantName}")
+                merchant.recentTransactions.forEach { txn ->
+                    android.util.Log.d("InsightsStep", " - Transaction: ${txn.mpesaReceiptNumber}, Amount: ${txn.amount}, Date: ${txn.timestamp}")
+                }
+            }
+
+            InsightCard(
+                icon = Icons.Default.ShoppingCart,
+                title = merchant.merchantName,
+                subtitle = "${merchant.transactionCount} transactions",
+                amount = "KES ${merchant.totalAmount.toInt()}",
+                badge = merchant.suggestedCategory
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    // Recurring Bills Section
+    if (insights.recurringPaybills.isNotEmpty()) {
+        Text(
+            text = "Recurring Bills",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        insights.recurringPaybills.forEach { bill ->
+            InsightCard(
+                icon = Icons.Default.Repeat,
+                title = bill.merchantName ?: "Paybill ${bill.paybillNumber}",
+                subtitle = "Found ${bill.frequency} times",
+                amount = "~ KES ${bill.averageAmount.toInt()}",
+                badge = bill.suggestedCategory
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+
+    if (insights.frequentMerchants.isEmpty() && insights.recurringPaybills.isEmpty()) {
+        // Empty state
+        Text(
+            text = "No strong patterns detected yet. As you use M-Pesa more, we'll learn!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(32.dp)
+        )
+    }
+
+    Spacer(modifier = Modifier.height(32.dp))
+
+    Button(
+        onClick = onNext,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Next")
     }
 }
 

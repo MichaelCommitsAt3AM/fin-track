@@ -9,10 +9,12 @@ import com.example.fintrack.core.data.local.dao.BudgetDao
 import com.example.fintrack.core.data.local.dao.CategoryDao
 import com.example.fintrack.core.data.local.dao.TransactionDao
 import com.example.fintrack.core.data.local.dao.PaymentMethodDao
+import com.example.fintrack.core.data.local.dao.MpesaCategoryMappingDao
 import com.example.fintrack.core.data.local.model.BudgetEntity
 import com.example.fintrack.core.data.local.model.CategoryEntity
 import com.example.fintrack.core.data.local.model.TransactionEntity
 import com.example.fintrack.core.data.local.model.PaymentMethodEntity
+import com.example.fintrack.core.data.local.model.MpesaCategoryMappingEntity
 import com.example.fintrack.core.data.local.model.RecurringTransactionEntity
 import com.example.fintrack.core.data.local.dao.RecurringTransactionDao
 import com.example.fintrack.core.data.local.model.UserEntity
@@ -41,9 +43,10 @@ import com.example.fintrack.core.data.local.dao.NotificationDao
         ContributionEntity::class,
         PaymentEntity::class,
         NotificationEntity::class,
-        PaymentMethodEntity::class
+        PaymentMethodEntity::class,
+        MpesaCategoryMappingEntity::class
     ],
-    version = 1
+    version = 2
 )
 @TypeConverters(Converters::class) // We'll create this file next
 abstract class FinanceDatabase : RoomDatabase() {
@@ -60,6 +63,7 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun paymentDao(): PaymentDao
     abstract fun notificationDao(): NotificationDao
     abstract fun paymentMethodDao(): PaymentMethodDao
+    abstract fun mpesaCategoryMappingDao(): MpesaCategoryMappingDao
 
 
 

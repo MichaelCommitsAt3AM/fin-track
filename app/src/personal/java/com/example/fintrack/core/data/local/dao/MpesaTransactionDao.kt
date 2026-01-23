@@ -92,4 +92,11 @@ interface MpesaTransactionDao {
         ORDER BY frequency DESC
     """)
     suspend fun getRecurringPaybills(): List<PaybillAnalysisResult>
+    @Query("""
+        SELECT * FROM mpesa_transactions 
+        WHERE merchantName = :merchantName 
+        ORDER BY timestamp DESC
+        LIMIT :limit
+    """)
+    suspend fun getTransactionsByMerchantName(merchantName: String, limit: Int): List<MpesaTransactionEntity>
 }
