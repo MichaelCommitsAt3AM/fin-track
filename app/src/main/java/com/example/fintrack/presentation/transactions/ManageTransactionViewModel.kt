@@ -8,6 +8,7 @@ import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.repository.ExternalTransactionRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.presentation.settings.getIconByName
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,7 +21,8 @@ import javax.inject.Inject
 class ManageTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val externalTransactionRepository: ExternalTransactionRepository
 ) : ViewModel() {
 
     private val _transactionId = MutableStateFlow<String?>(null)
@@ -42,8 +44,11 @@ class ManageTransactionViewModel @Inject constructor(
         .flatMapLatest { id ->
             combine(
                 transactionRepository.getTransactionById(id),
+                externalTransactionRepository.observeNewTransactions(),
                 categoryRepository.getAllCategories()
-            ) { transaction, categories ->
+            ) { localTxn, externalTxns, categories ->
+                val transaction = localTxn ?: externalTxns.find { it.id == id }
+                
                 transaction?.let { txn ->
                     // Find category for icon and color
                     val category = categories.find { it.name == txn.category }

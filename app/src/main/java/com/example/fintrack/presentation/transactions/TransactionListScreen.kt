@@ -105,209 +105,128 @@ fun TransactionListScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        val listState = rememberLazyListState()
+
+        // Infinite Scroll Logic
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                .collect { index ->
+                    val totalItems = listState.layoutInfo.totalItemsCount
+                    if (index != null && totalItems > 0 && index >= totalItems - 5) {
+                        viewModel.loadMore()
+                    }
+                }
+        }
+
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
+            state = listState,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // --- Search & Filter Bar ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChange(it) },
-                    placeholder = { Text("Search transactions", fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
-                    shape = RoundedCornerShape(50), // Fully rounded
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+            // --- Header (Search & Filters) ---
+            item(key = "header") {
+                TransactionListHeader(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
+                    selectedFilter = selectedFilter,
+                    onFilterSelected = { viewModel.onFilterSelected(it) },
+                    isSourceFilterExpanded = isSourceFilterExpanded,
+                    toggleSourceFilterExpanded = { viewModel.toggleSourceFilterExpanded() },
+                    selectedSourceFilter = selectedSourceFilter,
+                    onSourceFilterSelected = { viewModel.onSourceFilterSelected(it) }
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // --- Planned Transactions Section ---
+            if (plannedTransactions.isNotEmpty()) {
+                item(key = "planned_header") {
+                    PlannedTransactionsHeader(
+                        isExpanded = isPlannedExpanded,
+                        count = plannedTransactions.size,
+                        onToggle = { isPlannedExpanded = !isPlannedExpanded }
+                    )
+                }
 
-            // --- Filter Tabs (All / Income / Expense) ---
-            TransactionListSegmentedControl(
-                selectedFilter = selectedFilter,
-                onFilterSelected = { viewModel.onFilterSelected(it) }
-            )
+                item(key = "planned_content") {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isPlannedExpanded,
+                        enter = androidx.compose.animation.expandVertically(
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                                stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                            )
+                        ) + androidx.compose.animation.fadeIn(
+                            animationSpec = androidx.compose.animation.core.tween(300)
+                        ),
+                        exit = androidx.compose.animation.shrinkVertically(
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+                                stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                            )
+                        ) + androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(200)
+                        )
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            plannedTransactions.forEach { transaction ->
+                                PlannedTransactionItem(
+                                    transaction = transaction,
+                                    currencySymbol = currency.symbol,
+                                    onClick = { onNavigateToTransaction?.invoke(transaction.id) }
+                                )
+                            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // --- View More Button ---
-            ViewMoreButton(
-                isExpanded = isSourceFilterExpanded,
-                onClick = { viewModel.toggleSourceFilterExpanded() }
-            )
-            
-            // --- Secondary Source Filter (Manual / M-Pesa) ---
-            androidx.compose.animation.AnimatedVisibility(
-                visible = isSourceFilterExpanded,
-                enter = androidx.compose.animation.expandVertically(
-                    animationSpec = androidx.compose.animation.core.spring(
-                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-                        stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-                    )
-                ) + androidx.compose.animation.fadeIn(
-                    animationSpec = androidx.compose.animation.core.tween(300)
-                ),
-                exit = androidx.compose.animation.shrinkVertically(
-                    animationSpec = androidx.compose.animation.core.spring(
-                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
-                        stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-                    )
-                ) + androidx.compose.animation.fadeOut(
-                    animationSpec = androidx.compose.animation.core.tween(200)
-                )
-            ) {
-                Column {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TransactionSourceSegmentedControl(
-                        selectedSource = selectedSourceFilter,
-                        onSourceSelected = { viewModel.onSourceFilterSelected(it) }
-                    )
+                            // Divider after planned transactions
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- Grouped Transaction List ---
-            AnimatedContent(
-                targetState = selectedFilter,
-                transitionSpec = {
-                    val fromIndex = filterOrder.indexOf(initialState)
-                    val toIndex = filterOrder.indexOf(targetState)
-
-                    val direction = if (toIndex > fromIndex) 1 else -1
-
-                    (slideInHorizontally(
-                        animationSpec = tween(220),
-                        initialOffsetX = { it / 4 * direction }
-                    ) + fadeIn(animationSpec = tween(120)))
-                        .togetherWith(
-                            slideOutHorizontally(
-                                animationSpec = tween(220),
-                                targetOffsetX = { -it / 4 * direction }
-                            ) + fadeOut(animationSpec = tween(120))
-                        )
-                },
-                label = "TransactionFilterTransition"
-            ) { targetFilter ->
-                if (groupedTransactions.isEmpty()) {
+            // --- Regular Transactions ---
+            if (groupedTransactions.isEmpty()) {
+                item {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .padding(vertical = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "No transactions found for $targetFilter",
+                            "No transactions found for $selectedFilter",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                } else {
-                    val listState = rememberLazyListState()
-                    
-                    // Infinite Scroll Logic
-                    LaunchedEffect(listState) {
-                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-                            .collect { index ->
-                                val totalItems = listState.layoutInfo.totalItemsCount
-                                if (index != null && totalItems > 0 && index >= totalItems - 5) {
-                                    viewModel.loadMore()
-                                }
-                            }
+                }
+            } else {
+                groupedTransactions.forEach { (date, transactions) ->
+                    item(key = date) {
+                        Text(
+                            text = date,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     }
-
-                    LazyColumn(
-                        state = listState,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 32.dp)
-                    ) {
-                        // Planned Transactions Section (only show if there are planned transactions)
-                        if (plannedTransactions.isNotEmpty()) {
-                            item(key = "planned_header") {
-                                PlannedTransactionsHeader(
-                                    isExpanded = isPlannedExpanded,
-                                    count = plannedTransactions.size,
-                                    onToggle = { isPlannedExpanded = !isPlannedExpanded }
-                                )
-                            }
-                            
-                            // Wrap planned transactions in AnimatedVisibility for smooth animation
-                            item(key = "planned_content") {
-                                androidx.compose.animation.AnimatedVisibility(
-                                    visible = isPlannedExpanded,
-                                    enter = androidx.compose.animation.expandVertically(
-                                        animationSpec = androidx.compose.animation.core.spring(
-                                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-                                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-                                        )
-                                    ) + androidx.compose.animation.fadeIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300)
-                                    ),
-                                    exit = androidx.compose.animation.shrinkVertically(
-                                        animationSpec = androidx.compose.animation.core.spring(
-                                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
-                                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-                                        )
-                                    ) + androidx.compose.animation.fadeOut(
-                                        animationSpec = androidx.compose.animation.core.tween(200)
-                                    )
-                                ) {
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        plannedTransactions.forEach { transaction ->
-                                            PlannedTransactionItem(
-                                                transaction = transaction,
-                                                currencySymbol = currency.symbol,
-                                                onClick = { onNavigateToTransaction?.invoke(transaction.id) }
-                                            )
-                                        }
-                                        
-                                        // Divider after planned transactions
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(vertical = 8.dp),
-                                            color = MaterialTheme.colorScheme.outlineVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Regular Transactions
-                        groupedTransactions.forEach { (date, transactions) ->
-                            item(key = date) {
-                                Text(
-                                    text = date,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
-                            }
-                            items(
-                                items = transactions,
-                                key = { it.id }
-                            ) { transaction ->
-                                TransactionListItem(
-                                    transaction,
-                                    currency.symbol,
-                                    onClick = { onNavigateToTransaction?.invoke(transaction.id) }
-                                )
-                            }
-                        }
+                    items(
+                        items = transactions,
+                        key = { it.id }
+                    ) { transaction ->
+                        TransactionListItem(
+                            transaction,
+                            currency.symbol,
+                            onClick = { onNavigateToTransaction?.invoke(transaction.id) }
+                        )
                     }
-
                 }
             }
         }

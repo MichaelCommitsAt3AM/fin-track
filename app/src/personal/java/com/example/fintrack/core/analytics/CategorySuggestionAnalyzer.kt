@@ -27,11 +27,11 @@ class CategorySuggestionAnalyzer @Inject constructor(
      */
     private val categoryMapping = mapOf(
         "TRANSPORT" to CategoryMetadata("Transport", "directions_car", "#FF6B35"),
-        "FOOD" to CategoryMetadata("Food & Dining", "restaurant", "#FFA726"),
+        "FOOD" to CategoryMetadata("Food", "restaurant", "#FFA726"),
         "UTILITIES" to CategoryMetadata("Utilities", "bolt", "#42A5F5"),
         "ENTERTAINMENT" to CategoryMetadata("Entertainment", "movie", "#AB47BC"),
         "HEALTH" to CategoryMetadata("Healthcare", "local_hospital", "#EF5350"),
-        "SHOPPING" to CategoryMetadata("Shopping", "shopping_bag", "#EC407A"),
+        "SHOPPING" to CategoryMetadata("Online shopping", "shopping_bag", "#EC407A"),
         "SUPERMARKET" to CategoryMetadata("Supermarket", "shopping_cart", "#4CAF50"),
         "AIRTIME" to CategoryMetadata("Airtime & Data", "phone_android", "#26A69A"),
         "DATA" to CategoryMetadata("Airtime & Data", "phone_android", "#26A69A"),

@@ -24,23 +24,34 @@ import javax.inject.Inject
 class SmsTransactionRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mpesaRepository: MpesaTransactionRepository,
-    private val mappingDao: MpesaCategoryMappingDao
+    private val mappingDao: MpesaCategoryMappingDao,
+    private val merchantCategoryDao: com.example.fintrack.core.data.local.dao.MerchantCategoryDao
 ) : ExternalTransactionRepository {
     
     override fun observeNewTransactions(): Flow<List<Transaction>> {
-        // combine M-Pesa transactions with Category Mappings
+        // combine M-Pesa transactions with Category Mappings (Receipt & Merchant levels)
         return kotlinx.coroutines.flow.combine(
             mpesaRepository.getRecentTransactions(limit = 50),
-            mappingDao.getAllMappings()
-        ) { mpesaTransactions, mappings ->
+            mappingDao.getAllMappings(),
+            merchantCategoryDao.getAllMappings()
+        ) { mpesaTransactions, receiptMappings, merchantMappings ->
             
-            // Create a quick lookup map for mappings
-            val mappingMap = mappings.associateBy { it.mpesaReceiptNumber }
+            // Create quick lookup maps
+            val receiptMap = receiptMappings.associateBy { it.mpesaReceiptNumber }
+            val merchantMap = merchantMappings.associateBy { it.merchantName }
             
             mpesaTransactions.map { mpesa ->
-                // Determine category: Check mapping first, then fallback to smart logic
-                val mappedCategoryName = mappingMap[mpesa.mpesaReceiptNumber]?.categoryName
-                val finalCategory = mappedCategoryName ?: determineMpesaCategory(mpesa.transactionType.name, mpesa.smartClues)
+                // Determine category precedence:
+                // 1. Specific Receipt Mapping (Manual override for specific txn)
+                // 2. Merchant Mapping (General rule for this merchant)
+                // 3. Smart Clues / Auto-detection
+                
+                val receiptCategory = receiptMap[mpesa.mpesaReceiptNumber]?.categoryName
+                val merchantCategory = mpesa.merchantName?.let { merchantMap[it]?.categoryName }
+                
+                val finalCategory = receiptCategory 
+                    ?: merchantCategory 
+                    ?: determineMpesaCategory(mpesa.transactionType.name, mpesa.smartClues)
 
                 Transaction(
                     id = "mpesa_${mpesa.smsId}",
@@ -51,7 +62,7 @@ class SmsTransactionRepository @Inject constructor(
                     date = mpesa.timestamp,
                     notes = buildMpesaNotes(mpesa),
                     paymentMethod = "M-Pesa",
-                    tags = buildMpesaTags(mpesa, mappedCategoryName != null),
+                    tags = buildMpesaTags(mpesa, receiptCategory != null || merchantCategory != null),
                     isPlanned = false,
                     updatedAt = mpesa.createdAt,
                     deletedAt = null
@@ -73,7 +84,7 @@ class SmsTransactionRepository @Inject constructor(
             if (categoryFromClues != null) {
                 return when (categoryFromClues.uppercase()) {
                     "TRANSPORT" -> "Transport"
-                    "FOOD" -> "Food & Dining"
+                    "FOOD" -> "Food"
                     "UTILITIES" -> "Utilities"
                     "ENTERTAINMENT" -> "Entertainment"
                     "HEALTH" -> "Healthcare"
@@ -103,7 +114,7 @@ class SmsTransactionRepository @Inject constructor(
         val parts = mutableListOf<String>()
         
         mpesa.merchantName?.let { parts.add(it) }
-        mpesa.mpesaReceiptNumber.let { parts.add("Receipt: $it") }
+        // mpesa.mpesaReceiptNumber.let { parts.add("Receipt: $it") }
         
         when {
             mpesa.paybillNumber != null -> {

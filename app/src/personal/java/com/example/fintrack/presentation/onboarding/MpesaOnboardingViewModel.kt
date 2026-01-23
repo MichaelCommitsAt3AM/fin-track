@@ -197,10 +197,13 @@ class MpesaOnboardingViewModel @Inject constructor(
             // Here we assume repo or room handles it. CategoryRepository doesn't specify behavior
             // but name is usually unique locally.
             // Let's create proper Category objects.
+            val currentUser = userRepository.getCurrentUserOnce()
+            val currentUserId = currentUser?.userId ?: "local"
+
             val categories = suggestions.map { suggestion ->
                 com.example.fintrack.core.domain.model.Category(
                     name = suggestion.categoryName,
-                    userId = "local", // or get actual user ID
+                    userId = currentUserId,
                     iconName = suggestion.iconName,
                     colorHex = suggestion.colorHex,
                     type = com.example.fintrack.core.domain.model.CategoryType.EXPENSE,

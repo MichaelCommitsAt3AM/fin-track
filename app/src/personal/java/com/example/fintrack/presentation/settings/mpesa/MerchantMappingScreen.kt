@@ -19,10 +19,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -57,6 +65,10 @@ fun MerchantMappingScreen(
 ) {
     val merchantList by viewModel.merchantList.collectAsState()
     val availableCategories by viewModel.availableCategories.collectAsState()
+
+    val isMappingLoading by viewModel.isMappingLoading.collectAsState()
+    val mappingMessage by viewModel.mappingMessage.collectAsState()
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     
     var showUnmappedOnly by remember { mutableStateOf(false) }
     var selectedMerchant by remember { mutableStateOf<MerchantMappingItem?>(null) }
@@ -67,26 +79,143 @@ fun MerchantMappingScreen(
         merchantList
     }
 
-    if (selectedMerchant != null) {
-        CategorySelectionDialog(
-            categories = availableCategories,
-            currentCategory = selectedMerchant?.currentCategory,
-            onDismiss = { selectedMerchant = null },
-            onSelect = { category ->
-                selectedMerchant?.let { merchant ->
-                    viewModel.updateMerchantCategory(merchant.merchantName, category.name)
+    val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState()
+    var showCategorySheet by remember { mutableStateOf(false) }
+
+    // Handle Messages & Sheet Closing
+    androidx.compose.runtime.LaunchedEffect(mappingMessage) {
+        mappingMessage?.let { message ->
+            showCategorySheet = false
+            selectedMerchant = null
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearMessage()
+        }
+    }
+
+    // When a merchant is selected, open the sheet
+    if (selectedMerchant != null && !showCategorySheet) {
+        showCategorySheet = true
+    }
+
+    if (showCategorySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { 
+                if (!isMappingLoading) {
+                    showCategorySheet = false
+                    selectedMerchant = null 
                 }
-                selectedMerchant = null
+            },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = "Select Category",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 16.dp, start = 24.dp, top = 8.dp)
+                )
+
+                if (isMappingLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            androidx.compose.material3.CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Updating transactions...")
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    ) {
+                        items(availableCategories) { category ->
+                            val isSelected = category.name == selectedMerchant?.currentCategory
+                            
+                            // Parse color
+                            val categoryColor = try {
+                                Color(AndroidColor.parseColor(category.colorHex))
+                            } catch (e: Exception) {
+                                Color.Gray
+                            }
+
+                            Surface(
+                                onClick = {
+                                    selectedMerchant?.let { merchant ->
+                                        viewModel.updateMerchantCategory(merchant.merchantName, category.name)
+                                    }
+                                    // Sheet closing is handled by the LaunchedEffect observing mappingMessage
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+                                border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Category Color Dot
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .clip(CircleShape)
+                                            .background(categoryColor)
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    
+                                    Text(
+                                        text = category.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        item { Spacer(modifier = Modifier.height(24.dp)) }
+                    }
+                }
             }
-        )
+        }
     }
 
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { 
-                    Column {
-                        Text("Merchant Mapping")
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Merchant Mapping",
+                            maxLines = 1,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text(
                             text = "${filteredList.size} merchants",
                             style = MaterialTheme.typography.labelSmall,
@@ -103,7 +232,7 @@ fun MerchantMappingScreen(
                     FilterChip(
                         selected = showUnmappedOnly,
                         onClick = { showUnmappedOnly = !showUnmappedOnly },
-                        label = { Text("Unmapped Only") },
+                        label = { Text("Unmapped") },
                         leadingIcon = {
                             if (showUnmappedOnly) {
                                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -114,7 +243,7 @@ fun MerchantMappingScreen(
                         modifier = Modifier.padding(end = 8.dp)
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
@@ -178,76 +307,14 @@ fun MerchantItem(
                 )
             }
         } else {
-            Text(
-                text = "Map",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
+            Icon(
+                imageVector = Icons.Default.AddCircleOutline,
+                contentDescription = "Map Merchant",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
-@Composable
-fun CategorySelectionDialog(
-    categories: List<CategoryEntity>,
-    currentCategory: String?,
-    onDismiss: () -> Unit,
-    onSelect: (CategoryEntity) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Category") },
-        text = {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().height(300.dp) // Limit height
-            ) {
-                items(categories) { category ->
-                    val isSelected = category.name == currentCategory
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(category) }
-                            .padding(vertical = 12.dp, horizontal = 0.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Color Dot
-                        val color = try {
-                            Color(AndroidColor.parseColor(category.colorHex))
-                        } catch (e: Exception) {
-                            Color.Gray
-                        }
-                        
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                        )
-                        
-                        Spacer(modifier = Modifier.width(16.dp))
-                        
-                        Text(
-                            text = category.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.weight(1f)
-                        )
-                        
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
+

@@ -108,14 +108,7 @@ fun SettingsScreen(
             // Profile Section
             ProfileHeader()
 
-            Spacer(modifier = Modifier.height(24.dp))
 
-            // Account Section
-            SettingsSection(title = "Account") {
-                SettingsItem(icon = Icons.Default.Person, title = "Manage Profile", onClick = {navController.navigate(AppRoutes.ManageProfile.route)})
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingsItem(icon = Icons.Default.Payment, title = "Payment Methods", onClick = onNavigateToPaymentMethods)
-            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -153,6 +146,8 @@ fun SettingsScreen(
 
             // App Preferences Section
             SettingsSection(title = "App Preferences") {
+                SettingsItem(icon = Icons.Default.Payment, title = "Payment Methods", onClick = onNavigateToPaymentMethods)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(
                     icon = Icons.Default.Category,
                     title = "Manage Categories",
@@ -164,6 +159,13 @@ fun SettingsScreen(
                     title = "Manage Recurring Transactions",
                     onClick = { navController.navigate(AppRoutes.RecurringTransactions.route)}
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Variant-specific settings (e.g. M-Pesa for Personal)
+                if (navController is androidx.navigation.NavHostController) {
+                    settingsIntegration?.SettingsEntryPoint(navController)
+                }
+                
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(icon = Icons.Default.Notifications, title = "Notifications", onClick = { navController.navigate(AppRoutes.NotificationSettings.route) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -182,10 +184,7 @@ fun SettingsScreen(
                     onClick = { showThemeSheet = true }
                 )
 
-                // Variant-specific settings (e.g. M-Pesa for Personal)
-                if (navController is androidx.navigation.NavHostController) {
-                    settingsIntegration?.SettingsEntryPoint(navController)
-                }
+
             }
 
             Spacer(modifier = Modifier.height(24.dp))

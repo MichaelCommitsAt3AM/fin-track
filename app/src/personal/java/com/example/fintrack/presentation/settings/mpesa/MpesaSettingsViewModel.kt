@@ -114,15 +114,40 @@ class MpesaSettingsViewModel @Inject constructor(
         }
     }
     
+    // --- UI States for Mapping ---
+    private val _isMappingLoading = MutableStateFlow(false)
+    val isMappingLoading: StateFlow<Boolean> = _isMappingLoading
+
+    private val _mappingMessage = MutableStateFlow<String?>(null)
+    val mappingMessage: StateFlow<String?> = _mappingMessage
+
+    fun clearMessage() {
+        _mappingMessage.value = null
+    }
+
+    // ... existing actions ...
+
     fun updateMerchantCategory(merchantName: String, categoryName: String) {
         viewModelScope.launch {
-            val entity = MerchantCategoryEntity(
-                merchantName = merchantName,
-                categoryName = categoryName,
-                isUserConfirmed = true,
-                updatedAt = System.currentTimeMillis()
-            )
-            merchantCategoryDao.insertMapping(entity)
+            _isMappingLoading.value = true
+            try {
+                // Simulate network/db latency for "loading spinner" requirement
+                kotlinx.coroutines.delay(1000)
+
+                val entity = MerchantCategoryEntity(
+                    merchantName = merchantName,
+                    categoryName = categoryName,
+                    isUserConfirmed = true,
+                    updatedAt = System.currentTimeMillis()
+                )
+                merchantCategoryDao.insertMapping(entity)
+                
+                _mappingMessage.value = "Mapped $merchantName to $categoryName"
+            } catch (e: Exception) {
+                _mappingMessage.value = "Failed to map merchant: ${e.message}"
+            } finally {
+                _isMappingLoading.value = false
+            }
         }
     }
 }

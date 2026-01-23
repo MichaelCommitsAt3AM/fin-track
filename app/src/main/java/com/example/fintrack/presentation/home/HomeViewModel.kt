@@ -10,6 +10,7 @@ import com.example.fintrack.core.domain.model.CategoryType
 import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.CategoryRepository
+import com.example.fintrack.core.domain.repository.ExternalTransactionRepository
 import com.example.fintrack.core.domain.repository.NetworkRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
 import com.example.fintrack.presentation.settings.getIconByName
@@ -41,7 +42,8 @@ class HomeViewModel @Inject constructor(
     private val networkRepository: NetworkRepository,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val externalTransactionRepository: ExternalTransactionRepository
 ) : ViewModel() {
 
     // --- Sync Status ---
@@ -116,11 +118,17 @@ class HomeViewModel @Inject constructor(
     )
 
     // --- Recent Transactions ---
+    // --- Recent Transactions ---
     val recentTransactions: StateFlow<List<TransactionUiModel>> = combine(
-        transactionRepository.getRecentTransactions(limit = 3),
+        transactionRepository.getRecentTransactions(limit = 5),
+        externalTransactionRepository.observeNewTransactions(),
         categoryRepository.getAllCategories()
-    ) { transactions, categories ->
-        transactions.map { transaction ->
+    ) { localTransactions, externalTransactions, categories ->
+        val allTransactions = (localTransactions + externalTransactions)
+            .sortedByDescending { it.date }
+            .take(3)
+
+        allTransactions.map { transaction ->
             val category = categories.find { it.name == transaction.category }
 
             val icon = category?.iconName?.let { getIconByName(it) } ?: Icons.Default.Category
