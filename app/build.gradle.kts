@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.gms.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
@@ -113,6 +114,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.crashlytics)
     implementation(libs.litert.support.api)
     implementation(libs.androidx.compose.animation.core)
     ksp(libs.androidx.room.compiler)
@@ -150,6 +152,7 @@ dependencies {
     // --- WorkManager ---
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     // Desugaring
     coreLibraryDesugaring(libs.desugar.jdk.libs)

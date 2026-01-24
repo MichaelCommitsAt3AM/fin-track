@@ -10,9 +10,9 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.example.fintrack" />
-                  <option name="mobileSdkAppId" value="1:460584806004:android:8a4ee273528119fe7dd321" />
-                  <option name="projectId" value="fin-track-f1ed4" />
-                  <option name="projectNumber" value="460584806004" />
+                  <option name="mobileSdkAppId" value="1:865236836117:android:d5e502e99f531871d6131c" />
+                  <option name="projectId" value="fintrack-prod-31c6e" />
+                  <option name="projectNumber" value="865236836117" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
