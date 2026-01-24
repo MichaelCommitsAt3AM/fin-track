@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 @HiltViewModel
@@ -79,11 +80,7 @@ class MainViewModel @Inject constructor(
     // App Lock State
     // Controlled by MainActivity based on background activity time
     private val _isAppLocked = kotlinx.coroutines.flow.MutableStateFlow(false)
-    val isAppLocked: StateFlow<Boolean> = _isAppLocked.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
+    val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
     fun setAppLocked(locked: Boolean) {
         _isAppLocked.value = locked

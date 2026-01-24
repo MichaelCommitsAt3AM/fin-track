@@ -91,7 +91,7 @@ fun NavGraph(
         ) {
             LoginScreen(
                 onNavigateToSetup = {
-                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    val route = if (onboardingIntegration != null && onboardingIntegration.isEnabled) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
                     navController.navigate(route) {
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
@@ -125,7 +125,7 @@ fun NavGraph(
                     }
                 },
                 onNavigateToSetup = {
-                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    val route = if (onboardingIntegration != null && onboardingIntegration.isEnabled) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
                     navController.navigate(route) {
                         popUpTo(AppRoutes.Register.route) { inclusive = true }
                     }
@@ -145,7 +145,7 @@ fun NavGraph(
                     }
                 },
                 onNavigateToSetup = {
-                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    val route = if (onboardingIntegration != null && onboardingIntegration.isEnabled) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
                     navController.navigate(route) {
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
@@ -162,7 +162,7 @@ fun NavGraph(
         ) {
             ProfileSetupScreen(
                 onNavigateToHome = {
-                    val route = if (onboardingIntegration != null) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    val route = if (onboardingIntegration != null && onboardingIntegration.isEnabled) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
                     navController.navigate(route) {
                         popUpTo(AppRoutes.ProfileSetup.route) { inclusive = true }
                     }

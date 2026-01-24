@@ -29,7 +29,8 @@ class MpesaSettingsIntegrationImpl @Inject constructor() : SettingsIntegration {
         
         composable(route = ROUTE_MERCHANT_MAPPING) {
             MerchantMappingScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddCategory = { navController.navigate(com.example.fintrack.presentation.navigation.AppRoutes.AddCategory.route) }
             )
         }
     }

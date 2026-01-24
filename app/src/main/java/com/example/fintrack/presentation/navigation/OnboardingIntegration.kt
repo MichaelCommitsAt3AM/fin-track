@@ -17,6 +17,12 @@ interface OnboardingIntegration {
     suspend fun getStartDestinationIfRequired(): String?
 
     /**
+     * Whether the onboarding integration is enabled/active for this variant.
+     * Use this to check if variant-specific onboarding routes are actually available.
+     */
+    val isEnabled: Boolean
+
+    /**
      * Registers the onboarding routes into the main NavGraph.
      * 
      * @param navController The navigation controller.

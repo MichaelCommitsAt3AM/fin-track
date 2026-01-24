@@ -61,6 +61,7 @@ import com.example.fintrack.core.data.local.model.CategoryEntity
 @Composable
 fun MerchantMappingScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToAddCategory: () -> Unit, // <--- New callback
     viewModel: MpesaSettingsViewModel = hiltViewModel()
 ) {
     val merchantList by viewModel.merchantList.collectAsState()
@@ -115,12 +116,36 @@ fun MerchantMappingScreen(
                     .fillMaxWidth()
                     .padding(bottom = 32.dp)
             ) {
-                Text(
-                    text = "Select Category",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp, start = 24.dp, top = 8.dp)
-                )
+                // Header with Add Button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Select Category",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onNavigateToAddCategory,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(50) // Pill shape
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddCircleOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add New")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
 
                 if (isMappingLoading) {
                     Box(

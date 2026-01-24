@@ -196,50 +196,52 @@ fun ProfileSetupScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Currency Selection
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Preferred Currency",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    var expanded by remember { mutableStateOf(false) }
-
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = "${state.selectedCurrency.label} (${state.selectedCurrency.symbol})",
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = FinTrackGreen,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor() // Required for ExposedDropdownMenuBox
+                if (state.isCurrencySelectionEnabled) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Preferred Currency",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
 
-                        ExposedDropdownMenu(
+                        var expanded by remember { mutableStateOf(false) }
+
+                        ExposedDropdownMenuBox(
                             expanded = expanded,
-                            onDismissRequest = { expanded = false }
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            com.example.fintrack.core.domain.model.Currency.entries.forEach { currency ->
-                                DropdownMenuItem(
-                                    text = { Text("${currency.label} (${currency.symbol})") },
-                                    onClick = {
-                                        viewModel.onEvent(ProfileSetupUiEvent.OnCurrencyChange(currency))
-                                        expanded = false
-                                    }
-                                )
+                            OutlinedTextField(
+                                value = "${state.selectedCurrency.label} (${state.selectedCurrency.symbol})",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = FinTrackGreen,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                com.example.fintrack.core.domain.model.Currency.entries.forEach { currency ->
+                                    DropdownMenuItem(
+                                        text = { Text("${currency.label} (${currency.symbol})") },
+                                        onClick = {
+                                            viewModel.onEvent(ProfileSetupUiEvent.OnCurrencyChange(currency))
+                                            expanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

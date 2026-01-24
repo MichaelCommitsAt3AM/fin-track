@@ -162,9 +162,11 @@ class HomeViewModel @Inject constructor(
     // --- Spending Categories (Current Month) ---
     val spendingCategories: StateFlow<List<SpendingCategoryUiModel>> = combine(
         transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
+        externalTransactionRepository.getAllTransactions(),
         categoryRepository.getAllCategories(),
         currencyPreference
-    ) { transactions, categories, currency ->
+    ) { localTransactions, externalTransactions, categories, currency ->
+        val transactions = localTransactions + externalTransactions
         val calendar = Calendar.getInstance()
 
         // Calculate Month Start
@@ -221,8 +223,11 @@ class HomeViewModel @Inject constructor(
     )
 
     // --- Weekly Spending ---
-    val weeklySpending: StateFlow<Pair<Double, Double>> = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
-        .map { transactions ->
+    val weeklySpending: StateFlow<Pair<Double, Double>> = combine(
+        transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
+        externalTransactionRepository.getAllTransactions()
+    ) { localTransactions, externalTransactions ->
+            val transactions = localTransactions + externalTransactions
             val calendar = Calendar.getInstance()
 
             // Current Week Range

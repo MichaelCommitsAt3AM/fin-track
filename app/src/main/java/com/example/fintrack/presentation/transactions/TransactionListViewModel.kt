@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.di.AppFlavorIntegration
 import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Category
 import com.example.fintrack.core.domain.model.Currency
@@ -18,6 +19,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -39,7 +41,8 @@ class TransactionListViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val externalTransactionRepository: ExternalTransactionRepository,
     private val categoryRepository: CategoryRepository,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val flavorIntegration: AppFlavorIntegration
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -55,6 +58,8 @@ class TransactionListViewModel @Inject constructor(
     // View More dropdown state
     private val _isSourceFilterExpanded = MutableStateFlow(false)
     val isSourceFilterExpanded: StateFlow<Boolean> = _isSourceFilterExpanded
+
+    val isMpesaSupported = MutableStateFlow(flavorIntegration.supportsMpesa).asStateFlow()
 
     val currencyPreference = localAuthManager.currencyPreference
         .stateIn(
@@ -91,7 +96,11 @@ class TransactionListViewModel @Inject constructor(
         }
         
         // Get M-Pesa transactions (converted to Transaction model)
-        val mpesaFlow = externalTransactionRepository.observeNewTransactions()
+        val mpesaFlow = if (flavorIntegration.supportsMpesa) {
+            externalTransactionRepository.observeNewTransactions()
+        } else {
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        }
         
         // Combine manual + M-Pesa transactions
         combine(manualFlow, mpesaFlow) { manual, mpesa ->

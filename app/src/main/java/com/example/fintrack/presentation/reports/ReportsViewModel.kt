@@ -4,12 +4,14 @@ import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fintrack.core.di.AppFlavorIntegration
 import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Currency
 import com.example.fintrack.core.domain.model.TransactionType
 import com.example.fintrack.core.domain.repository.BudgetRepository
 import com.example.fintrack.core.domain.repository.CategoryRepository
 import com.example.fintrack.core.domain.repository.TransactionRepository
+import com.example.fintrack.core.domain.repository.ExternalTransactionRepository
 import com.example.fintrack.core.utils.CsvExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +36,9 @@ class ReportsViewModel @Inject constructor(
     private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
     private val csvExporter: CsvExporter,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val externalTransactionRepository: ExternalTransactionRepository,
+    private val flavorIntegration: AppFlavorIntegration
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
@@ -52,10 +56,14 @@ class ReportsViewModel @Inject constructor(
 
     val state: StateFlow<ReportsUiState> = combine(
         transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
+        if (flavorIntegration.supportsMpesa) externalTransactionRepository.getAllTransactions() else kotlinx.coroutines.flow.flowOf(emptyList()),
         categoryRepository.getAllCategories(),
         _currentMonth,
         currencyPreference
-    ) { transactions, categories, currentMonth, currency ->
+    ) { localTransactions, externalTransactions, categories, currentMonth, currency ->
+        
+        val transactions = localTransactions + externalTransactions
+
 
         // 1. Prepare Pie Chart Data
         val currentMonthTransactions = transactions.filter {
@@ -138,7 +146,9 @@ class ReportsViewModel @Inject constructor(
     fun exportData() {
         viewModelScope.launch {
             // Fetch all transactions to export
-            val transactions = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE).first()
+            val localTransactions = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE).first()
+            val externalTransactions = if (flavorIntegration.supportsMpesa) externalTransactionRepository.getAllTransactions().first() else emptyList()
+            val transactions = localTransactions + externalTransactions
 
             // Generate CSV (IO operation)
             val uri = withContext(Dispatchers.IO) {

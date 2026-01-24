@@ -54,6 +54,7 @@ fun TransactionListScreen(
     val groupedTransactions by viewModel.uiState.collectAsState()
     val plannedTransactions by viewModel.plannedUiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
+    val isMpesaSupported by viewModel.isMpesaSupported.collectAsState()
     
     // Check if any planned transaction applies tomorrow
     val hasTransactionTomorrow = remember(plannedTransactions) {
@@ -137,7 +138,8 @@ fun TransactionListScreen(
                     isSourceFilterExpanded = isSourceFilterExpanded,
                     toggleSourceFilterExpanded = { viewModel.toggleSourceFilterExpanded() },
                     selectedSourceFilter = selectedSourceFilter,
-                    onSourceFilterSelected = { viewModel.onSourceFilterSelected(it) }
+                    onSourceFilterSelected = { viewModel.onSourceFilterSelected(it) },
+                    isMpesaSupported = isMpesaSupported
                 )
             }
 

@@ -3,6 +3,9 @@ package com.example.fintrack.core.data.repository
 import android.content.Context
 import com.example.fintrack.core.domain.model.Transaction
 import com.example.fintrack.core.domain.model.TransactionType
+import com.example.fintrack.core.domain.model.MpesaTransaction
+import com.example.fintrack.core.data.local.model.MpesaCategoryMappingEntity
+import com.example.fintrack.core.data.local.model.MerchantCategoryEntity
 import com.example.fintrack.core.domain.repository.ExternalTransactionRepository
 import com.example.fintrack.core.domain.repository.MpesaTransactionRepository
 import com.example.fintrack.core.data.local.dao.MpesaCategoryMappingDao
@@ -17,9 +20,9 @@ import javax.inject.Inject
  * This implementation uses the MpesaTransactionRepository to provide
  * M-Pesa transactions as external transaction data.
  * 
- * NOTE: This returns M-Pesa transactions from the local database,
+ * This returns M-Pesa transactions from the local database,
  * which can be useful for viewing recent M-Pesa activity.
- * These are separate from the main Transaction entities.
+ * NOTE: These are separate from the main Transaction entities.
  */
 class SmsTransactionRepository @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -35,39 +38,56 @@ class SmsTransactionRepository @Inject constructor(
             mappingDao.getAllMappings(),
             merchantCategoryDao.getAllMappings()
         ) { mpesaTransactions, receiptMappings, merchantMappings ->
-            
-            // Create quick lookup maps
-            val receiptMap = receiptMappings.associateBy { it.mpesaReceiptNumber }
-            val merchantMap = merchantMappings.associateBy { it.merchantName }
-            
-            mpesaTransactions.map { mpesa ->
-                // Determine category precedence:
-                // 1. Specific Receipt Mapping (Manual override for specific txn)
-                // 2. Merchant Mapping (General rule for this merchant)
-                // 3. Smart Clues / Auto-detection
-                
-                val receiptCategory = receiptMap[mpesa.mpesaReceiptNumber]?.categoryName
-                val merchantCategory = mpesa.merchantName?.let { merchantMap[it]?.categoryName }
-                
-                val finalCategory = receiptCategory 
-                    ?: merchantCategory 
-                    ?: determineMpesaCategory(mpesa.transactionType.name, mpesa.smartClues)
+            mapMpesaTransactions(mpesaTransactions, receiptMappings, merchantMappings)
+        }
+    }
 
-                Transaction(
-                    id = "mpesa_${mpesa.smsId}",
-                    userId = "local", // M-Pesa transactions are user-agnostic for now
-                    type = mpesa.type,
-                    amount = mpesa.amount,
-                    category = finalCategory,
-                    date = mpesa.timestamp,
-                    notes = buildMpesaNotes(mpesa),
-                    paymentMethod = "M-Pesa",
-                    tags = buildMpesaTags(mpesa, receiptCategory != null || merchantCategory != null),
-                    isPlanned = false,
-                    updatedAt = mpesa.createdAt,
-                    deletedAt = null
-                )
-            }
+    override fun getAllTransactions(): Flow<List<Transaction>> {
+        return kotlinx.coroutines.flow.combine(
+            mpesaRepository.getAllTransactions(),
+            mappingDao.getAllMappings(),
+            merchantCategoryDao.getAllMappings()
+        ) { mpesaTransactions, receiptMappings, merchantMappings ->
+            mapMpesaTransactions(mpesaTransactions, receiptMappings, merchantMappings)
+        }
+    }
+
+    private fun mapMpesaTransactions(
+        mpesaTransactions: List<MpesaTransaction>,
+        receiptMappings: List<MpesaCategoryMappingEntity>,
+        merchantMappings: List<MerchantCategoryEntity>
+    ): List<Transaction> {
+        // Create quick lookup maps
+        val receiptMap = receiptMappings.associateBy { it.mpesaReceiptNumber }
+        val merchantMap = merchantMappings.associateBy { it.merchantName }
+
+        return mpesaTransactions.map { mpesa ->
+            // Determine category precedence:
+            // 1. Specific Receipt Mapping (Manual override for specific txn)
+            // 2. Merchant Mapping (General rule for this merchant)
+            // 3. Smart Clues / Auto-detection
+
+            val receiptCategory = receiptMap[mpesa.mpesaReceiptNumber]?.categoryName
+            val merchantCategory = mpesa.merchantName?.let { merchantMap[it]?.categoryName }
+
+            val finalCategory = receiptCategory
+                ?: merchantCategory
+                ?: determineMpesaCategory(mpesa.transactionType.name, mpesa.smartClues)
+
+            Transaction(
+                id = "mpesa_${mpesa.smsId}",
+                userId = "local", // M-Pesa transactions are user-agnostic for now
+                type = mpesa.type,
+                amount = mpesa.amount,
+                category = finalCategory,
+                date = mpesa.timestamp,
+                notes = buildMpesaNotes(mpesa),
+                paymentMethod = "M-Pesa",
+                tags = buildMpesaTags(mpesa, receiptCategory != null || merchantCategory != null),
+                isPlanned = false,
+                updatedAt = mpesa.createdAt,
+                deletedAt = null
+            )
         }
     }
     
@@ -92,6 +112,8 @@ class SmsTransactionRepository @Inject constructor(
                     "AIRTIME" -> "Airtime & Data"
                     "DATA" -> "Airtime & Data"
                     "EDUCATION" -> "Education"
+                    "SAVINGS" -> "Savings"
+                    "BILLS" -> "Bills & Utilities"
                     else -> "Mobile Money"
                 }
             }
@@ -110,7 +132,7 @@ class SmsTransactionRepository @Inject constructor(
     /**
      * Build descriptive notes from M-Pesa transaction.
      */
-    private fun buildMpesaNotes(mpesa: com.example.fintrack.core.domain.model.MpesaTransaction): String {
+    private fun buildMpesaNotes(mpesa: MpesaTransaction): String {
         val parts = mutableListOf<String>()
         
         mpesa.merchantName?.let { parts.add(it) }
@@ -136,7 +158,7 @@ class SmsTransactionRepository @Inject constructor(
      * Build tags from M-Pesa transaction.
      */
     private fun buildMpesaTags(
-        mpesa: com.example.fintrack.core.domain.model.MpesaTransaction,
+        mpesa: MpesaTransaction,
         isAutoCategorized: Boolean
     ): List<String> {
         val tags = mutableListOf("M-Pesa", "Auto-imported", mpesa.transactionType.name)

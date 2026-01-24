@@ -19,4 +19,8 @@ class StoreTransactionRepository @Inject constructor() : ExternalTransactionRepo
         // Return empty flow - no external transactions for store build
         return emptyFlow()
     }
+
+    override fun getAllTransactions(): Flow<List<Transaction>> {
+        return emptyFlow()
+    }
 }

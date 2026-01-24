@@ -94,6 +94,12 @@ class MpesaSmsParser(
             RegexOption.IGNORE_CASE
         )
 
+        // 11. GLOBAL PAY / VIRTUAL CARD
+        private val GLOBAL_PAY_PATTERN = Regex(
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+M-PESA\s+CARD\s+for\s+account\s+(.+?)\s+(\d+).*?on""",
+            RegexOption.IGNORE_CASE
+        )
+
         // RECEIPT NUMBER extraction
         private val RECEIPT_PATTERN = Regex(
             """(?i)(?:receipt\s+)?([A-Z0-9]{10,})""",
@@ -148,6 +154,7 @@ class MpesaSmsParser(
         // Try to parse as different transaction types in priority order
         parseWalletTransfer(smsBody)?.let { return it }
         parseMshwariTransfer(smsBody)?.let { return it }
+        parseGlobalPay(smsBody)?.let { return it } // Must come before Sent Money
         parseDataBundles(smsBody)?.let { return it }
         parseSentMoney(smsBody)?.let { return it }
         parseReceivedMoney(smsBody)?.let { return it }
@@ -268,7 +275,7 @@ class MpesaSmsParser(
         val isIncoming = direction == "from"   // from M-Shwari → M-Pesa
 
         val smartClues = listOf(
-            "TRANSFER:MSHWARI",
+            "SAVINGS:MSHWARI",
             if (isIncoming) "TRANSFER:IN" else "TRANSFER:OUT"
         )
 
@@ -477,6 +484,34 @@ class MpesaSmsParser(
             type = TransactionType.EXPENSE,
             transactionType = MpesaTransactionType.PAYBILL, // Treating as a bill payment
             merchantName = "DATA BUNDLES",
+            transactionCost = transactionCost,
+            newBalance = newBalance,
+            smartClues = smartClues
+        )
+    }
+
+    private fun parseGlobalPay(smsBody: String): ParsedMpesaTransaction? {
+        val match = GLOBAL_PAY_PATTERN.find(smsBody) ?: return null
+
+        val amount = parseAmount(match.groupValues[1])
+        val rawMerchant = match.groupValues[2]
+        val merchantName = rawMerchant.cleanMerchantName()
+        
+        // This is usually a reference number or part of the account string
+        val refNumber = match.groupValues[3] 
+
+        val receipt = extractReceipt(smsBody)
+        val transactionCost = extractTransactionCost(smsBody)
+        val newBalance = extractBalance(smsBody)
+        val smartClues = smartClueDetector.detectClues(merchantName, smsBody)
+
+        return ParsedMpesaTransaction(
+            mpesaReceiptNumber = receipt ?: "UNKNOWN",
+            amount = amount,
+            type = TransactionType.EXPENSE,
+            transactionType = MpesaTransactionType.PAYBILL, // Treat as merchant payment
+            merchantName = merchantName,
+            accountNumber = refNumber, // Store the number as account number
             transactionCost = transactionCost,
             newBalance = newBalance,
             smartClues = smartClues

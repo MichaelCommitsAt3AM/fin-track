@@ -14,13 +14,15 @@ import javax.inject.Inject
 
 import com.example.fintrack.core.data.local.LocalAuthManager
 import com.example.fintrack.core.domain.model.Currency
+import com.example.fintrack.core.di.AppFlavorIntegration
 
 data class ProfileSetupUiState(
     val fullName: String = "",
     val avatarUrl: String = "",
     val isLoading: Boolean = false,
     val isGoogleSignIn: Boolean = false,
-    val selectedCurrency: Currency = Currency.KSH
+    val selectedCurrency: Currency = Currency.KSH,
+    val isCurrencySelectionEnabled: Boolean = true
 )
 
 sealed class ProfileSetupUiEvent {
@@ -40,7 +42,8 @@ sealed class ProfileSetupEvent {
 class ProfileSetupViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val firebaseAuth: FirebaseAuth,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val flavorIntegration: AppFlavorIntegration
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileSetupUiState())
@@ -50,6 +53,9 @@ class ProfileSetupViewModel @Inject constructor(
     val events = _eventChannel.receiveAsFlow()
 
     init {
+        _uiState.value = _uiState.value.copy(
+            isCurrencySelectionEnabled = flavorIntegration.isCurrencySelectionEnabled
+        )
         loadUserInfo()
     }
 

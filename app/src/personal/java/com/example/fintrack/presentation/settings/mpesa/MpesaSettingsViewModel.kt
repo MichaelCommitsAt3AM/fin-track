@@ -30,6 +30,7 @@ class MpesaSettingsViewModel @Inject constructor(
     private val mpesaDao: MpesaTransactionDao,
     private val merchantCategoryDao: MerchantCategoryDao,
     private val categoryDao: CategoryDao,
+    private val mpesaCategoryMappingDao: com.example.fintrack.core.data.local.dao.MpesaCategoryMappingDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -60,16 +61,69 @@ class MpesaSettingsViewModel @Inject constructor(
             // 1. Get top 100 merchants
             val merchants = mpesaDao.getFrequentMerchants(100)
             
-            // 2. Get existing mappings
-            merchantCategoryDao.getAllMappings().collect { mappings ->
-                val mappingMap = mappings.associateBy { it.merchantName }
+            // 2. Get existing mappings (BOTH Merchant mappings AND initial Receipt mappings from Onboarding)
+            // We combine them because Onboarding might have saved 'receipt-level' mappings which act as the de-facto initial mapping for that merchant
+            
+            // Collect both flows
+            kotlinx.coroutines.flow.combine(
+                merchantCategoryDao.getAllMappings(),
+                mpesaCategoryMappingDao.getAllMappings()
+            ) { merchantMappings, receiptMappings ->
+                // Create lookup maps
+                val merchantMap = merchantMappings.associateBy { it.merchantName }
+                
+                // For receipt mappings, we want to find if ANY receipt for a merchant has a mapping.
+                // But this is expensive to reverse lookup "Which merchant owns this receipt?" without joining.
+                // However, our onboarding process likely saved 'MerchantCategoryEntity' if the user confirmed a category for a merchant?
+                // OR it saved 'MpesaCategoryMappingEntity' for specific transactions.
+                
+                // If the user says "assigned during onboarding", check if those were saved as Merchant mappings or Receipt mappings.
+                // Assuming Onboarding saves to Receipt Mappings first if it's transaction-specific.
+                
+                // Strategy: check if we have a Merchant Mapping. If not, try to infer from the FIRST transaction of that merchant that has a mapping.
+                
+                merchantMap to receiptMappings
+            }.collect { (merchantMap, receiptMappings) ->
+                
+                // Optimization: Group receipt mappings by receipt number for quick lookup?
+                // But we don't have merchant name in receipt mapping. We need to join with transaction data.
+                // For this View Model, let's keep it simple: Trust MerchantMapping first.
+                // If missing, we could try to look up "What did I call this merchant last time?"
+                // But typically Onboarding should have saved to MerchantCategoryDao if it was a "Merchant Rule".
+                
+                // If Onboarding saved to MpesaCategoryMappingDao (individual txns), we might miss it here unless we look deeper.
+                // Let's iterate merchants and see if we can find a mapped transaction for them.
                 
                 val items = merchants.map { merchant ->
+                    var currentCat = merchantMap[merchant.merchantName]?.categoryName
+                    
+                    if (currentCat == null) {
+                        // Fallback: Check if any transaction for this merchant has a specific receipt mapping
+                        // This requires knowing the receipts for this merchant.
+                        // We can't easily do that without a join. 
+                        // But wait! `mpesaDao.getTransactionsByMerchantName` can help if we really need it, but that's heavy inside a loop.
+                        
+                        // ALTERNATIVE: Use the SmartClue helper logic IF it was confident? 
+                        // Or maybe we accept that if it wasn't saved as a Merchant Rule, it shows as Unmapped here.
+                        
+                        // ACTAULLY: The user says "assigned categories during onboarding". 
+                        // Onboarding usually calls `viewModel.saveCategoryForMerchant` which SHOULD save to MerchantCategoryDao.
+                        // If it wasn't displaying, maybe the onboarding saved to `MpesaCategoryMapping` (receipts) instead of `MerchantCategory` (rules)?
+                        
+                        // Let's try to look up ONE recent transaction for this merchant to see if it has a mapping.
+                        // Ideally we'd do this in the DAO query, but we can do a quick check here for the top 100.
+                        val sampleTxn = mpesaDao.getTransactionsByMerchantName(merchant.merchantName, 1).firstOrNull()
+                        if (sampleTxn != null) {
+                             val receiptMapping = receiptMappings.find { it.mpesaReceiptNumber == sampleTxn.mpesaReceiptNumber }
+                             currentCat = receiptMapping?.categoryName
+                        }
+                    }
+
                     MerchantMappingItem(
                         merchantName = merchant.merchantName,
                         transactionCount = merchant.frequency,
                         totalAmount = merchant.totalAmount ?: 0.0,
-                        currentCategory = mappingMap[merchant.merchantName]?.categoryName
+                        currentCategory = currentCat
                     )
                 }
                 _merchantList.value = items

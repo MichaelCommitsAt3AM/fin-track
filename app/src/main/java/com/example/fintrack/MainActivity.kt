@@ -124,6 +124,7 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
 
         // Check security status synchronously (Biometric OR PIN)
         val isBiometricEnabled = runBlocking { localAuthManager.isBiometricEnabled.first() }
@@ -165,8 +166,8 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                 val isAppLocked by mainViewModel.isAppLocked.collectAsState()
                 
                 // If Biometric is disabled but app is locked (because PIN is set), default to PIN screen
-                val isBiometricEnabled by localAuthManager.isBiometricEnabled.collectAsState(initial = false)
-                var showPinLock by remember(isBiometricEnabled) { mutableStateOf(!isBiometricEnabled) }
+                val currentBiometricEnabled by localAuthManager.isBiometricEnabled.collectAsState(initial = isBiometricEnabled)
+                var showPinLock by remember(currentBiometricEnabled) { mutableStateOf(!currentBiometricEnabled) }
 
                 if (isAppLocked) {
                     Surface(
@@ -181,7 +182,7 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                         // Unlock to allow navigation to recovery flows
                                         mainViewModel.setAppLocked(false)
                                     },
-                                    isBiometricAvailable = isBiometricEnabled
+                                    isBiometricAvailable = currentBiometricEnabled
                             )
                         } else {
                             BiometricLoginScreen(
@@ -270,7 +271,7 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                     },
                                     onNavigateToProfile = {
                                         scope.launch { drawerState.close() }
-                                        navController.navigate(AppRoutes.Settings.route)
+                                        navController.navigate(AppRoutes.ManageProfile.route)
                                     },
                                     onNavigateToSettings = {
                                         scope.launch { drawerState.close() }

@@ -13,10 +13,16 @@ import kotlinx.coroutines.flow.Flow
 interface ExternalTransactionRepository {
     
     /**
-     * Observes new transactions from external sources.
-     * 
-     * @return Flow of transactions from external sources (e.g., SMS messages).
-     *         Returns empty flow for store variant.
+     * Observes newly added transactions (usually recent ones).
+     *
+     * @return Flow of recent transactions from external sources.
      */
     fun observeNewTransactions(): Flow<List<Transaction>>
+
+    /**
+     * Retrieves all transactions from external sources.
+     *
+     * @return Flow of all transactions from external sources.
+     */
+    fun getAllTransactions(): Flow<List<Transaction>>
 }

@@ -16,6 +16,8 @@ class StoreOnboardingIntegrationImpl @Inject constructor() : OnboardingIntegrati
         return null
     }
 
+    override val isEnabled: Boolean = false
+
     override fun NavGraphBuilder.addOnboardingRoutes(
         navController: NavHostController,
         onOnboardingComplete: () -> Unit

@@ -10,7 +10,8 @@ class SmartClueDetector {
         // Category-based keyword mappings
         private val TRANSPORT_KEYWORDS = setOf(
             "UBER", "BOLT", "LITTLE", "MATATU", "BUS", "TAXI", "PETROL", "FUEL",
-            "SHELL", "TOTAL", "ASTROL", "LEADWAY", "ENGEN", "KOBIL", "RUBIS", "OLA", "PARKING"
+            "SHELL", "TOTAL", "ASTROL", "LEADWAY", "ENGEN", "KOBIL", "RUBIS", "OLA", "PARKING",
+            "NICCO MOVERS", "SUPER METRO"
         )
         
         private val FOOD_KEYWORDS = setOf(
@@ -20,7 +21,8 @@ class SmartClueDetector {
         )
         
         private val SUPERMARKET_KEYWORDS = setOf(
-            "SUPERMARKET", "SUPERMARKETS", "NAIVAS", "CARREFOUR", "QUICKMART", "CHANDARANA", "CLEANSHELF", "MATHAI"
+            "SUPERMARKET", "SUPERMARKETS", "NAIVAS", "CARREFOUR", "QUICK MART", "CHANDARANA", "CLEANSHELF", "MATHAI",
+            "UCHUMI"
         )
         
         private val UTILITIES_KEYWORDS = setOf(

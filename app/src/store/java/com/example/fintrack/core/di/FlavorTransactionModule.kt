@@ -22,4 +22,10 @@ abstract class FlavorTransactionModule {
     abstract fun bindExternalTransactionRepository(
         storeTransactionRepository: StoreTransactionRepository
     ): ExternalTransactionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAppFlavorIntegration(
+        impl: StoreFlavorIntegrationImpl
+    ): AppFlavorIntegration
 }

@@ -22,7 +22,8 @@ fun TransactionListHeader(
     isSourceFilterExpanded: Boolean,
     toggleSourceFilterExpanded: () -> Unit,
     selectedSourceFilter: String,
-    onSourceFilterSelected: (String) -> Unit
+    onSourceFilterSelected: (String) -> Unit,
+    isMpesaSupported: Boolean = true
 ) {
     Column {
         // --- Search & Filter Bar ---
@@ -58,10 +59,12 @@ fun TransactionListHeader(
         Spacer(modifier = Modifier.height(8.dp))
 
         // --- View More Button ---
-        ViewMoreButton(
-            isExpanded = isSourceFilterExpanded,
-            onClick = toggleSourceFilterExpanded
-        )
+        if (isMpesaSupported) {
+            ViewMoreButton(
+                isExpanded = isSourceFilterExpanded,
+                onClick = toggleSourceFilterExpanded
+            )
+        }
 
         // --- Secondary Source Filter (Manual / M-Pesa) ---
         AnimatedVisibility(
@@ -83,12 +86,14 @@ fun TransactionListHeader(
                 animationSpec = tween(200)
             )
         ) {
-            Column {
-                Spacer(modifier = Modifier.height(8.dp))
-                TransactionSourceSegmentedControl(
-                    selectedSource = selectedSourceFilter,
-                    onSourceSelected = onSourceFilterSelected
-                )
+            if (isMpesaSupported) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TransactionSourceSegmentedControl(
+                        selectedSource = selectedSourceFilter,
+                        onSourceSelected = onSourceFilterSelected
+                    )
+                }
             }
         }
 

@@ -4,8 +4,7 @@ import androidx.biometric.BiometricManager
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
@@ -43,7 +42,33 @@ fun NavGraphBuilder.settingsNavGraph(
         startDestination = AppRoutes.Settings.route
     ) {
         // 1. Main Settings Screen
-        composable(route = AppRoutes.Settings.route) {
+        composable(
+            route = AppRoutes.Settings.route,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
+        ) {
             SettingsScreen(
                 navController = navController,
                 onNavigateToLogin = {
@@ -178,6 +203,24 @@ fun NavGraphBuilder.settingsNavGraph(
         // 5. Manage Categories Screen
         composable(
             route = AppRoutes.ManageCategories.route,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
             popExitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { 1000 },
@@ -209,6 +252,18 @@ fun NavGraphBuilder.settingsNavGraph(
                     animationSpec = tween(300)
                 )
             },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
             popExitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { 1000 },
@@ -232,14 +287,14 @@ fun NavGraphBuilder.settingsNavGraph(
         composable(
             route = AppRoutes.AddCategory.route,
             enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { it },
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
                     animationSpec = tween(300)
                 )
             },
-            exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
                     animationSpec = tween(300)
                 )
             }
@@ -276,14 +331,14 @@ fun NavGraphBuilder.settingsNavGraph(
             route = AppRoutes.EditRecurringTransaction.route,
             arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
             enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { it },
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
                     animationSpec = tween(300)
                 )
             },
-            exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
                     animationSpec = tween(300)
                 )
             }
@@ -300,14 +355,14 @@ fun NavGraphBuilder.settingsNavGraph(
         composable(
             route = AppRoutes.BiometricSetup.route,
             enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { it },
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
                     animationSpec = tween(300)
                 )
             },
-            exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
                     animationSpec = tween(300)
                 )
             }

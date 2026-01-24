@@ -17,6 +17,8 @@ class MpesaOnboardingIntegrationImpl @Inject constructor(
         return if (!isComplete) com.example.fintrack.presentation.navigation.AppRoutes.MpesaOnboarding.route else null
     }
 
+    override val isEnabled: Boolean = true
+
     override fun NavGraphBuilder.addOnboardingRoutes(
         navController: NavHostController,
         onOnboardingComplete: () -> Unit

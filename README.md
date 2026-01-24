@@ -43,6 +43,30 @@ You can download the latest version of the app from the [GitHub Releases](https:
 - **Background Workers**: Automated daily checks for budgets, upcoming bills, and goal deadlines using WorkManager.
 - **Channels**: Categorized notifications for Budgets, Goals, and Debts.
 
+## 🏗️ Build Flavors
+
+FinTrack comes in two distinct flavors to cater to different user needs:
+
+### 🏪 Store Flavor (Default)
+The standard version of FinTrack designed for general distribution.
+- **Manual Tracking**: Full manual control over income and expense logging.
+- **Privacy First**: No integration with external banking or SMS services.
+- **Cloud Sync**: Optional cloud synchronization for cross-device access.
+
+### 👤 Personal Flavor (M-Pesa Integration)
+An enhanced version built for automated financial tracking via M-Pesa, with a strict focus on privacy.
+
+- **Automated M-Pesa Tracking**:
+    - **Smart SMS Parsing**: Automatically detects and logs M-Pesa transactions from your SMS inbox.
+    - **Intelligent Categorization**: Auto-categorizes transactions based on Paybill/Till numbers and Merchant names.
+    - **Onboarding Flow**: Specialized onboarding to scan past transactions and bootstrap your financial history.
+    - **Merchant Insights**: Detailed analytics on where you spend the most (e.g., Safaricom, Restaurants).
+
+- **🔒 Privacy & Security (Critical)**:
+    - **100% On-Device Processing**: M-Pesa SMS messages and transaction data are **NEVER** sent to the cloud.
+    - **Local-Only Analytics**: All parsing, categorization, and insight generation happens locally on your phone.
+    - **No External Access**: The app treats financial SMS data as sensitive and does not share it with any third-party servers, ensuring your financial privacy remains intact.
+
 ## 🛠️ Tech Stack
 
 - **Language**: Kotlin 100%
