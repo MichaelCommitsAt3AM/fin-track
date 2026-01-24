@@ -41,7 +41,6 @@ object DatabaseModule {
     }
 
     // --- Provide all the DAOs ---
-
     @Provides
     @Singleton // DAOs are tied to the singleton database instance
     fun provideTransactionDao(database: FinanceDatabase): TransactionDao {
