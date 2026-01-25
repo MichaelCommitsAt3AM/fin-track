@@ -9,12 +9,12 @@ plugins {
 }
 
 android {
-    namespace = "com.example.fintrack"
+    namespace = "com.fintrack.app"
     //noinspection GradleDependency
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.fintrack"
+        applicationId = "com.fintrack.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

@@ -1,0 +1,88 @@
+package com.fintrack.app.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.fintrack.app.core.domain.repository.NetworkRepository
+import com.fintrack.app.presentation.home.UserUiModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val networkRepository: NetworkRepository,
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) : ViewModel() {
+
+    /**
+     * Network connectivity state exposed to the UI
+     * true = online, false = offline
+     */
+    val isOnline: StateFlow<Boolean> = networkRepository.observeNetworkConnectivity()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
+    // Real-time user data from Firestore
+    val currentUser: StateFlow<UserUiModel?> = callbackFlow {
+        val user = auth.currentUser
+        if (user != null) {
+            val listener = firestore.collection("users").document(user.uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null && snapshot.exists()) {
+                        val avatarId = snapshot.getLong("avatarId")?.toInt() ?: 1
+                        val fullName = snapshot.getString("fullName") ?: user.displayName ?: "User"
+                        val email = user.email ?: ""
+
+                        trySend(
+                            UserUiModel(
+                                fullName = fullName,
+                                email = email,
+                                avatarId = avatarId
+                            )
+                        )
+                    } else {
+                        trySend(
+                            UserUiModel(
+                                fullName = user.displayName ?: "User",
+                                email = user.email ?: "",
+                                avatarId = 1
+                            )
+                        )
+                    }
+                }
+            awaitClose { listener.remove() }
+        } else {
+            trySend(null)
+            awaitClose {}
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    // App Lock State
+    // Controlled by MainActivity based on background activity time
+    private val _isAppLocked = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
+
+    fun setAppLocked(locked: Boolean) {
+        _isAppLocked.value = locked
+    }
+}

@@ -104,10 +104,10 @@
 
 # ===== Application-specific =====
 # Keep all data models (entities, domain models)
--keep class com.example.fintrack.core.data.local.model.** { *; }
--keep class com.example.fintrack.core.domain.model.** { *; }
--keep class com.example.fintrack.data.local.model.** { *; }
--keep class com.example.fintrack.core.data.local.entity.** { *; }
+-keep class com.fintrack.app.core.data.local.model.** { *; }
+-keep class com.fintrack.app.core.domain.model.** { *; }
+-keep class com.fintrack.app.data.local.model.** { *; }
+-keep class com.fintrack.app.core.data.local.entity.** { *; }
 
 # Keep enums
 -keepclassmembers enum * {
@@ -163,7 +163,7 @@
 
 # Strip debug and verbose logs from our AppLogger
 # Error and warning logs are preserved for production diagnostics
--assumenosideeffects class com.example.fintrack.core.util.AppLogger {
+-assumenosideeffects class com.fintrack.app.core.util.AppLogger {
     public static *** d(...);
     public static *** v(...);
 }
