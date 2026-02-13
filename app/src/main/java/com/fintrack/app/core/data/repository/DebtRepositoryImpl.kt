@@ -21,7 +21,8 @@ class DebtRepositoryImpl @Inject constructor(
     private val paymentDao: PaymentDao,
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository
+    private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository,
+    private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : DebtRepository {
 
     private fun getUserId(): String? = firebaseAuth.currentUser?.uid
@@ -43,22 +44,10 @@ class DebtRepositoryImpl @Inject constructor(
         if (networkRepository.isNetworkAvailable()) {
             getUserId()?.let {
                 try {
-                     val debtData = hashMapOf(
-                        "id" to debt.id,
-                        "userId" to debt.userId,
-                        "title" to debt.title,
-                        "originalAmount" to debt.originalAmount,
-                        "currentBalance" to debt.currentBalance,
-                        "minimumPayment" to debt.minimumPayment,
-                        "dueDate" to debt.dueDate,
-                        "interestRate" to debt.interestRate,
-                        "notes" to debt.notes,
-                        "iconName" to debt.iconName,
-                        "debtType" to debt.debtType,
-                        "createdAt" to debt.createdAt,
-                        "updatedAt" to entity.updatedAt,
-                        "deletedAt" to null
-                    )
+
+                     val debtData = toEncryptedMap(debt).toMutableMap()
+                     debtData["updatedAt"] = entity.updatedAt
+                     debtData["deletedAt"] = null
                     
                     getUserDebtsCollection()
                         .document(debt.id)
@@ -89,22 +78,10 @@ class DebtRepositoryImpl @Inject constructor(
         if (networkRepository.isNetworkAvailable()) {
             getUserId()?.let {
                 try {
-                    val debtData = hashMapOf(
-                        "id" to debt.id,
-                        "userId" to debt.userId,
-                        "title" to debt.title,
-                        "originalAmount" to debt.originalAmount,
-                        "currentBalance" to debt.currentBalance,
-                        "minimumPayment" to debt.minimumPayment,
-                        "dueDate" to debt.dueDate,
-                        "interestRate" to debt.interestRate,
-                        "notes" to debt.notes,
-                        "iconName" to debt.iconName,
-                        "debtType" to debt.debtType,
-                        "createdAt" to debt.createdAt,
-                        "updatedAt" to entity.updatedAt,
-                        "deletedAt" to null
-                    )
+
+                    val debtData = toEncryptedMap(debt).toMutableMap()
+                    debtData["updatedAt"] = entity.updatedAt
+                    debtData["deletedAt"] = null
                     
                     getUserDebtsCollection()
                         .document(debt.id)
@@ -179,9 +156,10 @@ class DebtRepositoryImpl @Inject constructor(
                   if (networkRepository.isNetworkAvailable()) {
                     getUserId()?.let { userId ->
                         try {
+                            val encryptedBalance = encryptionManager.encrypt(updatedDebt.currentBalance.toString())
                             getUserDebtsCollection()
                                 .document(updatedDebt.id)
-                                .update("currentBalance", updatedDebt.currentBalance, "updatedAt", updatedDebt.updatedAt)
+                                .update("currentBalance", encryptedBalance, "updatedAt", updatedDebt.updatedAt)
                                 .await()
                              debtDao.markAsSynced(updatedDebt.id)
                         } catch (e: Exception) {
@@ -212,18 +190,30 @@ class DebtRepositoryImpl @Inject constructor(
                val entities = snapshot.documents.mapNotNull { doc ->
                     try {
                         val id = doc.getString("id") ?: doc.id
-                        val title = doc.getString("title") ?: ""
+                        val title = doc.getString("title")?.let { encryptionManager.decrypt(it) } ?: ""
                         
+                        val originalAmount = doc.getDouble("originalAmount") ?: run {
+                            val enc = doc.getString("originalAmount")
+                            if (enc != null) encryptionManager.decrypt(enc).toDoubleOrNull() ?: 0.0 else 0.0
+                        }
+                        
+                        val currentBalance = doc.getDouble("currentBalance") ?: run {
+                            val enc = doc.getString("currentBalance")
+                            if (enc != null) encryptionManager.decrypt(enc).toDoubleOrNull() ?: 0.0 else 0.0
+                        }
+                        
+                        val notes = doc.getString("notes")?.let { encryptionManager.decrypt(it) }
+
                         com.fintrack.app.core.data.local.model.DebtEntity(
                             id = id,
                             userId = userId,
                             title = title,
-                            originalAmount = doc.getDouble("originalAmount") ?: 0.0,
-                            currentBalance = doc.getDouble("currentBalance") ?: 0.0,
+                            originalAmount = originalAmount,
+                            currentBalance = currentBalance,
                             minimumPayment = doc.getDouble("minimumPayment") ?: 0.0,
                             dueDate = doc.getLong("dueDate") ?: 0L,
                             interestRate = doc.getDouble("interestRate") ?: 0.0,
-                            notes = doc.getString("notes"),
+                            notes = notes,
                             iconName = doc.getString("iconName") ?: "attach_money",
                             debtType = doc.getString("debtType") ?: "I_OWE",
                             createdAt = doc.getLong("createdAt") ?: 0L,
@@ -267,22 +257,10 @@ class DebtRepositoryImpl @Inject constructor(
                          Log.d("DebtRepo", "Synced debt deletion: ${entity.id}")
                      } else {
                          // Pending update/insert
-                        val debtData = hashMapOf(
-                            "id" to entity.id,
-                            "userId" to userId,
-                            "title" to entity.title,
-                            "originalAmount" to entity.originalAmount,
-                            "currentBalance" to entity.currentBalance,
-                            "minimumPayment" to entity.minimumPayment,
-                            "dueDate" to entity.dueDate,
-                            "interestRate" to entity.interestRate,
-                            "notes" to entity.notes,
-                            "iconName" to entity.iconName,
-                            "debtType" to entity.debtType,
-                            "createdAt" to entity.createdAt,
-                            "updatedAt" to entity.updatedAt,
-                            "deletedAt" to null
-                        )
+                        val debt = entity.toDomain()
+                        val debtData = toEncryptedMap(debt).toMutableMap()
+                        debtData["updatedAt"] = entity.updatedAt
+                        debtData["deletedAt"] = null
                         
                         getUserDebtsCollection()
                             .document(entity.id)
@@ -299,5 +277,23 @@ class DebtRepositoryImpl @Inject constructor(
          } catch (e: Exception) {
             Log.e("DebtRepo", "Error during debt sync: ${e.message}", e)
          }
+    }
+
+
+    private suspend fun toEncryptedMap(debt: Debt): Map<String, Any?> {
+        return hashMapOf(
+            "id" to debt.id,
+            "userId" to debt.userId,
+            "title" to encryptionManager.encrypt(debt.title),
+            "originalAmount" to encryptionManager.encrypt(debt.originalAmount.toString()),
+            "currentBalance" to encryptionManager.encrypt(debt.currentBalance.toString()),
+            "minimumPayment" to debt.minimumPayment,
+            "dueDate" to debt.dueDate,
+            "interestRate" to debt.interestRate,
+            "notes" to debt.notes?.let { encryptionManager.encrypt(it) },
+            "iconName" to debt.iconName,
+            "debtType" to debt.debtType,
+            "createdAt" to debt.createdAt
+        )
     }
 }

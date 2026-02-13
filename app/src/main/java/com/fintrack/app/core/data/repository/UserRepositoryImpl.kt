@@ -14,9 +14,11 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class UserRepositoryImpl @Inject constructor(
+
     private val userDao: UserDao,
     private val firebaseAuth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : UserRepository {
 
     private fun getUserId(): String? = firebaseAuth.currentUser?.uid
@@ -32,9 +34,9 @@ class UserRepositoryImpl @Inject constructor(
         try {
             val userMap = hashMapOf(
                 "userId" to user.userId,
-                "fullName" to user.fullName,
-                "email" to user.email,
-                "phoneNumber" to user.phoneNumber,
+                "fullName" to encryptionManager.encrypt(user.fullName),
+                "email" to encryptionManager.encrypt(user.email),
+                "phoneNumber" to encryptionManager.encrypt(user.phoneNumber),
                 "avatarId" to user.avatarId,
                 "createdAt" to user.createdAt,
                 "updatedAt" to user.updatedAt
@@ -57,8 +59,8 @@ class UserRepositoryImpl @Inject constructor(
         // 2. Update in Firestore
         try {
             val updateMap = hashMapOf(
-                "fullName" to user.fullName,
-                "phoneNumber" to user.phoneNumber,
+                "fullName" to encryptionManager.encrypt(user.fullName),
+                "phoneNumber" to encryptionManager.encrypt(user.phoneNumber),
                 "avatarId" to user.avatarId,
                 "updatedAt" to System.currentTimeMillis()
             )
@@ -96,11 +98,16 @@ class UserRepositoryImpl @Inject constructor(
                 val userDoc = getUserDocument(userId).get().await()
 
                 if (userDoc.exists()) {
+                    // Decrypt fields
+                    val fullName = userDoc.getString("fullName")?.let { encryptionManager.decrypt(it) } ?: ""
+                    val email = userDoc.getString("email")?.let { encryptionManager.decrypt(it) } ?: ""
+                    val phoneNumber = userDoc.getString("phoneNumber")?.let { encryptionManager.decrypt(it) } ?: ""
+                    
                     val user = User(
                         userId = userDoc.getString("userId") ?: userId,
-                        fullName = userDoc.getString("fullName") ?: "",
-                        email = userDoc.getString("email") ?: "",
-                        phoneNumber = userDoc.getString("phoneNumber") ?: "",
+                        fullName = fullName,
+                        email = email,
+                        phoneNumber = phoneNumber,
                         avatarId = userDoc.getLong("avatarId")?.toInt() ?: 1,
                         createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = userDoc.getLong("updatedAt") ?: System.currentTimeMillis()

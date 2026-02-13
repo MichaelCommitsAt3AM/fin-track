@@ -21,7 +21,9 @@ class SavingRepositoryImpl @Inject constructor(
     private val contributionDao: ContributionDao,
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository
+
+    private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository,
+    private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : SavingRepository {
 
     private fun getUserId(): String? = firebaseAuth.currentUser?.uid
@@ -54,19 +56,9 @@ class SavingRepositoryImpl @Inject constructor(
                     // but we added fields to Entity, not Domain model.
                     // So we must construct the map manually or map appropriately.
                     
-                    val savingData = hashMapOf(
-                        "id" to saving.id,
-                        "userId" to saving.userId,
-                        "title" to saving.title,
-                        "targetAmount" to saving.targetAmount,
-                        "currentAmount" to saving.currentAmount,
-                        "targetDate" to saving.targetDate,
-                        "notes" to saving.notes,
-                        "iconName" to saving.iconName,
-                        "createdAt" to saving.createdAt,
-                        "updatedAt" to entity.updatedAt,
-                        "deletedAt" to null
-                    )
+                    val savingData = toEncryptedMap(saving).toMutableMap()
+                    savingData["updatedAt"] = entity.updatedAt
+                    savingData["deletedAt"] = null
 
                     getUserSavingsCollection()
                         .document(saving.id)
@@ -97,19 +89,9 @@ class SavingRepositoryImpl @Inject constructor(
         if (networkRepository.isNetworkAvailable()) {
             getUserId()?.let {
                 try {
-                     val savingData = hashMapOf(
-                        "id" to saving.id,
-                        "userId" to saving.userId,
-                        "title" to saving.title,
-                        "targetAmount" to saving.targetAmount,
-                        "currentAmount" to saving.currentAmount,
-                        "targetDate" to saving.targetDate,
-                        "notes" to saving.notes,
-                        "iconName" to saving.iconName,
-                        "createdAt" to saving.createdAt,
-                        "updatedAt" to entity.updatedAt,
-                        "deletedAt" to null
-                    )
+                     val savingData = toEncryptedMap(saving).toMutableMap()
+                     savingData["updatedAt"] = entity.updatedAt
+                     savingData["deletedAt"] = null
                     
                     getUserSavingsCollection()
                         .document(saving.id)
@@ -197,9 +179,10 @@ class SavingRepositoryImpl @Inject constructor(
                  if (networkRepository.isNetworkAvailable()) {
                     getUserId()?.let { userId ->
                         try {
+                            val encryptedAmount = encryptionManager.encrypt(updatedSaving.currentAmount.toString())
                             getUserSavingsCollection()
                                 .document(updatedSaving.id)
-                                .update("currentAmount", updatedSaving.currentAmount, "updatedAt", updatedSaving.updatedAt)
+                                .update("currentAmount", encryptedAmount, "updatedAt", updatedSaving.updatedAt)
                                 .await()
                             
                             savingDao.markAsSynced(updatedSaving.id)
@@ -231,17 +214,30 @@ class SavingRepositoryImpl @Inject constructor(
                 val entities = snapshot.documents.mapNotNull { doc ->
                     try {
                         // Manual mapping to handle new fields
+                        // Manual mapping to handle new fields
                         val id = doc.getString("id") ?: doc.id
-                        val title = doc.getString("title") ?: ""
+                        val title = doc.getString("title")?.let { encryptionManager.decrypt(it) } ?: ""
+
+                        val targetAmount = doc.getDouble("targetAmount") ?: run {
+                            val enc = doc.getString("targetAmount")
+                            if (enc != null) encryptionManager.decrypt(enc).toDoubleOrNull() ?: 0.0 else 0.0
+                        }
+
+                        val currentAmount = doc.getDouble("currentAmount") ?: run {
+                            val enc = doc.getString("currentAmount")
+                            if (enc != null) encryptionManager.decrypt(enc).toDoubleOrNull() ?: 0.0 else 0.0
+                        }
+                        
+                        val notes = doc.getString("notes")?.let { encryptionManager.decrypt(it) }
                         
                         com.fintrack.app.core.data.local.model.SavingEntity(
                             id = id,
                             userId = userId,
                             title = title,
-                            targetAmount = doc.getDouble("targetAmount") ?: 0.0,
-                            currentAmount = doc.getDouble("currentAmount") ?: 0.0,
+                            targetAmount = targetAmount,
+                            currentAmount = currentAmount,
                             targetDate = doc.getLong("targetDate") ?: 0L,
-                            notes = doc.getString("notes"),
+                            notes = notes,
                             iconName = doc.getString("iconName") ?: "savings",
                             createdAt = doc.getLong("createdAt") ?: 0L,
                             isSynced = true,
@@ -286,19 +282,11 @@ class SavingRepositoryImpl @Inject constructor(
                          // We maintain soft-delete locally
                     } else {
                         // Pending update/insert
-                        val savingData = hashMapOf(
-                            "id" to entity.id,
-                            "userId" to userId,
-                            "title" to entity.title,
-                            "targetAmount" to entity.targetAmount,
-                            "currentAmount" to entity.currentAmount,
-                            "targetDate" to entity.targetDate,
-                            "notes" to entity.notes,
-                            "iconName" to entity.iconName,
-                            "createdAt" to entity.createdAt,
-                            "updatedAt" to entity.updatedAt,
-                            "deletedAt" to null
-                        )
+                        // Pending update/insert
+                        val saving = entity.toDomain()
+                        val savingData = toEncryptedMap(saving).toMutableMap()
+                        savingData["updatedAt"] = entity.updatedAt
+                        savingData["deletedAt"] = null
                         
                         getUserSavingsCollection()
                             .document(entity.id)
@@ -315,5 +303,20 @@ class SavingRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
              Log.e("SavingRepo", "Error during savings sync: ${e.message}", e)
         }
+    }
+
+
+    private suspend fun toEncryptedMap(saving: Saving): Map<String, Any?> {
+        return hashMapOf(
+            "id" to saving.id,
+            "userId" to saving.userId,
+            "title" to encryptionManager.encrypt(saving.title),
+            "targetAmount" to encryptionManager.encrypt(saving.targetAmount.toString()),
+            "currentAmount" to encryptionManager.encrypt(saving.currentAmount.toString()),
+            "targetDate" to saving.targetDate,
+            "notes" to saving.notes?.let { encryptionManager.encrypt(it) },
+            "iconName" to saving.iconName,
+            "createdAt" to saving.createdAt
+        )
     }
 }

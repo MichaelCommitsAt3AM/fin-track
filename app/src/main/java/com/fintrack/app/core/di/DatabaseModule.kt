@@ -15,7 +15,9 @@ import com.fintrack.app.core.data.local.dao.PaymentMethodDao
 import com.fintrack.app.core.domain.repository.UserRepository
 import com.fintrack.app.core.data.repository.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
+
 import com.google.firebase.firestore.FirebaseFirestore
+import com.fintrack.app.core.security.EncryptionManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -106,8 +108,9 @@ object DatabaseModule {
     fun provideUserRepository(
         userDao: UserDao,
         firebaseAuth: FirebaseAuth,
-        firestore: FirebaseFirestore
+        firestore: FirebaseFirestore,
+        encryptionManager: EncryptionManager
     ): UserRepository {
-        return UserRepositoryImpl(userDao, firebaseAuth, firestore)
+        return UserRepositoryImpl(userDao, firebaseAuth, firestore, encryptionManager)
     }
 }

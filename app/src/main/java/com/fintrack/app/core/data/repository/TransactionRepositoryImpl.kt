@@ -25,7 +25,8 @@ class TransactionRepositoryImpl @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val networkRepository: NetworkRepository,
-    private val syncTimestampManager: SyncTimestampManager
+    private val syncTimestampManager: SyncTimestampManager,
+    private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : TransactionRepository {
 
     private val transactionDao: TransactionDao = db.transactionDao()
@@ -71,9 +72,10 @@ class TransactionRepositoryImpl @Inject constructor(
         // 2. If online, attempt to sync to Firestore immediately
         if (networkRepository.isNetworkAvailable()) {
             try {
+                val encryptedData = toEncryptedMap(transactionWithId)
                 getUserTransactionsCollection()
                     .document(transactionId)
-                    .set(transactionWithId)
+                    .set(encryptedData)
                     .await()
                 transactionDao.markAsSynced(transactionId)
                 Log.d("TransactionRepo", "Transaction synced to Firestore: $transactionId")
@@ -96,9 +98,10 @@ class TransactionRepositoryImpl @Inject constructor(
         getUserId()?.let {
             if (networkRepository.isNetworkAvailable()) {
                 try {
+                    val encryptedData = toEncryptedMap(updatedTransaction)
                     getUserTransactionsCollection()
                         .document(transaction.id)
-                        .set(updatedTransaction) // Upload with updatedAt
+                        .set(encryptedData) // Upload with updatedAt
                         .await()
                     transactionDao.markAsSynced(transaction.id)
                     Log.d("TransactionRepo", "Transaction synced to Firestore: ${transaction.id}")
@@ -220,15 +223,29 @@ class TransactionRepositoryImpl @Inject constructor(
                             null // Don't insert deleted items
                         } else {
                             // Normal transaction - insert/update
+                            
+                            // Decrypt fields
+                            val amount = doc.getDouble("amount") ?: run {
+                                val encAmount = doc.getString("amount")
+                                if (encAmount != null) encryptionManager.decrypt(encAmount).toDoubleOrNull() ?: 0.0 else 0.0
+                            }
+                            
+                            val category = doc.getString("category")?.let { encryptionManager.decrypt(it) } ?: "Uncategorized"
+                            val notes = doc.getString("notes")?.let { encryptionManager.decrypt(it) }
+                            val paymentMethod = doc.getString("paymentMethod")?.let { encryptionManager.decrypt(it) }
+                            // Note: type is usually not encrypted to allow filtering, but we can if we want.
+                            // For now keeping type plain for querying if needed, or encrypting it implies we can't query by type easily.
+                            // Detailed plan said: amount, category, notes, paymentMethod.
+                            
                             val entity = TransactionEntity(
                                 id = doc.id,
                                 userId = userId,
                                 type = doc.getString("type") ?: "",
-                                amount = doc.getDouble("amount") ?: 0.0,
-                                category = doc.getString("category") ?: "",
+                                amount = amount,
+                                category = category,
                                 date = doc.getLong("date") ?: 0L,
-                                notes = doc.getString("notes"),
-                                paymentMethod = doc.getString("paymentMethod"),
+                                notes = notes,
+                                paymentMethod = paymentMethod,
                                 tags = doc.get("tags") as? List<String>,
                                 updatedAt = doc.getLong("updatedAt") ?: System.currentTimeMillis(),
                                 deletedAt = null,
@@ -278,9 +295,12 @@ class TransactionRepositoryImpl @Inject constructor(
                 recurringTransaction.id.toString()
             }
 
+            val transactionWithUserId = recurringTransaction.copy(userId = userId)
+            val encryptedData = toEncryptedRecurringMap(transactionWithUserId)
+
             getUserRecurringTransactionsCollection()
                 .document(docId)
-                .set(transactionWithUserId)
+                .set(encryptedData)
                 .await()
 
             Log.d("TransactionRepo", "Recurring transaction saved: $docId")
@@ -326,15 +346,23 @@ class TransactionRepositoryImpl @Inject constructor(
 
                 val entities = snapshot.documents.mapNotNull { doc ->
                     try {
+                        val amount = doc.getDouble("amount") ?: run {
+                            val encAmount = doc.getString("amount")
+                            if (encAmount != null) encryptionManager.decrypt(encAmount).toDoubleOrNull() ?: 0.0 else 0.0
+                        }
+                        
+                        val category = doc.getString("category")?.let { encryptionManager.decrypt(it) } ?: "Uncategorized"
+                        val notes = doc.getString("notes")?.let { encryptionManager.decrypt(it) }
+                        
                         val entity = RecurringTransactionEntity(
                             id = doc.id.toIntOrNull() ?: 0,
                             userId = userId,
                             type = doc.getString("type") ?: "",
-                            amount = doc.getDouble("amount") ?: 0.0,
-                            category = doc.getString("category") ?: "",
+                            amount = amount,
+                            category = category,
                             startDate = doc.getLong("startDate") ?: 0L,
                             frequency = doc.getString("frequency") ?: "",
-                            notes = doc.getString("notes")
+                            notes = notes
                         )
                         Log.d("TransactionRepo", "Mapped recurring transaction: ${entity.id}")
                         entity
@@ -388,9 +416,11 @@ class TransactionRepositoryImpl @Inject constructor(
                             updatedAt = System.currentTimeMillis()
                         )
                         
+                        val encryptedData = toEncryptedMap(transaction)
+                        
                         getUserTransactionsCollection()
                             .document(entity.id)
-                            .set(transaction) // Upload with updatedAt
+                            .set(encryptedData) // Upload with updatedAt
                             .await()
                         Log.d("TransactionRepo", "Synced transaction: ${entity.id}")
                     }
@@ -406,5 +436,36 @@ class TransactionRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("TransactionRepo", "Error during sync: ${e.message}", e)
         }
+    }
+
+
+    private suspend fun toEncryptedMap(transaction: Transaction): Map<String, Any?> {
+        return hashMapOf(
+            "id" to transaction.id,
+            "userId" to transaction.userId,
+            "type" to transaction.type.name,
+            "amount" to encryptionManager.encrypt(transaction.amount.toString()),
+            "category" to encryptionManager.encrypt(transaction.category),
+            "date" to transaction.date,
+            "notes" to transaction.notes?.let { encryptionManager.encrypt(it) },
+            "paymentMethod" to transaction.paymentMethod?.let { encryptionManager.encrypt(it) },
+            "tags" to transaction.tags,
+            "isPlanned" to transaction.isPlanned,
+            "updatedAt" to transaction.updatedAt,
+            "deletedAt" to transaction.deletedAt
+        )
+    }
+
+    private suspend fun toEncryptedRecurringMap(transaction: RecurringTransaction): Map<String, Any?> {
+        return hashMapOf(
+            "id" to transaction.id,
+            "userId" to transaction.userId,
+            "type" to transaction.type.name,
+            "amount" to encryptionManager.encrypt(transaction.amount.toString()),
+            "category" to encryptionManager.encrypt(transaction.category),
+            "startDate" to transaction.startDate,
+            "frequency" to transaction.frequency.name,
+            "notes" to transaction.notes?.let { encryptionManager.encrypt(it) }
+        )
     }
 }

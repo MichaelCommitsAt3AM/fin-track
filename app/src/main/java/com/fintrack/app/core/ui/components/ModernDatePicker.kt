@@ -37,7 +37,8 @@ fun ModernDatePicker(
     selectedDateMillis: Long,
     onDateSelected: (Long) -> Unit,
     label: String = "Date",
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -54,11 +55,12 @@ fun ModernDatePicker(
             onValueChange = {},
             label = { Text(label) },
             readOnly = true,
+            enabled = enabled,
             trailingIcon = {
                 Icon(
                     imageVector = Icons.Default.CalendarToday,
                     contentDescription = "Select Date",
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
             },
             modifier = Modifier
@@ -74,13 +76,15 @@ fun ModernDatePicker(
         )
 
         // The Overlay: Positioned to avoid covering the label
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .padding(top = 8.dp) // Add padding to avoid the label area
-                .clip(RoundedCornerShape(4.dp))
-                .clickable { showDatePicker = true }
-        )
+        if (enabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(top = 8.dp) // Add padding to avoid the label area
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { showDatePicker = true }
+            )
+        }
     }
 
     if (showDatePicker) {
