@@ -28,6 +28,7 @@ object MpesaTransactionMapper {
             smartClues = domain.smartClues.joinToString(CLUE_SEPARATOR),
             parserVersion = domain.parserVersion,
             timestamp = domain.timestamp,
+            transactionCost = domain.transactionCost,
             createdAt = domain.createdAt
         )
     }
@@ -52,6 +53,7 @@ object MpesaTransactionMapper {
             rawBody = entity.rawBody,
             smartClues = smartCluesList,
             parserVersion = entity.parserVersion,
+            transactionCost = entity.transactionCost,
             timestamp = entity.timestamp,
             createdAt = entity.createdAt
         )

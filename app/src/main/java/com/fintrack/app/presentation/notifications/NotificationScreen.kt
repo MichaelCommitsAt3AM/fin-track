@@ -50,6 +50,7 @@ private val DebtReminder = Color(0xFF3498DB)
 private val GoalUpdate = Color(0xFFF39C12)
 private val ActivityColor = Color(0xFF9B59B6)
 private val SuggestionColor = Color(0xFF1ABC9C)
+private val ReportColor = Color(0xFF34495E)
 
 private val FILTERS = listOf("All", "Alerts", "Bills", "Suggestions", "Activity")
 
@@ -287,6 +288,7 @@ private fun getNotificationColor(type: NotificationType): Color {
         NotificationType.DEBT -> DebtReminder
         NotificationType.ACTIVITY -> ActivityColor
         NotificationType.SUGGESTION -> SuggestionColor
+        NotificationType.REPORT -> ReportColor
     }
 }
 

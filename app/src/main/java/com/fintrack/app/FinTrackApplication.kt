@@ -111,5 +111,15 @@ class FinTrackApplication : Application(), Configuration.Provider {
             ExistingPeriodicWorkPolicy.KEEP,
             debtWork
         )
+
+        // Schedule Monthly M-Pesa Cost Check (Daily check)
+        // Checks if a new month has started and sends a report for the previous month
+        val mpesaCostWork = PeriodicWorkRequestBuilder<com.fintrack.app.core.worker.MonthlyMpesaCostWorker>(1, TimeUnit.DAYS)
+            .build()
+        workManager.enqueueUniquePeriodicWork(
+            com.fintrack.app.core.worker.MonthlyMpesaCostWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            mpesaCostWork
+        )
     }
 }

@@ -3,6 +3,8 @@ package com.fintrack.app.core.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.fintrack.app.core.data.local.dao.MpesaTransactionDao
 import com.fintrack.app.core.data.local.dao.MerchantCategoryDao
 import com.fintrack.app.core.data.local.model.MerchantCategoryEntity
@@ -19,7 +21,7 @@ import com.fintrack.app.core.data.local.model.MpesaTransactionEntity
         MpesaTransactionEntity::class,
         MerchantCategoryEntity::class
     ],
-    version = 2, // Incrementing version (destructive migration enabled)
+    version = 3, // Incremented for transactionCost field
     exportSchema = false
 )
 abstract class MpesaDatabase : RoomDatabase() {
@@ -29,5 +31,16 @@ abstract class MpesaDatabase : RoomDatabase() {
     
     companion object {
         const val DATABASE_NAME = "mpesa_db"
+        
+        /**
+         * Migration from version 2 to 3: Add transactionCost column
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE mpesa_transactions ADD COLUMN transactionCost REAL DEFAULT NULL"
+                )
+            }
+        }
     }
 }

@@ -18,6 +18,7 @@ data class MpesaTransaction(
     val rawBody: String,
     val smartClues: List<String>,
     val parserVersion: Int, // Parser version used (for selective re-parsing)
+    val transactionCost: Double?, // M-Pesa transaction fee
     val timestamp: Long,
     val createdAt: Long
 )

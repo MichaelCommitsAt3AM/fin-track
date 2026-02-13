@@ -53,5 +53,7 @@ data class MpesaTransactionEntity(
     
     val timestamp: Long, // SMS timestamp (transaction time)
     
+    val transactionCost: Double? = null, // M-Pesa transaction fee
+    
     val createdAt: Long = System.currentTimeMillis() // When parsed and inserted
 )

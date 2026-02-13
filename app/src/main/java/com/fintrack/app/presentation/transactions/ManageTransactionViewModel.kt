@@ -74,6 +74,7 @@ class ManageTransactionViewModel @Inject constructor(
                         dateMillis = txn.date,
                         description = txn.notes,
                         paymentMethod = txn.paymentMethod,
+                        transactionCost = txn.transactionCost,
                         icon = icon,
                         color = color
                     )
@@ -105,6 +106,7 @@ data class TransactionUiModel(
     val dateMillis: Long,
     val description: String?,
     val paymentMethod: String?,
+    val transactionCost: Double?,
     val icon: ImageVector,
     val color: Color
 )

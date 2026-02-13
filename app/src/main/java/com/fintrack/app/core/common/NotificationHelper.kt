@@ -34,10 +34,12 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_BUDGET_ID = "budget_alerts"
         const val CHANNEL_GOALS_ID = "goal_updates"
         const val CHANNEL_DEBT_ID = "debt_reminders"
+        const val CHANNEL_REPORT_ID = "monthly_reports"
         
         const val NOTIFICATION_ID_BUDGET = 100
         const val NOTIFICATION_ID_GOAL = 200
         const val NOTIFICATION_ID_DEBT = 300
+        const val NOTIFICATION_ID_REPORT = 400
     }
 
     init {
@@ -75,8 +77,17 @@ class NotificationHelper @Inject constructor(
                 description = "Reminders for debt payments"
             }
 
+            // Report Channel
+            val reportChannel = NotificationChannel(
+                CHANNEL_REPORT_ID,
+                "Monthly Reports",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Monthly summaries and insights"
+            }
+
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannels(listOf(budgetChannel, goalsChannel, debtChannel))
+            notificationManager.createNotificationChannels(listOf(budgetChannel, goalsChannel, debtChannel, reportChannel))
         }
     }
 
@@ -110,6 +121,17 @@ class NotificationHelper @Inject constructor(
             message = message,
             type = NotificationType.DEBT,
             iconType = "receipt"
+        )
+    }
+
+    fun showReportNotification(title: String, message: String) {
+        showNotification(
+            channelId = CHANNEL_REPORT_ID,
+            notificationId = NOTIFICATION_ID_REPORT + System.currentTimeMillis().toInt() % 100,
+            title = title,
+            message = message,
+            type = NotificationType.REPORT,
+            iconType = "analytics"
         )
     }
 

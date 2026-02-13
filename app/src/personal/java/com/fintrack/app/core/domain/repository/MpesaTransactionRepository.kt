@@ -58,4 +58,9 @@ interface MpesaTransactionRepository {
      * Get total count of M-Pesa transactions.
      */
     suspend fun getTransactionCount(): Int
+    
+    /**
+     * Get the timestamp of the oldest recorded transaction.
+     */
+    suspend fun getOldestTransactionTimestamp(): Long?
 }

@@ -11,6 +11,7 @@ import com.fintrack.app.core.domain.model.Transaction
 import com.fintrack.app.core.domain.model.TransactionType
 import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.domain.repository.PaymentMethodRepository
+import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.use_case.GetCategoriesUseCase
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,7 +44,8 @@ data class AddTransactionUiState(
     val error: String? = null,
     val isPlannedTransaction: Boolean = false, // NEW: Shows if selected date is in the future
     val isEditMode: Boolean = false, // NEW: Indicates if editing existing transaction
-    val transactionId: String? = null // NEW: ID of transaction being edited
+    val transactionId: String? = null, // NEW: ID of transaction being edited
+    val isMpesaTransaction: Boolean = false // NEW: Indicates if editing M-Pesa transaction (limited fields editable)
 )
 
 sealed class AddTransactionUiEvent {
@@ -67,7 +69,8 @@ class AddTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
     private val getCategoriesUseCase: GetCategoriesUseCase,
-    private val localAuthManager: LocalAuthManager
+    private val localAuthManager: LocalAuthManager,
+    private val externalTransactionRepository: ExternalTransactionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddTransactionUiState())
@@ -118,6 +121,8 @@ class AddTransactionViewModel @Inject constructor(
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
+            
+            // First, try to load from regular transaction repository
             transactionRepository.getTransactionById(transactionId).collect { transaction ->
                 if (transaction != null) {
                     val currentTime = System.currentTimeMillis()
@@ -133,8 +138,38 @@ class AddTransactionViewModel @Inject constructor(
                         selectedPaymentMethod = transaction.paymentMethod,
                         date = transaction.date,
                         isPlannedTransaction = isPlanned,
+                        isMpesaTransaction = false,
                         isLoading = false
                     )
+                } else if (transactionId.startsWith("mpesa_")) {
+                    // If not found in regular repository and ID starts with "mpesa_", check external repository
+                    externalTransactionRepository.getAllTransactions().collect { externalTransactions ->
+                        val mpesaTransaction = externalTransactions.find { it.id == transactionId }
+                        
+                        if (mpesaTransaction != null) {
+                            val currentTime = System.currentTimeMillis()
+                            val isPlanned = mpesaTransaction.date > currentTime
+                            
+                            _uiState.value = _uiState.value.copy(
+                                transactionId = transactionId,
+                                isEditMode = true,
+                                transactionType = mpesaTransaction.type,
+                                amount = mpesaTransaction.amount.toString(),
+                                description = mpesaTransaction.notes ?: "",
+                                selectedCategory = mpesaTransaction.category,
+                                selectedPaymentMethod = mpesaTransaction.paymentMethod,
+                                date = mpesaTransaction.date,
+                                isPlannedTransaction = isPlanned,
+                                isMpesaTransaction = true, // Mark as M-Pesa transaction
+                                isLoading = false
+                            )
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = "Transaction not found"
+                            )
+                        }
+                    }
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

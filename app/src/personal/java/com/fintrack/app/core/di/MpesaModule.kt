@@ -49,7 +49,7 @@ abstract class MpesaModule {
                 MpesaDatabase::class.java,
                 MpesaDatabase.DATABASE_NAME
             )
-                .fallbackToDestructiveMigration() // For development
+                .addMigrations(MpesaDatabase.MIGRATION_2_3)
                 .build()
         }
         

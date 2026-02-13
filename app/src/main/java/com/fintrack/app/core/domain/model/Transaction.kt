@@ -11,6 +11,7 @@ data class Transaction(
     val notes: String?,
     val paymentMethod: String?,
     val tags: List<String>?,
+    val transactionCost: Double? = null, // M-Pesa transaction fee (null for non-M-Pesa transactions)
     val isPlanned: Boolean = false, // Marks future-dated transactions as planned
     val updatedAt: Long = System.currentTimeMillis(), // For incremental sync
     val deletedAt: Long? = null // Soft delete for sync

@@ -217,6 +217,15 @@ fun ManageTransactionScreen(
                     )
                 }
 
+                if (txn.transactionCost != null) {
+                    DetailInfoCard(
+                        icon = Icons.Default.Receipt,
+                        label = "Transaction Cost",
+                        value = "${currency.symbol}${String.format("%.2f", txn.transactionCost)}",
+                        iconColor = Color(0xFFEF4444)
+                    )
+                }
+
                 if (!txn.description.isNullOrEmpty()) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),

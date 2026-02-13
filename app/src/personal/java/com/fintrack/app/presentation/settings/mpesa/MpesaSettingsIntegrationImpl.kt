@@ -1,5 +1,8 @@
 package com.fintrack.app.presentation.settings.mpesa
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.runtime.Composable
@@ -20,14 +23,54 @@ class MpesaSettingsIntegrationImpl @Inject constructor() : SettingsIntegration {
     }
 
     override fun NavGraphBuilder.addSettingsRoutes(navController: NavHostController) {
-        composable(route = ROUTE_MPESA_SETTINGS) {
+        composable(
+            route = ROUTE_MPESA_SETTINGS,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { -1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
+        ) {
             MpesaSettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToMerchantMapping = { navController.navigate(ROUTE_MERCHANT_MAPPING) }
             )
         }
         
-        composable(route = ROUTE_MERCHANT_MAPPING) {
+        composable(
+            route = ROUTE_MERCHANT_MAPPING,
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { 1000 },
+                    animationSpec = tween(300)
+                )
+            }
+        ) {
             MerchantMappingScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = { navController.navigate(com.fintrack.app.presentation.navigation.AppRoutes.AddCategory.route) }

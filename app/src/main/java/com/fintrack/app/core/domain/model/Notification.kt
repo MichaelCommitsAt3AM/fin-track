@@ -17,5 +17,6 @@ enum class NotificationType {
     GOAL,
     DEBT,
     ACTIVITY,
-    SUGGESTION
+    SUGGESTION,
+    REPORT
 }

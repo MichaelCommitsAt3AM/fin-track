@@ -40,7 +40,7 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
          * Parser version for schema evolution.
          * Increment when improving regex patterns to allow selective re-parsing.
          */
-        const val PARSER_VERSION = 2
+        const val PARSER_VERSION = 3
     }
 
     override suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod): List<MpesaTransaction> {
@@ -170,6 +170,7 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
                 smartClues = parsed.smartClues.joinToString(CLUE_SEPARATOR),
                 parserVersion = PARSER_VERSION, // Track parser version
                 timestamp = smsDate,
+                transactionCost = parsed.transactionCost,
                 createdAt = System.currentTimeMillis()
             )
             
@@ -213,6 +214,10 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
     
     override suspend fun getTransactionCount(): Int {
         return dao.getTransactionCount()
+    }
+
+    override suspend fun getOldestTransactionTimestamp(): Long? {
+        return dao.getOldestTransactionTimestamp()
     }
     
     /**

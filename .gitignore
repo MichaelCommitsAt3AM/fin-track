@@ -14,7 +14,11 @@
 .externalNativeBuild
 .cxx
 local.properties
-google-services.json
+
+# Ignore dev Firebase configs (prod configs are in version control)
+app/src/dev/google-services.json
+app/src/personalDev/google-services.json
+app/src/storeDev/google-services.json
 
 # Log files
 *.log

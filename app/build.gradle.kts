@@ -72,7 +72,7 @@ android {
         }
     }
 
-    flavorDimensions += "distribution"
+    flavorDimensions += listOf("distribution")
     
     productFlavors {
         create("store") {
@@ -88,8 +88,11 @@ android {
         }
     }
     
-    // Conditionally apply Google Services only to store variant
-    // applicationVariants.all block removed to enable Google Services for personal flavor
+    // Google Services configuration files are located in:
+    // - src/storeRelease/google-services.json (for storeRelease builds - production)
+    // - src/personalRelease/google-services.json (for personalRelease builds - production)
+    // - src/storeDebug/google-services.json (for storeDebug builds - development)
+    // - src/personalDebug/google-services.json (for personalDebug builds - development)
 }
 
 dependencies {
@@ -159,6 +162,9 @@ dependencies {
 
     // --- Testing (Standard) ---
     testImplementation(libs.junit)
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("androidx.work:work-testing:2.9.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

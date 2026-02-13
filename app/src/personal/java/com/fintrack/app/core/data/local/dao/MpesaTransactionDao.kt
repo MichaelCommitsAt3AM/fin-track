@@ -99,4 +99,7 @@ interface MpesaTransactionDao {
         LIMIT :limit
     """)
     suspend fun getTransactionsByMerchantName(merchantName: String, limit: Int): List<MpesaTransactionEntity>
+
+    @Query("SELECT MIN(timestamp) FROM mpesa_transactions")
+    suspend fun getOldestTransactionTimestamp(): Long?
 }

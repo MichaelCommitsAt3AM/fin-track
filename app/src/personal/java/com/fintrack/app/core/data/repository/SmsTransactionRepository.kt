@@ -84,6 +84,7 @@ class SmsTransactionRepository @Inject constructor(
                 notes = buildMpesaNotes(mpesa),
                 paymentMethod = "M-Pesa",
                 tags = buildMpesaTags(mpesa, receiptCategory != null || merchantCategory != null),
+                transactionCost = mpesa.transactionCost,
                 isPlanned = false,
                 updatedAt = mpesa.createdAt,
                 deletedAt = null

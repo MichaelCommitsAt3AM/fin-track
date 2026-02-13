@@ -148,9 +148,57 @@ fun AddTransactionScreen(
                 .verticalScroll(scrollState)
         ) {
 
+            // M-Pesa Transaction Info Banner
+            if (state.isMpesaTransaction) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Icon in circular background
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "M",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "M-Pesa Transaction",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Only category and description can be edited",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             TransactionTypeToggle(
                 selectedType = state.transactionType,
-                onTypeSelected = { viewModel.onEvent(AddTransactionUiEvent.OnTypeChange(it)) }
+                onTypeSelected = { viewModel.onEvent(AddTransactionUiEvent.OnTypeChange(it)) },
+                enabled = !state.isMpesaTransaction
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -169,13 +217,15 @@ fun AddTransactionScreen(
                     paymentMethods = state.paymentMethods,
                     selectedPaymentMethod = state.selectedPaymentMethod,
                     onPaymentMethodSelected = { viewModel.onEvent(AddTransactionUiEvent.OnPaymentMethodChange(it)) },
-                    onAddPaymentMethodClick = onNavigateToPaymentMethods
+                    onAddPaymentMethodClick = onNavigateToPaymentMethods,
+                    enabled = !state.isMpesaTransaction
                 )
 
                 ModernDatePicker(
                     selectedDateMillis = state.date,
                     onDateSelected = { viewModel.onEvent(AddTransactionUiEvent.OnDateChange(it)) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isMpesaTransaction
                 )
 
                 // Planned Transaction Indicator
@@ -225,12 +275,14 @@ fun AddTransactionScreen(
                 }
 
                 // --- Recurring Section ---
-                RecurrenceSection(
-                    isRecurring = state.isRecurring,
-                    selectedFrequency = state.recurrenceFrequency,
-                    onRecurringChange = { viewModel.onEvent(AddTransactionUiEvent.OnRecurringChange(it)) },
-                    onFrequencyChange = { viewModel.onEvent(AddTransactionUiEvent.OnFrequencyChange(it)) }
-                )
+                if (!state.isMpesaTransaction) {
+                    RecurrenceSection(
+                        isRecurring = state.isRecurring,
+                        selectedFrequency = state.recurrenceFrequency,
+                        onRecurringChange = { viewModel.onEvent(AddTransactionUiEvent.OnRecurringChange(it)) },
+                        onFrequencyChange = { viewModel.onEvent(AddTransactionUiEvent.OnFrequencyChange(it)) }
+                    )
+                }
 
                 FinTrackTextField(
                     value = state.amount,
@@ -239,7 +291,9 @@ fun AddTransactionScreen(
                     placeholder = "0.00",
                     leadingIcon = { Text(" ${currency.symbol}:", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                    readOnly = state.isMpesaTransaction,
+                    enabled = !state.isMpesaTransaction
                 )
 
                 FinTrackTextField(
@@ -459,7 +513,8 @@ fun PaymentMethodSelector(
     paymentMethods: List<String>,
     selectedPaymentMethod: String?,
     onPaymentMethodSelected: (String) -> Unit,
-    onAddPaymentMethodClick: () -> Unit = {} // New parameter
+    onAddPaymentMethodClick: () -> Unit = {}, // New parameter
+    enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -491,7 +546,8 @@ fun PaymentMethodSelector(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor()
+                    .menuAnchor(),
+                enabled = enabled
             )
             ExposedDropdownMenu(
                 expanded = expanded,
@@ -547,7 +603,8 @@ fun PaymentMethodSelector(
 @Composable
 fun TransactionTypeToggle(
     selectedType: TransactionType,
-    onTypeSelected: (TransactionType) -> Unit
+    onTypeSelected: (TransactionType) -> Unit,
+    enabled: Boolean = true
 ) {
     val expenseColor = Color(0xFFE53935)
     val incomeColor = MaterialTheme.colorScheme.primary
@@ -594,7 +651,7 @@ fun TransactionTypeToggle(
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onTypeSelected(TransactionType.EXPENSE) },
+                    .clickable(enabled = enabled) { onTypeSelected(TransactionType.EXPENSE) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -612,7 +669,7 @@ fun TransactionTypeToggle(
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onTypeSelected(TransactionType.INCOME) },
+                    .clickable(enabled = enabled) { onTypeSelected(TransactionType.INCOME) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -637,6 +694,7 @@ fun FinTrackTextField(
     placeholder: String,
     modifier: Modifier = Modifier,
     readOnly: Boolean = false,
+    enabled: Boolean = true,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -656,6 +714,7 @@ fun FinTrackTextField(
             leadingIcon = leadingIcon,
             trailingIcon = trailingIcon,
             readOnly = readOnly,
+            enabled = enabled,
             keyboardOptions = keyboardOptions,
             textStyle = textStyle,
             shape = RoundedCornerShape(12.dp),
