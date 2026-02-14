@@ -68,7 +68,7 @@ class TransactionListViewModel @Inject constructor(
             initialValue = Currency.KSH
         )
 
-    private val _currentLimit = MutableStateFlow(20)
+    private val _currentLimit = MutableStateFlow(30)
     val currentLimit: StateFlow<Int> = _currentLimit
 
     // We need categories to map icons/colors correctly

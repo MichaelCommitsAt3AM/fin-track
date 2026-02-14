@@ -34,7 +34,7 @@ class SmsTransactionRepository @Inject constructor(
     override fun observeNewTransactions(): Flow<List<Transaction>> {
         // combine M-Pesa transactions with Category Mappings (Receipt & Merchant levels)
         return kotlinx.coroutines.flow.combine(
-            mpesaRepository.getRecentTransactions(limit = 50),
+            mpesaRepository.getAllTransactions(),
             mappingDao.getAllMappings(),
             merchantCategoryDao.getAllMappings()
         ) { mpesaTransactions, receiptMappings, merchantMappings ->

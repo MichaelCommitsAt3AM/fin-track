@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -223,21 +224,42 @@ fun TransactionListScreen(
                 }
 
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Button(
-                            onClick = { viewModel.loadMore() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
+                    // Calculate total items currently displayed
+                    val totalDisplayed = groupedTransactions.values.sumOf { it.size }
+                    
+                    // Only show if we have enough items to warrant pagination (matches limit 30)
+                    if (totalDisplayed >= 30) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp, horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("View More")
+                            OutlinedButton(
+                                onClick = { viewModel.loadMore() },
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                ),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                            ) {
+                                Text(
+                                    text = "View More Transactions",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
+                    } else if (totalDisplayed > 0) {
+                         // Optional: Show a "End of list" indicator for small lists, or nothing?
+                         // User asked to NOT display if 30 or less. So displaying nothing is correct.
+                         Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
             }
