@@ -12,7 +12,9 @@ import com.fintrack.app.core.domain.model.Currency
 import com.fintrack.app.core.domain.model.Transaction
 import com.fintrack.app.core.domain.model.TransactionType
 import com.fintrack.app.core.domain.repository.BudgetRepository
+import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
+import com.fintrack.app.core.di.AppFlavorIntegration
 import com.fintrack.app.core.domain.use_case.GetCategoriesUseCase
 import com.fintrack.app.presentation.settings.getIconByName
 import com.google.firebase.auth.FirebaseAuth
@@ -36,7 +38,8 @@ data class AddBudgetUiState(
     val amount: String = "",
     val selectedCategory: String? = null,
     val categories: List<String> = emptyList(),
-    val month: String = getCurrentMonth(),
+    val date: Long = System.currentTimeMillis(),
+    val spentAmount: Double = 0.0,
     val isLoading: Boolean = false,
     val currency: Currency = Currency.KSH
 )
@@ -45,7 +48,7 @@ data class AddBudgetUiState(
 sealed class AddBudgetUiEvent {
     data class OnAmountChange(val amount: String) : AddBudgetUiEvent()
     data class OnCategoryChange(val category: String) : AddBudgetUiEvent()
-    data class OnMonthChange(val month: String) : AddBudgetUiEvent()
+    data class OnDateChange(val date: Long) : AddBudgetUiEvent()
     object OnSaveBudget : AddBudgetUiEvent()
 }
 
@@ -74,6 +77,8 @@ class BudgetsViewModel @Inject constructor(
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val budgetRepository: BudgetRepository,
     private val transactionRepository: TransactionRepository,
+    private val externalTransactionRepository: ExternalTransactionRepository,
+    private val appFlavorIntegration: AppFlavorIntegration,
     private val localAuthManager: LocalAuthManager,
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
@@ -136,6 +141,21 @@ class BudgetsViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
+    private fun getAllTransactionsFlow(): Flow<List<Transaction>> {
+        val internalFlow = transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
+        
+        return if (appFlavorIntegration.supportsMpesa) {
+            combine(
+                internalFlow,
+                externalTransactionRepository.getAllTransactions()
+            ) { internal, external ->
+                internal + external
+            }
+        } else {
+            internalFlow
+        }
+    }
+
     // ========== Load Expense Categories ==========
 
     private fun loadExpenseCategories() {
@@ -185,7 +205,7 @@ class BudgetsViewModel @Inject constructor(
                 combine(
                     budgetRepository.getAllBudgetsForMonth(currentMonth, currentYear),
                     getCategoriesUseCase(),
-                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
+                    getAllTransactionsFlow()
                 ) { budgets, categories, transactions ->
                     budgets.map { budget ->
                         // Find the matching category
@@ -298,7 +318,7 @@ class BudgetsViewModel @Inject constructor(
                 // Combine budgets and transactions
                 combine(
                     budgetRepository.getAllBudgetsForMonth(month, year),
-                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
+                    getAllTransactionsFlow()
                 ) { budgetsList, transactionsList ->
                     budgetsList.map { budget ->
                         val spent = transactionsList
@@ -395,7 +415,7 @@ class BudgetsViewModel @Inject constructor(
                 // Combine budget and transactions
                 combine(
                     budgetRepository.getAllBudgetsForMonth(month, year),
-                    transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE)
+                    getAllTransactionsFlow()
                 ) { budgetsList, transactionsList ->
                     val budget = budgetsList.firstOrNull { it.categoryName == categoryName }
                     
@@ -464,12 +484,20 @@ class BudgetsViewModel @Inject constructor(
                         budget.amount.toString()
                     }
 
+                    // Create calendar for the edit date
+                    val calendar = Calendar.getInstance()
+                    calendar.set(Calendar.YEAR, year)
+                    calendar.set(Calendar.MONTH, month - 1)
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    val dateMillis = calendar.timeInMillis
+
                     _addBudgetState.value = _addBudgetState.value.copy(
                         amount = amountString,
                         selectedCategory = budget.categoryName,
-                        month = String.format(Locale.getDefault(), "%d-%02d", year, month),
+                        date = dateMillis,
                         isLoading = false
                     )
+                    calculateSpentAmount()
                 } else {
                     _eventChannel.send(BudgetEvent.ShowError("Budget not found"))
                     _addBudgetState.value = _addBudgetState.value.copy(isLoading = false)
@@ -489,11 +517,63 @@ class BudgetsViewModel @Inject constructor(
             }
             is AddBudgetUiEvent.OnCategoryChange -> {
                 _addBudgetState.value = _addBudgetState.value.copy(selectedCategory = event.category)
+                calculateSpentAmount()
             }
-            is AddBudgetUiEvent.OnMonthChange -> {
-                _addBudgetState.value = _addBudgetState.value.copy(month = event.month)
+            is AddBudgetUiEvent.OnDateChange -> {
+                _addBudgetState.value = _addBudgetState.value.copy(date = event.date)
+                calculateSpentAmount()
             }
             is AddBudgetUiEvent.OnSaveBudget -> saveBudget()
+        }
+    }
+
+    private fun calculateSpentAmount() {
+        val state = _addBudgetState.value
+        val category = state.selectedCategory
+        if (category == null) return
+
+        viewModelScope.launch {
+            try {
+                // Determine month start/end from selected date
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = state.date
+                
+                // Reset to start of month
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startOfMonth = calendar.timeInMillis
+
+                // Set to end of month
+                calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                calendar.set(Calendar.MILLISECOND, 999)
+                val endOfMonth = calendar.timeInMillis
+
+                // We can use transactionRepository directly. 
+                // Since this is a simple sum, we can fetch all transactions (paged) and filter in memory 
+                // OR add a specific usecase/repository method for efficiency.
+                // For now, mirroring existing logic:
+                getAllTransactionsFlow().collect { transactions ->
+                     val spent = transactions
+                        .filter { txn ->
+                            txn.category == category &&
+                            txn.type == TransactionType.EXPENSE &&
+                            txn.date in startOfMonth..endOfMonth
+                        }
+                        .sumOf { it.amount }
+                    
+                    _addBudgetState.value = _addBudgetState.value.copy(spentAmount = spent)
+                    // We only need the first emission for the calculation
+                    return@collect 
+                }
+            } catch (e: Exception) {
+                // Ignore error for visual indicator, or log it
+            }
         }
     }
 
@@ -521,33 +601,24 @@ class BudgetsViewModel @Inject constructor(
             }
             return
         }
-        if (state.month.isEmpty()) {
-            viewModelScope.launch {
-                _eventChannel.send(BudgetEvent.ShowError("Please enter a month"))
-            }
-            return
-        }
-
-        // Parse month string (YYYY-MM) to month and year
-        val monthYear = parseMonthString(state.month)
-        if (monthYear == null) {
-            viewModelScope.launch {
-                _eventChannel.send(BudgetEvent.ShowError("Invalid month format. Use YYYY-MM"))
-            }
-            return
-        }
 
         _addBudgetState.value = _addBudgetState.value.copy(isLoading = true)
 
         viewModelScope.launch {
             try {
+                // Extract month and year from selected date
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = state.date
+                val month = calendar.get(Calendar.MONTH) + 1
+                val year = calendar.get(Calendar.YEAR)
+
                 // Create budget object
                 val budget = Budget(
                     categoryName = state.selectedCategory!!,
                     userId = userId,
                     amount = amountDouble,
-                    month = monthYear.first,
-                    year = monthYear.second
+                    month = month,
+                    year = year
                 )
 
                 // Save to repository
@@ -574,24 +645,6 @@ class BudgetsViewModel @Inject constructor(
         _addBudgetState.value = AddBudgetUiState()
     }
 
-    // Helper function to parse "YYYY-MM" to (month, year)
-    private fun parseMonthString(monthString: String): Pair<Int, Int>? {
-        return try {
-            val parts = monthString.split("-")
-            if (parts.size == 2) {
-                val year = parts[0].toInt()
-                val month = parts[1].toInt()
-                if (month in 1..12) {
-                    Pair(month, year)
-                } else null
-            } else null
-        } catch (e: Exception) {
-            null
-        }
-    }
 }
 
-private fun getCurrentMonth(): String {
-    val dateFormat = SimpleDateFormat("yyyy-MM", Locale.getDefault())
-    return dateFormat.format(Date())
-}
+

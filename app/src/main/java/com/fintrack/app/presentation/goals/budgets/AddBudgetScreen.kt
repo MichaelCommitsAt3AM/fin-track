@@ -3,6 +3,7 @@ package com.fintrack.app.presentation.goals.budgets
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import com.fintrack.app.core.ui.components.MonthPicker
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -263,27 +264,43 @@ fun AddBudgetScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Month Picker
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Month",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+            // Spent Amount Indicator
+            if (state.selectedCategory != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Spent this month:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${state.currency.symbol} ${"%.2f".format(state.spentAmount)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (state.spentAmount > (state.amount.toDoubleOrNull() ?: 0.0)) 
+                            MaterialTheme.colorScheme.error 
+                        else 
+                            MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
-                OutlinedTextField(
-                    value = state.month,
-                    onValueChange = { viewModel.onAddBudgetEvent(AddBudgetUiEvent.OnMonthChange(it)) },
-                    placeholder = { Text("YYYY-MM") },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
+            // Date Picker
+            Column(modifier = Modifier.fillMaxWidth()) {
+                MonthPicker(
+                    selectedDateMillis = state.date,
+                    onDateSelected = { viewModel.onAddBudgetEvent(AddBudgetUiEvent.OnDateChange(it)) },
+                    label = "Month",
                     modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -394,7 +394,7 @@ fun AddEditPaymentMethodSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .clickable { showIconPicker = true }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -432,7 +432,7 @@ fun AddEditPaymentMethodSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .clickable { showColorPicker = true }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -476,7 +476,7 @@ fun AddEditPaymentMethodSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .clickable { isDefault = !isDefault }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -568,7 +568,7 @@ fun IconPickerDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -651,7 +651,7 @@ fun ColorPickerDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {

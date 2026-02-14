@@ -17,7 +17,9 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Sync
+import androidx.work.WorkInfo
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Button
@@ -25,6 +27,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -56,6 +59,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -77,10 +81,16 @@ fun MpesaSettingsScreen(
     var showLookbackSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    
+    // Rescan Confirmation
+    var pendingLookbackMonths by remember { mutableStateOf<Int?>(null) }
 
     if (showLookbackSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showLookbackSheet = false },
+            onDismissRequest = { 
+                showLookbackSheet = false
+                pendingLookbackMonths = null
+            },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             dragHandle = { BottomSheetDefaults.DragHandle() }
@@ -91,73 +101,163 @@ fun MpesaSettingsScreen(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 32.dp)
             ) {
-                Text(
-                    text = "Lookback Period",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
-                )
+                if (pendingLookbackMonths == null) {
+                    // Selection view
+                    Text(
+                        text = "Lookback Period",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+                    )
 
-                val options = listOf(1, 3, 6, 12)
-                options.forEach { months ->
-                    val label = when (months) {
-                        1 -> "1 Month"
-                        12 -> "1 Year"
-                        else -> "$months Months"
-                    }
-                    val isSelected = lookbackPeriod == months
+                    val options = listOf(1, 3, 6, 12)
+                    options.forEach { months ->
+                        val label = when (months) {
+                            1 -> "1 Month"
+                            12 -> "1 Year"
+                            else -> "$months Months"
+                        }
+                        val isSelected = lookbackPeriod == months
 
-                    Surface(
-                        onClick = {
-                            viewModel.setLookbackPeriod(months)
-                            scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                if (!sheetState.isVisible) {
-                                    showLookbackSheet = false
+                        Surface(
+                            onClick = {
+                                if (lookbackPeriod != months) {
+                                    pendingLookbackMonths = months
+                                } else {
+                                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            showLookbackSheet = false
+                                        }
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+                            border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.History,
+                                        contentDescription = null,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
-                        },
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    // Confirmation view
+                    Text(
+                        text = "Change Lookback Period?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+                    )
+                    
+                    Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
-                        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(16.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 12.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.History, // Using History icon for consistency
-                                    contentDescription = null,
-                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.primary),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = "Rescan Required",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
                             Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                text = "Changing the lookback period requires rescanning your SMS inbox to find transactions. This may take a moment.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // Action buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                pendingLookbackMonths = null
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+                        
+                        Button(
+                            onClick = {
+                                pendingLookbackMonths?.let { months ->
+                                    viewModel.setLookbackPeriod(months)
+                                    pendingLookbackMonths = null
+                                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                        showLookbackSheet = false
+                                        viewModel.triggerRescan()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Change & Rescan")
+                        }
+                    }
                 }
             }
         }
@@ -206,6 +306,31 @@ fun MpesaSettingsScreen(
                 TextButton(onClick = { showResetDialog = false }) {
                     Text("Cancel")
                 }
+            }
+        )
+    }
+
+    // --- Sync Progress ---
+    val syncWorkInfo by viewModel.syncWorkInfo.collectAsState()
+    var showSyncSheet by remember { mutableStateOf(false) }
+
+    // Show sheet when sync starts
+    LaunchedEffect(syncWorkInfo) {
+        syncWorkInfo?.let { info ->
+            if (info.state != WorkInfo.State.SUCCEEDED && 
+                info.state != WorkInfo.State.FAILED && 
+                info.state != WorkInfo.State.CANCELLED) {
+                showSyncSheet = true
+            }
+        }
+    }
+
+    if (showSyncSheet && syncWorkInfo != null) {
+        SyncProgressSheet(
+            workInfo = syncWorkInfo!!,
+            onDismiss = {
+                showSyncSheet = false
+                viewModel.clearSyncState()
             }
         )
     }
@@ -325,6 +450,115 @@ fun MpesaSettingsScreen(
                     Spacer(modifier = Modifier.padding(4.dp))
                     Text("Delete All M-Pesa Data")
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SyncProgressSheet(
+    workInfo: WorkInfo,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = { 
+            // Only allow dismiss if finished
+            if (workInfo.state.isFinished) {
+                onDismiss()
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = {
+            if (workInfo.state.isFinished) BottomSheetDefaults.DragHandle() else Spacer(Modifier.height(24.dp))
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                // Success
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50), // Success green color
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Sync Complete",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Your transactions have been updated.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Close")
+                }
+            } else if (workInfo.state == WorkInfo.State.FAILED) {
+                 // Failure
+                Icon(
+                    imageVector = Icons.Default.CleaningServices, // Placeholder for error icon if cleaner not appropriate
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Sync Failed",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                 Text(
+                    text = "Something went wrong. Please try again.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Close")
+                }
+            } else {
+                // Running / Enqueued
+                Text(
+                    text = "Syncing Transactions...",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                     androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Scanning messages & handling unmapped merchants...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }

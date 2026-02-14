@@ -1,5 +1,7 @@
 package com.fintrack.app.presentation.navigation
 
+import android.net.Uri
+
 /**
  * A sealed class that defines all navigation routes in the app. This provides a type-safe way to
  * navigate.
@@ -31,7 +33,8 @@ sealed class AppRoutes(val route: String) {
     object AddBudget : AppRoutes("add_budget_screen?categoryName={categoryName}&month={month}&year={year}") {
         fun createRoute(categoryName: String? = null, month: Int? = null, year: Int? = null): String {
             return if (categoryName != null && month != null && year != null) {
-                "add_budget_screen?categoryName=$categoryName&month=$month&year=$year"
+                val encodedCategory = Uri.encode(categoryName)
+                "add_budget_screen?categoryName=$encodedCategory&month=$month&year=$year"
             } else {
                 "add_budget_screen"
             }
@@ -52,8 +55,10 @@ sealed class AppRoutes(val route: String) {
     }
 
     object ManageBudget : AppRoutes("manage_budget_screen/{categoryName}/{month}/{year}") {
-        fun createRoute(categoryName: String, month: Int, year: Int) =
-            "manage_budget_screen/$categoryName/$month/$year"
+        fun createRoute(categoryName: String, month: Int, year: Int): String {
+            val encodedCategory = Uri.encode(categoryName)
+            return "manage_budget_screen/$encodedCategory/$month/$year"
+        }
     }
 
 
@@ -70,7 +75,7 @@ sealed class AppRoutes(val route: String) {
     object ManageCategories : AppRoutes("manage_categories_screen")
     object AddCategory : AppRoutes("add_category_screen")
     object EditCategory : AppRoutes("edit_category_screen/{categoryName}") {
-        fun createRoute(name: String) = "edit_category_screen/$name"
+        fun createRoute(name: String) = "edit_category_screen/${Uri.encode(name)}"
     }
 
     // --- Add Transaction (FAB) ---

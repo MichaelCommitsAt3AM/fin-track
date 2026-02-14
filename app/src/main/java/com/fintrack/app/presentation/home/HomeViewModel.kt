@@ -13,6 +13,8 @@ import com.fintrack.app.core.domain.repository.CategoryRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.repository.NetworkRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
+import com.fintrack.app.core.security.EncryptionManager
+import com.fintrack.app.core.di.AppFlavorIntegration
 import com.fintrack.app.presentation.settings.getIconByName
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -43,7 +45,9 @@ class HomeViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val localAuthManager: LocalAuthManager,
-    private val externalTransactionRepository: ExternalTransactionRepository
+    private val externalTransactionRepository: ExternalTransactionRepository,
+    private val flavorIntegration: AppFlavorIntegration,
+    private val encryptionManager: EncryptionManager
 ) : ViewModel() {
 
     // --- Sync Status ---
@@ -74,27 +78,33 @@ class HomeViewModel @Inject constructor(
             val listener = firestore.collection("users").document(user.uid)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
-                        // In case of error, we can log it or just close the flow
                         close(error)
                         return@addSnapshotListener
                     }
 
                     if (snapshot != null && snapshot.exists()) {
-                        // 1. Get real-time data from Firestore
-                        val avatarId = snapshot.getLong("avatarId")?.toInt() ?: 1
-                        val fullName = snapshot.getString("fullName") ?: user.displayName ?: "User"
-                        val email = user.email ?: ""
+                        // Launch coroutine to handle suspending decryption
+                        launch {
+                            val avatarId = snapshot.getLong("avatarId")?.toInt() ?: 1
+                            val encryptedName = snapshot.getString("fullName") ?: user.displayName ?: "User"
+                            
+                            val fullName = try {
+                                encryptionManager.decrypt(encryptedName)
+                            } catch (e: Exception) {
+                                encryptedName
+                            }
+                            
+                            val email = user.email ?: ""
 
-                        // 2. Emit the updated User model
-                        trySend(
-                            UserUiModel(
-                                fullName = fullName,
-                                email = email,
-                                avatarId = avatarId
+                            trySend(
+                                UserUiModel(
+                                    fullName = fullName,
+                                    email = email,
+                                    avatarId = avatarId
+                                )
                             )
-                        )
+                        }
                     } else {
-                        // Fallback if document doesn't exist yet (use Auth defaults)
                         trySend(
                             UserUiModel(
                                 fullName = user.displayName ?: "User",
@@ -121,7 +131,11 @@ class HomeViewModel @Inject constructor(
     // --- Recent Transactions ---
     val recentTransactions: StateFlow<List<TransactionUiModel>> = combine(
         transactionRepository.getRecentTransactions(limit = 5),
-        externalTransactionRepository.observeNewTransactions(),
+        if (flavorIntegration.supportsMpesa) {
+            externalTransactionRepository.observeNewTransactions()
+        } else {
+            flowOf(emptyList())
+        },
         categoryRepository.getAllCategories()
     ) { localTransactions, externalTransactions, categories ->
         val allTransactions = (localTransactions + externalTransactions)
@@ -162,7 +176,11 @@ class HomeViewModel @Inject constructor(
     // --- Spending Categories (Current Month) ---
     val spendingCategories: StateFlow<List<SpendingCategoryUiModel>> = combine(
         transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
-        externalTransactionRepository.getAllTransactions(),
+        if (flavorIntegration.supportsMpesa) {
+            externalTransactionRepository.getAllTransactions()
+        } else {
+            flowOf(emptyList())
+        },
         categoryRepository.getAllCategories(),
         currencyPreference
     ) { localTransactions, externalTransactions, categories, currency ->
@@ -225,7 +243,11 @@ class HomeViewModel @Inject constructor(
     // --- Weekly Spending ---
     val weeklySpending: StateFlow<Pair<Double, Double>> = combine(
         transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
-        externalTransactionRepository.getAllTransactions()
+        if (flavorIntegration.supportsMpesa) {
+            externalTransactionRepository.getAllTransactions()
+        } else {
+            flowOf(emptyList())
+        }
     ) { localTransactions, externalTransactions ->
             val transactions = localTransactions + externalTransactions
             val calendar = Calendar.getInstance()

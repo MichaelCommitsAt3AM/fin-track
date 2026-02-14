@@ -53,7 +53,8 @@ class SmartClueDetector {
         )
         
         private val AIRTIME_KEYWORDS = setOf(
-            "AIRTIME", "SAFARICOM AIRTIME", "AIRTEL AIRTIME"
+            "AIRTIME", "SAFARICOM AIRTIME", "AIRTEL AIRTIME",
+             "JAMII TELECOMMUNICATIONS LTD"
         )
 
         private val DATA_KEYWORDS = setOf(

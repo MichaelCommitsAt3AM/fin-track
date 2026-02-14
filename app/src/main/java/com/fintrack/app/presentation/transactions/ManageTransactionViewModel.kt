@@ -11,6 +11,7 @@ import com.fintrack.app.core.domain.repository.CategoryRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.presentation.settings.getIconByName
+import com.fintrack.app.core.di.AppFlavorIntegration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -22,7 +23,8 @@ class ManageTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
     private val localAuthManager: LocalAuthManager,
-    private val externalTransactionRepository: ExternalTransactionRepository
+    private val externalTransactionRepository: ExternalTransactionRepository,
+    private val flavorIntegration: AppFlavorIntegration
 ) : ViewModel() {
 
     private val _transactionId = MutableStateFlow<String?>(null)
@@ -42,9 +44,15 @@ class ManageTransactionViewModel @Inject constructor(
     val transaction: StateFlow<TransactionUiModel?> = _transactionId
         .filterNotNull()
         .flatMapLatest { id ->
+            val externalFlow = if (flavorIntegration.supportsMpesa) {
+                externalTransactionRepository.observeNewTransactions()
+            } else {
+                flowOf(emptyList())
+            }
+
             combine(
                 transactionRepository.getTransactionById(id),
-                externalTransactionRepository.observeNewTransactions(),
+                externalFlow,
                 categoryRepository.getAllCategories()
             ) { localTxn, externalTxns, categories ->
                 val transaction = localTxn ?: externalTxns.find { it.id == id }
@@ -74,7 +82,7 @@ class ManageTransactionViewModel @Inject constructor(
                         dateMillis = txn.date,
                         description = txn.notes,
                         paymentMethod = txn.paymentMethod,
-                        transactionCost = txn.transactionCost,
+                        transactionCost = if (flavorIntegration.supportsMpesa) txn.transactionCost else null,
                         icon = icon,
                         color = color
                     )

@@ -108,16 +108,7 @@ fun TransactionListScreen(
     ) { paddingValues ->
         val listState = rememberLazyListState()
 
-        // Infinite Scroll Logic
-        LaunchedEffect(listState) {
-            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-                .collect { index ->
-                    val totalItems = listState.layoutInfo.totalItemsCount
-                    if (index != null && totalItems > 0 && index >= totalItems - 5) {
-                        viewModel.loadMore()
-                    }
-                }
-        }
+        // Infinite scroll replaced by manual "View More" button
 
         LazyColumn(
             modifier = Modifier
@@ -126,7 +117,7 @@ fun TransactionListScreen(
                 .padding(horizontal = 16.dp),
             state = listState,
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(bottom = 100.dp)
         ) {
             // --- Header (Search & Filters) ---
             item(key = "header") {
@@ -228,6 +219,25 @@ fun TransactionListScreen(
                             currency.symbol,
                             onClick = { onNavigateToTransaction?.invoke(transaction.id) }
                         )
+                    }
+                }
+
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(
+                            onClick = { viewModel.loadMore() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Text("View More")
+                        }
                     }
                 }
             }

@@ -13,6 +13,7 @@ import com.fintrack.app.core.data.local.model.MerchantCategoryEntity
 import com.fintrack.app.core.data.preferences.MpesaOnboardingPreferences
 import com.fintrack.app.core.domain.repository.MpesaTransactionRepository
 import com.fintrack.app.core.worker.MpesaSyncWorker
+import androidx.work.WorkInfo
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -51,6 +54,15 @@ class MpesaSettingsViewModel @Inject constructor(
 
     private val _merchantList = MutableStateFlow<List<MerchantMappingItem>>(emptyList())
     val merchantList: StateFlow<List<MerchantMappingItem>> = _merchantList
+
+    // --- Sync Progress ---
+    private val _syncWorkId = MutableStateFlow<java.util.UUID?>(null)
+    val syncWorkInfo = _syncWorkId
+        .flatMapLatest { id ->
+            if (id == null) flowOf(null)
+            else workManager.getWorkInfoByIdFlow(id)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     init {
         loadMerchantData()
@@ -153,6 +165,7 @@ class MpesaSettingsViewModel @Inject constructor(
                 .build()
             
             workManager.enqueue(request)
+            _syncWorkId.value = request.id
         }
     }
 
@@ -180,6 +193,10 @@ class MpesaSettingsViewModel @Inject constructor(
     }
 
     // ... existing actions ...
+
+    fun clearSyncState() {
+        _syncWorkId.value = null
+    }
 
     fun updateMerchantCategory(merchantName: String, categoryName: String) {
         viewModelScope.launch {

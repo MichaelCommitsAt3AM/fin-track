@@ -36,8 +36,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.biometric.BiometricPrompt
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import android.widget.Toast
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,6 +69,46 @@ fun ReportsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val activity = context as? FragmentActivity
+
+    // --- Biometric Logic ---
+    fun launchBiometric() {
+        if (activity == null) {
+            viewModel.exportData() // Fallback if not an activity (shouldn't happen in normal app flow)
+            return
+        }
+
+        val executor = ContextCompat.getMainExecutor(activity)
+        val biometricPrompt = BiometricPrompt(
+            activity,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    viewModel.exportData()
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    Toast.makeText(context, "Authentication failed: $errString", Toast.LENGTH_SHORT).show()
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    // Prompt handles this (shake/message), no extra action needed usually
+                }
+            }
+        )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Confirm Export")
+            .setSubtitle("Verify your identity to export financial data")
+            .setNegativeButtonText("Cancel")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
+    }
+    // -----------------------
 
     // Observe Export Events
     LaunchedEffect(key1 = true) {
@@ -147,7 +191,9 @@ fun ReportsScreen(
 
             // 6. Export Button
             item {
-                ExportButtonSection(onExportClick = { viewModel.exportData() })
+                ExportButtonSection(onExportClick = {
+                    launchBiometric()
+                })
             }
         }
     }

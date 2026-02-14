@@ -10,6 +10,9 @@ import com.fintrack.app.core.domain.repository.MpesaTransactionRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
+import kotlinx.coroutines.flow.first
+import com.fintrack.app.core.data.preferences.MpesaOnboardingPreferences
+
 /**
  * WorkManager worker for background M-Pesa SMS synchronization.
  * 
@@ -20,7 +23,8 @@ import dagger.assisted.AssistedInject
 class MpesaSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val mpesaRepository: MpesaTransactionRepository
+    private val mpesaRepository: MpesaTransactionRepository,
+    private val mpesaPreferences: MpesaOnboardingPreferences
 ) : CoroutineWorker(appContext, workerParams) {
     
     companion object {
@@ -36,8 +40,14 @@ class MpesaSyncWorker @AssistedInject constructor(
         Log.d(TAG, "Starting M-Pesa SMS sync worker")
         
         return try {
-            // Get lookback period from input data
-            val lookbackMonths = inputData.getInt(INPUT_LOOKBACK_MONTHS, DEFAULT_LOOKBACK_MONTHS)
+            // Get lookback period: Prefer User Setting > Input Data > Default
+            val lookbackMonths = try {
+                mpesaPreferences.lookbackPeriodMonths.first()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read preferences, falling back to input data", e)
+                inputData.getInt(INPUT_LOOKBACK_MONTHS, DEFAULT_LOOKBACK_MONTHS)
+            }
+
             val lookbackPeriod = when (lookbackMonths) {
                 1 -> LookbackPeriod.ONE_MONTH
                 6 -> LookbackPeriod.SIX_MONTHS

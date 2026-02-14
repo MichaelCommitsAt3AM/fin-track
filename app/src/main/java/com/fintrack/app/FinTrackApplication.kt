@@ -14,6 +14,7 @@ import com.fintrack.app.core.worker.BudgetCheckWorker
 import com.fintrack.app.core.worker.DebtCheckWorker
 import com.fintrack.app.core.worker.GoalCheckWorker
 import com.fintrack.app.core.worker.TransactionSyncWorker
+import com.fintrack.app.core.worker.WorkerScheduler
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class FinTrackApplication : Application(), Configuration.Provider {
     
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var workerScheduler: WorkerScheduler
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -112,14 +114,7 @@ class FinTrackApplication : Application(), Configuration.Provider {
             debtWork
         )
 
-        // Schedule Monthly M-Pesa Cost Check (Daily check)
-        // Checks if a new month has started and sends a report for the previous month
-        val mpesaCostWork = PeriodicWorkRequestBuilder<com.fintrack.app.core.worker.MonthlyMpesaCostWorker>(1, TimeUnit.DAYS)
-            .build()
-        workManager.enqueueUniquePeriodicWork(
-            com.fintrack.app.core.worker.MonthlyMpesaCostWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            mpesaCostWork
-        )
+        // Schedule Monthly M-Pesa Cost Check (Delegated to flavor-specific implementation)
+        workerScheduler.schedule(this)
     }
 }

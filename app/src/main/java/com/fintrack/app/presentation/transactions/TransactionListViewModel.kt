@@ -254,7 +254,7 @@ class TransactionListViewModel @Inject constructor(
 
     fun loadMore() {
         if (_searchQuery.value.isEmpty()) {
-            _currentLimit.value += 20 // Load next 20 items
+            _currentLimit.value += 30 // Load next 30 items
         }
     }
     

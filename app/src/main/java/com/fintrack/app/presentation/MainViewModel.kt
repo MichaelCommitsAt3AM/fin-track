@@ -3,6 +3,7 @@ package com.fintrack.app.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fintrack.app.core.domain.repository.NetworkRepository
+import com.fintrack.app.core.security.EncryptionManager
 import com.fintrack.app.presentation.home.UserUiModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -13,13 +14,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val networkRepository: NetworkRepository,
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val encryptionManager: EncryptionManager
 ) : ViewModel() {
 
     /**
@@ -45,17 +48,26 @@ class MainViewModel @Inject constructor(
                     }
 
                     if (snapshot != null && snapshot.exists()) {
-                        val avatarId = snapshot.getLong("avatarId")?.toInt() ?: 1
-                        val fullName = snapshot.getString("fullName") ?: user.displayName ?: "User"
-                        val email = user.email ?: ""
+                        launch {
+                            val avatarId = snapshot.getLong("avatarId")?.toInt() ?: 1
+                            val encryptedName = snapshot.getString("fullName") ?: user.displayName ?: "User"
+                            
+                            val fullName = try {
+                                encryptionManager.decrypt(encryptedName)
+                            } catch (e: Exception) {
+                                encryptedName
+                            }
+                            
+                            val email = user.email ?: ""
 
-                        trySend(
-                            UserUiModel(
-                                fullName = fullName,
-                                email = email,
-                                avatarId = avatarId
+                            trySend(
+                                UserUiModel(
+                                    fullName = fullName,
+                                    email = email,
+                                    avatarId = avatarId
+                                )
                             )
-                        )
+                        }
                     } else {
                         trySend(
                             UserUiModel(
