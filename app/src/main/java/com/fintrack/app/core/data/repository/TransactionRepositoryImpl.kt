@@ -91,7 +91,9 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun updateTransaction(transaction: Transaction) {
         // OFFLINE-FIRST: 1. Update locally first, mark as unsynced
-        val updatedTransaction = transaction.copy(updatedAt = System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        // Re-derive isPlanned: the date may have been moved into (or out of) the future
+        val updatedTransaction = transaction.copy(updatedAt = now, isPlanned = transaction.date > now)
         val entityToUpdate = updatedTransaction.toEntity()
         transactionDao.updateTransaction(entityToUpdate)
         Log.d("TransactionRepo", "Transaction updated locally: ${transaction.id}")
@@ -158,7 +160,10 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<Transaction>> {
         val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
         return transactionDao.getTransactionsByDateRange(userId, startDate, endDate).map { entityList ->
-            entityList.map { it.toDomain() }
+            // Evaluate "now" per emission (not once at subscription) so planned items start
+            // counting once their date passes and the table next changes
+            val now = System.currentTimeMillis()
+            entityList.map { it.toDomain() }.filter { it.hasOccurred(now) }
         }
     }
 
