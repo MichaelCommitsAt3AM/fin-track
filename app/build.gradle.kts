@@ -17,8 +17,9 @@ android {
         applicationId = "com.fintrack.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // CI passes these from the git tag (see .github/workflows/release.yml); local builds use the defaults
+        versionCode = (project.findProperty("VERSION_CODE") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("VERSION_NAME") as String?) ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

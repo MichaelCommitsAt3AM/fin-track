@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -26,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -138,7 +140,8 @@ fun ReportsScreen(
             ReportHeader(
                 currentMonth = state.selectedDate.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
                 onPrevClick = { viewModel.previousMonth() },
-                onNextClick = { viewModel.nextMonth() }
+                onNextClick = { viewModel.nextMonth() },
+                isNextEnabled = !state.isCurrentMonth
             )
         }
 
@@ -163,14 +166,14 @@ fun ReportsScreen(
                 )
             }
 
-            // 3. Spending Trends
-            if (state.monthlyTrends.isNotEmpty()) {
-                item {
-                    SpendingTrendsSection(
-                        monthlyData = state.monthlyTrends,
-                        currencySymbol = state.currency.symbol
-                    )
-                }
+            // 3. Spending Trends (weekly by default, monthly via toggle)
+            item {
+                SpendingTrendsSection(
+                    points = state.trend,
+                    period = state.trendPeriod,
+                    onPeriodChange = { viewModel.setTrendPeriod(it) },
+                    currencySymbol = state.currency.symbol
+                )
             }
 
             // 4. Category Breakdown (Donut Chart)
@@ -204,7 +207,12 @@ fun ReportsScreen(
 // -------------------------------------------------------------------------
 
 @Composable
-fun ReportHeader(currentMonth: String, onPrevClick: () -> Unit, onNextClick: () -> Unit) {
+fun ReportHeader(
+    currentMonth: String,
+    onPrevClick: () -> Unit,
+    onNextClick: () -> Unit,
+    isNextEnabled: Boolean = true
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,7 +251,7 @@ fun ReportHeader(currentMonth: String, onPrevClick: () -> Unit, onNextClick: () 
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
-                IconButton(onClick = onNextClick, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = onNextClick, enabled = isNextEnabled, modifier = Modifier.size(28.dp)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowForward,
                         "Next",
@@ -342,31 +350,18 @@ fun SummaryCard(title: String, amount: Double, isIncome: Boolean, currencySymbol
 // -------------------------------------------------------------------------
 
 @Composable
-fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>, currencySymbol: String) {
-    // 1. Calculations
-    val totalExpense = monthlyData.sumOf { it.expense }
-    val count = monthlyData.size
-    val monthlyAvg = if (count > 0) totalExpense / count else 0.0
-
-    // Extract strictly the expense data points
-    val dataPoints = monthlyData.map { it.expense.toFloat() }
-    val labels = monthlyData.map { it.month }
-
-    // 2. Calculate Percentage Difference (Current Month vs Previous Month)
-    val (percentageDiff, isIncrease) = remember(monthlyData) {
-        if (monthlyData.size < 2) {
-            0.0 to false
-        } else {
-            val current = monthlyData.last().expense
-            val previous = monthlyData[monthlyData.size - 2].expense
-            if (previous == 0.0) {
-                0.0 to (current > 0)
-            } else {
-                val diff = ((current - previous) / previous) * 100
-                diff to (diff >= 0)
-            }
-        }
-    }
+fun SpendingTrendsSection(
+    points: List<TrendPoint>,
+    period: TrendPeriod,
+    onPeriodChange: (TrendPeriod) -> Unit,
+    currencySymbol: String
+) {
+    // The highlighted point defaults to the latest period; tapping the chart moves it.
+    var selectedIndex by remember(points, period) { mutableIntStateOf(points.lastIndex) }
+    val selected = points.getOrNull(selectedIndex)
+    val previous = points.getOrNull(selectedIndex - 1)
+    val average = if (points.isNotEmpty()) points.sumOf { it.amount } / points.size else 0.0
+    val hasData = points.any { it.amount > 0 }
 
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Card(
@@ -376,64 +371,107 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>, currencySymbol: 
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                // --- Header Row (Title & Badge) ---
+                // --- Title + period toggle ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Spending Trends",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    TrendPeriodToggle(selected = period, onSelected = onPeriodChange)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- Selected period readout ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
                 ) {
                     Column {
                         Text(
-                            text = "Spending Trends",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = selected?.detail ?: "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Monthly average: $currencySymbol ${String.format(Locale.US, "%,.2f", monthlyAvg)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
+                            text = "$currencySymbol ${String.format(Locale.US, "%,.2f", selected?.amount ?: 0.0)}",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-
-                    // Percentage Badge
-                    val badgeColor = if (isIncrease) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                    val badgeIcon = if (isIncrease) Icons.Default.TrendingUp else Icons.Default.TrendingDown
-
-                    Surface(
-                        color = badgeColor.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = badgeIcon,
-                                contentDescription = null,
-                                tint = badgeColor,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "${String.format(Locale.US, "%.1f", kotlin.math.abs(percentageDiff))}%",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = badgeColor
-                            )
-                        }
+                    if (selected != null && previous != null && previous.amount > 0) {
+                        val diff = (selected.amount - previous.amount) / previous.amount * 100
+                        TrendBadge(percentage = diff, suffix = "vs prev ${period.unit}")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    text = "${period.unit.replaceFirstChar { it.uppercase() }}ly average: $currencySymbol ${String.format(Locale.US, "%,.2f", average)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
 
-                // --- The Custom Chart ---
-                TrendChart(
-                    data = dataPoints,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    graphColor = MaterialTheme.colorScheme.primary,
-                    labels = labels
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (hasData) {
+                    TrendChart(
+                        data = points.map { it.amount.toFloat() },
+                        labels = points.map { it.label },
+                        selectedIndex = selectedIndex,
+                        onPointSelected = { selectedIndex = it },
+                        graphColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No spending in this period yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendPeriodToggle(selected: TrendPeriod, onSelected: (TrendPeriod) -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(2.dp)
+    ) {
+        TrendPeriod.entries.forEach { period ->
+            val isSelected = period == selected
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { onSelected(period) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = period.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -441,11 +479,39 @@ fun SpendingTrendsSection(monthlyData: List<MonthlyFinancials>, currencySymbol: 
 }
 
 @Composable
+private fun TrendBadge(percentage: Double, suffix: String) {
+    // More spending = error colour, less spending = primary colour
+    val isIncrease = percentage > 0
+    val badgeColor = if (isIncrease) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    Surface(color = badgeColor.copy(alpha = 0.1f), shape = RoundedCornerShape(6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Icon(
+                imageVector = if (isIncrease) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                contentDescription = null,
+                tint = badgeColor,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "${String.format(Locale.US, "%.1f", kotlin.math.abs(percentage))}% $suffix",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = badgeColor
+            )
+        }
+    }
+}
+
+@Composable
 fun TrendChart(
     data: List<Float>,
-    modifier: Modifier = Modifier,
+    labels: List<String>,
+    selectedIndex: Int,
+    onPointSelected: (Int) -> Unit,
     graphColor: Color,
-    labels: List<String>
+    modifier: Modifier = Modifier
 ) {
     if (data.isEmpty()) return
 
@@ -453,29 +519,43 @@ fun TrendChart(
     val surfaceColor = MaterialTheme.colorScheme.surface
     val dashedLineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
 
-    Canvas(modifier = modifier) {
+    // Animate the line in when the data set changes (e.g. switching weeks/months)
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(data) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(500))
+    }
+
+    Canvas(
+        modifier = modifier.pointerInput(data.size) {
+            detectTapGestures { offset ->
+                // Map the tap to the nearest point (same x layout as the drawing below)
+                val inset = 16.dp.toPx()
+                val spacing = (size.width - inset * 2) / (data.size - 1).coerceAtLeast(1)
+                val index = ((offset.x - inset) / spacing).roundToInt().coerceIn(0, data.lastIndex)
+                onPointSelected(index)
+            }
+        }
+    ) {
         val width = size.width
         val height = size.height
-        val chartHeight = height - 40.dp.toPx() // Leave room for text labels at bottom
+        val chartHeight = height - 28.dp.toPx() // room for x-axis labels
+        // Horizontal inset keeps the first/last point and label from being clipped at the edges
+        val inset = 16.dp.toPx()
+        val verticalPadding = 12.dp.toPx()
 
-        // 1. Data Normalization
-        val maxVal = data.maxOrNull() ?: 1f
-        val minVal = data.minOrNull() ?: 0f
-        val range = (maxVal - minVal).coerceAtLeast(1f)
+        // Scale from 0 so heights are honest (a min-based scale exaggerates small changes)
+        val maxVal = (data.maxOrNull() ?: 0f).coerceAtLeast(1f)
 
-        // Helper to get Y coordinate (inverted because Canvas Y=0 is top)
         fun getY(value: Float): Float {
-            val normalized = (value - minVal) / range
-            val verticalPadding = 20.dp.toPx()
-            val availableHeight = chartHeight - (verticalPadding * 2)
-            return chartHeight - (normalized * availableHeight) - verticalPadding
+            val availableHeight = chartHeight - verticalPadding * 2
+            return chartHeight - verticalPadding - (value / maxVal) * availableHeight * progress.value
         }
 
-        // Helper to get X coordinate
-        val spacingX = width / (data.size - 1).coerceAtLeast(1)
-        fun getX(index: Int): Float = index * spacingX
+        val spacingX = (width - inset * 2) / (data.size - 1).coerceAtLeast(1)
+        fun getX(index: Int): Float = if (data.size == 1) width / 2 else inset + index * spacingX
 
-        // 2. Draw Dashed Horizontal Grid Lines
+        // 1. Dashed horizontal grid lines
         val gridLines = 3
         val gridPathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
         for (i in 0..gridLines) {
@@ -489,112 +569,73 @@ fun TrendChart(
             )
         }
 
-        // 3. Create Smooth Bezier Path
-        val path = Path()
-        val fillPath = Path()
-
-        if (data.isNotEmpty()) {
-            val firstX = getX(0)
-            val firstY = getY(data[0])
-            path.moveTo(firstX, firstY)
-            fillPath.moveTo(firstX, firstY)
-
-            for (i in 0 until data.size - 1) {
-                val x1 = getX(i)
-                val y1 = getY(data[i])
-                val x2 = getX(i + 1)
-                val y2 = getY(data[i + 1])
-
-                val cx1 = (x1 + x2) / 2
-                val cy1 = y1
-                val cx2 = (x1 + x2) / 2
-                val cy2 = y2
-
-                path.cubicTo(cx1, cy1, cx2, cy2, x2, y2)
-                fillPath.cubicTo(cx1, cy1, cx2, cy2, x2, y2)
-            }
-
-            // Close fill path
-            fillPath.lineTo(getX(data.size - 1), chartHeight)
-            fillPath.lineTo(getX(0), chartHeight)
-            fillPath.close()
+        // 2. Guide line for the selected period
+        if (selectedIndex in data.indices) {
+            drawLine(
+                color = graphColor.copy(alpha = 0.25f),
+                start = Offset(getX(selectedIndex), 0f),
+                end = Offset(getX(selectedIndex), chartHeight),
+                strokeWidth = 2.dp.toPx()
+            )
         }
 
-        // 4. Draw Gradient Fill
+        // 3. Smooth bezier path + gradient fill
+        val path = Path()
+        val fillPath = Path()
+        path.moveTo(getX(0), getY(data[0]))
+        fillPath.moveTo(getX(0), getY(data[0]))
+        for (i in 0 until data.size - 1) {
+            val x1 = getX(i)
+            val y1 = getY(data[i])
+            val x2 = getX(i + 1)
+            val y2 = getY(data[i + 1])
+            val cx = (x1 + x2) / 2
+            path.cubicTo(cx, y1, cx, y2, x2, y2)
+            fillPath.cubicTo(cx, y1, cx, y2, x2, y2)
+        }
+        fillPath.lineTo(getX(data.lastIndex), chartHeight)
+        fillPath.lineTo(getX(0), chartHeight)
+        fillPath.close()
+
         drawPath(
             path = fillPath,
             brush = Brush.verticalGradient(
-                colors = listOf(
-                    graphColor.copy(alpha = 0.3f),
-                    graphColor.copy(alpha = 0.0f)
-                ),
+                colors = listOf(graphColor.copy(alpha = 0.3f), graphColor.copy(alpha = 0.0f)),
                 startY = 0f,
                 endY = chartHeight
             )
         )
-
-        // 5. Draw Line Stroke
         drawPath(
             path = path,
             color = graphColor,
-            style = Stroke(
-                width = 4.dp.toPx(),
-                cap = StrokeCap.Round
-            )
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
         )
 
-        // 6. Draw Hollow Points
+        // 4. Points (the selected one is filled and larger)
         data.forEachIndexed { index, value ->
-            val x = getX(index)
-            val y = getY(value)
-            val radius = 6.dp.toPx()
-            val strokeWidth = 3.dp.toPx()
-
-            // Draw circle background
-            drawCircle(
-                color = surfaceColor,
-                radius = radius,
-                center = Offset(x, y)
-            )
-            // Draw circle border
+            val center = Offset(getX(index), getY(value))
+            val isSelected = index == selectedIndex
+            val radius = if (isSelected) 7.dp.toPx() else 5.dp.toPx()
+            drawCircle(color = surfaceColor, radius = radius, center = center)
             drawCircle(
                 color = graphColor,
                 radius = radius,
-                center = Offset(x, y),
-                style = Stroke(width = strokeWidth)
-            )
-            // Draw inner fill
-            drawCircle(
-                color = surfaceColor,
-                radius = radius - strokeWidth,
-                center = Offset(x, y),
-                style = Fill
+                center = center,
+                style = if (isSelected) Fill else Stroke(width = 2.5.dp.toPx())
             )
         }
 
-        // 7. Draw Text Labels
+        // 5. X-axis labels (selected label emphasised)
         val textPaint = Paint().apply {
-            color = onSurface.copy(alpha = 0.6f).toArgb()
             textSize = 10.sp.toPx()
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
         }
-
-        val labelSpacing = width / (labels.size - 1).coerceAtLeast(1)
         labels.forEachIndexed { index, label ->
-            val x = index * labelSpacing
-            val adjustedX = when(index) {
-                0 -> x + 10.dp.toPx()
-                labels.lastIndex -> x - 10.dp.toPx()
-                else -> x
-            }
-
-            drawContext.canvas.nativeCanvas.drawText(
-                label,
-                adjustedX,
-                height,
-                textPaint
-            )
+            val isSelected = index == selectedIndex
+            textPaint.color = (if (isSelected) graphColor else onSurface.copy(alpha = 0.6f)).toArgb()
+            textPaint.isFakeBoldText = isSelected
+            drawContext.canvas.nativeCanvas.drawText(label, getX(index), height - 4.dp.toPx(), textPaint)
         }
     }
 }
