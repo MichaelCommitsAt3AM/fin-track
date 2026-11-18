@@ -1,6 +1,7 @@
 # FinTrack bug and code-quality audit
 
 Audited on 2026-11-18 at commit `0d0a9c0`: `f1845df` plus the previous session's uncommitted work (stale-tree removal, `SpendingPeriods`, weekly card, CI).
+Line numbers refer to that audited commit; later fix commits on this branch shift some of them.
 Paths are relative to `app/src/main/java/com/fintrack/app/` unless they start with `app/` or name a flavour (`personal/…`, `test/…`).
 
 Severity scale:
@@ -26,6 +27,7 @@ The **Status** column records what this branch did about each finding.
 | H5 | High | Sync | Recurring transactions: Firestore doc id ≠ Room id, so deletes resurrect and sync duplicates rows | Open |
 | H6 | High | Correctness | M-Pesa parser: wrong merchant names and account numbers (3 failing tests) | **Fixed** |
 | H7 | High | Correctness | Decryption failure becomes `"[Error: Decryption Failed]"` / `0.0`, gets stored as synced data and re-uploaded | Open |
+| H8 | High | Sync | Manual sync calls a blocking Room query on Main, so the push silently never runs | **Fixed** |
 | M1 | Medium | Correctness | Transaction list pagination: first page 30, resets to 20; "All" merge truncates M-Pesa | **Fixed** |
 | M2 | Medium | Sync | Global sync timestamp isn't per user and isn't cleared on logout, so account B misses its old data | Open |
 | M3 | Medium | Sync | Incremental sync uses device clocks (`updatedAt > lastSync`), so clock skew drops updates | Open |
@@ -35,13 +37,14 @@ The **Status** column records what this branch did about each finding.
 | M7 | Medium | Perf | View models load every transaction with `getAllTransactionsPaged(Int.MAX_VALUE)` and filter in memory | Open |
 | M8 | Medium | Correctness | `Calendar` month bounds end at `23:59:59.000`; month/week captured once per view model | Open |
 | M9 | Medium | Sync | Sync errors are swallowed, so `TransactionSyncWorker` always returns success | Open |
-| M10 | Medium | Tests | `MonthlyMpesaCostWorkerTest` NPEs (worker constructed directly) | **Fixed** |
+| M10 | Medium | Tests | `MonthlyMpesaCostWorkerTest` NPEs (worker constructed directly); personal-only tests break the store test build | **Fixed** |
 | L1 | Low | Security | Logging: user IDs and amounts in `Log.d`/`Log.e`; mixed `Log` and `AppLogger` | Open |
 | L2 | Low | Arch | Category icon and colour mapping duplicated in ~17 places | Open |
 | L3 | Low | Arch | Stringly-typed filters (`"All"`, `"Income"`, `"M-Pesa"`) | Open |
 | L4 | Low | Arch | ~94 inline fully-qualified names | Open |
 | L5 | Low | Correctness | Budget "spent" subtracts income in the same category | Open |
 | L6 | Low | Perf | `SimpleDateFormat` allocated per row; "Yesterday" computed as `now - 86400000` | Open |
+| L7 | Low | Correctness | Paybill parser is skipped for any SMS containing "till" as a substring | Open |
 
 ---
 
@@ -106,6 +109,12 @@ The **Status** column records what this branch did about each finding.
 - **Failure scenario:** after C2's key mix-up, a sync stores every transaction as 0.0. If the user then edits one, the corrupt values are re-encrypted with the current key and uploaded over the original ciphertext, which permanently destroys the cloud copy.
 - **Fix (open):** throw a typed `DecryptionException`. In sync, skip that document, leave the local row untouched and surface a "some items couldn't be decrypted" state. Never write placeholder values back.
 
+### H8. Manual sync runs a blocking Room query on the main thread
+- `core/data/local/dao/TransactionDao.kt:84`: `getUnsyncedTransactions` was a non-`suspend` DAO method.
+- `HomeViewModel.kt:289-292` calls `syncUnsyncedTransactions()` from `viewModelScope`, which runs on `Dispatchers.Main`.
+- **Failure scenario:** Room throws `IllegalStateException: Cannot access database on the main thread`. The repository's `catch` logs and swallows it, so pull-to-sync shows "Success" while nothing is uploaded. Only the WorkManager path, which runs off Main, ever pushed.
+- **Fix (done):** made it `suspend`, so Room moves it off the main thread.
+
 ## Medium
 
 ### M1. Transaction list pagination is inconsistent
@@ -157,6 +166,7 @@ The **Status** column records what this branch did about each finding.
 ### M10. `MonthlyMpesaCostWorkerTest` constructs a `CoroutineWorker` directly
 - `test/…/MonthlyMpesaCostWorkerTest.kt` passed a mocked `WorkerParameters`. `CoroutineWorker`'s initialiser dereferences `taskExecutor`, causing 4 NPEs.
 - **Fix (done):** build through `TestListenableWorkerBuilder` with a custom `WorkerFactory` injecting the fakes.
+- Also, `MpesaSmsParserTest` and `MonthlyMpesaCostWorkerTest` lived in the shared `src/test` but reference personal-only classes, so `testStoreDebugUnitTest` didn't compile. They now live in `src/testPersonal`.
 
 ## Low
 
@@ -184,6 +194,9 @@ About 94 occurrences, for example `kotlinx.coroutines.flow.flowOf` throughout `T
 
 ### L6. Date grouping
 `TransactionListViewModel.kt:335-347` allocates two `SimpleDateFormat`s per row, and "Yesterday" is `now - 86400000`, which is wrong on DST-transition days. Use `LocalDate` comparisons with a single cached `DateTimeFormatter`.
+
+### L7. "till" substring check
+`personal/…/MpesaSmsParser.kt` (`parsePaybill`) returns early when the SMS contains "till" anywhere, so a paybill to, say, "DISTILLERS LTD" is misclassified. Match `till` (or "till number") instead.
 
 ---
 
