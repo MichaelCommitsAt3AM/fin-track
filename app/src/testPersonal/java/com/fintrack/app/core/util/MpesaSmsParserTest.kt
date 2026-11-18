@@ -91,4 +91,35 @@ class MpesaSmsParserTest {
              println("Parsed Buy Goods: $result")
          }
     }
+
+    @Test
+    fun `sent money to multi-word name without phone number keeps full name`() {
+        val sms = "QK87ABCD18 Confirmed. Ksh2,500.00 sent to EQUITY BANK LTD on 3/2/26 at 9:15 AM. New M-PESA balance is Ksh1,000.00."
+        val result = parser.parseSms(sms)!!
+
+        assertEquals(MpesaTransactionType.SEND_MONEY, result.transactionType)
+        assertEquals("EQUITY BANK LTD", result.merchantName)
+        assertNull(result.phoneNumber)
+    }
+
+    @Test
+    fun `sent to business for account is classified as paybill with account number`() {
+        val sms = "QK87ABCD19 Confirmed. Ksh1,200.00 sent to KPLC PREPAID for account 54321098765 on 4/2/26 at 8:00 PM New M-PESA balance is Ksh300.00. Transaction cost, Ksh0.00."
+        val result = parser.parseSms(sms)!!
+
+        assertEquals(MpesaTransactionType.PAYBILL, result.transactionType)
+        assertEquals("KPLC PREPAID", result.merchantName)
+        assertEquals("54321098765", result.accountNumber)
+        assertNull(result.phoneNumber)
+    }
+
+    @Test
+    fun `buy goods with business name only`() {
+        val sms = "QK87ABCD17 Confirmed. Ksh150.00 paid to NAIVAS SUPERMARKET. on 21/1/26 at 12:30 PM."
+        val result = parser.parseSms(sms)!!
+
+        assertEquals(150.0, result.amount, 0.01)
+        assertEquals("NAIVAS SUPERMARKET", result.merchantName)
+        assertNull(result.accountNumber)
+    }
 }

@@ -18,9 +18,17 @@ class MpesaSmsParser(
 
         // Regex patterns for different transaction types
 
-        // 1. SENT MONEY - handles both regular sends and agent transactions
+        // 1. SENT MONEY - handles both regular sends and agent transactions.
+        // The name runs up to an optional phone number (9+ digits) followed by "on <date>".
+        // Anchoring on the date stops the lazy name group from ending at the first space.
         private val SENT_MONEY_PATTERN = Regex(
-            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+(.+?)\s+(\d+)?.*?on\s+([\d/]+)""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+sent\s+to\s+(.+?)(?:\s+(\+?\d{9,13}))?\.?\s+on\s+(\d{1,2}/\d{1,2}/\d{2,4})""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // "sent to KPLC PREPAID for account 123456" is how Safaricom words paybill payments
+        private val FOR_ACCOUNT_SUFFIX = Regex(
+            """\s+for\s+account\s+(\S+?)\.?$""",
             RegexOption.IGNORE_CASE
         )
 
@@ -41,9 +49,22 @@ class MpesaSmsParser(
             RegexOption.IGNORE_CASE
         )
 
-        // 3. PAYBILL - more flexible matching
+        // 3. PAYBILL - everything between "paid to" and "on <date>" is the payee segment,
+        // which is then split into name / paybill number / account number.
         private val PAYBILL_PATTERN = Regex(
-            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+to\s+(.+?)\.?\s+(?:for\s+account\s+|account\s+)?([^\s.]+?)?\s+on""",
+            """(?i)confirmed\.?\s*ksh\.?\s*([\d,]+\.?\d*)\s+paid\s+to\s+(.+?)\s+on\s+\d{1,2}/\d{1,2}/\d{2,4}""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Trailing ", account number 12345" / " for account 12345" / " account no. 12345"
+        private val ACCOUNT_SUFFIX = Regex(
+            """[\s,.]*(?:for\s+)?account\s+(?:number\s+|no\.?\s+)?([^\s,]+?)[.,]?$""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Trailing ". Paybill 888880" after a business name
+        private val PAYBILL_SUFFIX = Regex(
+            """[\s,.]+paybill\s+\d+$""",
             RegexOption.IGNORE_CASE
         )
 
@@ -174,9 +195,15 @@ class MpesaSmsParser(
 
         val amount = parseAmount(match.groupValues[1])
         val rawName = match.groupValues[2]
-        val merchantName = rawName.cleanMerchantName()
+        val trailingNumber = match.groupValues[3].trim()
+        // A long account number ("for account 54321098765") is captured as the phone group,
+        // so look for the "for account" suffix across name + number together.
+        val nameAndNumber = if (trailingNumber.isEmpty()) rawName else "$rawName $trailingNumber"
+        val accountMatch = FOR_ACCOUNT_SUFFIX.find(nameAndNumber)
+        val merchantName = (accountMatch?.let { nameAndNumber.substring(0, it.range.first) } ?: rawName)
+            .cleanMerchantName()
 
-        val phoneNumber = match.groupValues.getOrNull(3)?.trim()
+        val phoneNumber = if (accountMatch == null) trailingNumber.ifEmpty { null } else null
         val receipt = extractReceipt(smsBody)
         val transactionCost = extractTransactionCost(smsBody)
         val newBalance = extractBalance(smsBody)
@@ -186,8 +213,10 @@ class MpesaSmsParser(
             mpesaReceiptNumber = receipt ?: "UNKNOWN",
             amount = amount,
             type = TransactionType.EXPENSE,
-            transactionType = MpesaTransactionType.SEND_MONEY,
+            // "sent to X for account N" is a paybill payment, not a person-to-person send
+            transactionType = if (accountMatch != null) MpesaTransactionType.PAYBILL else MpesaTransactionType.SEND_MONEY,
             merchantName = merchantName,
+            accountNumber = accountMatch?.groupValues?.get(1),
             phoneNumber = phoneNumber,
             transactionCost = transactionCost,
             newBalance = newBalance,
@@ -301,10 +330,17 @@ class MpesaSmsParser(
         val match = PAYBILL_PATTERN.find(smsBody) ?: return null
 
         val amount = parseAmount(match.groupValues[1])
-        val rawMerchant = match.groupValues[2]
-        val merchantName = rawMerchant.cleanMerchantName()
+        var payee = match.groupValues[2].trim()
 
-        val accountNumber = match.groupValues.getOrNull(3)?.trim()
+        val accountMatch = ACCOUNT_SUFFIX.find(payee)
+        val accountNumber = accountMatch?.groupValues?.get(1)
+        if (accountMatch != null) payee = payee.substring(0, accountMatch.range.first)
+
+        // "KPLC PREPAID. Paybill 888880" -> "KPLC PREPAID"; a bare "Paybill 400200" is kept as the name
+        val withoutPaybill = payee.replace(PAYBILL_SUFFIX, "")
+        if (withoutPaybill.isNotBlank()) payee = withoutPaybill
+
+        val merchantName = payee.cleanMerchantName()
 
         val receipt = extractReceipt(smsBody)
         val transactionCost = extractTransactionCost(smsBody)
