@@ -179,8 +179,9 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                     onPinVerified = { mainViewModel.setAppLocked(false) },
                                     onUseBiometrics = { showPinLock = false },
                                     onForgotPin = {
-                                        // Unlock to allow navigation to recovery flows
-                                        mainViewModel.setAppLocked(false)
+                                        // Signs out and clears the PIN before unlocking, so the
+                                        // user lands on Login instead of inside the account
+                                        mainViewModel.onForgotPin()
                                     },
                                     isBiometricAvailable = currentBiometricEnabled
                             )

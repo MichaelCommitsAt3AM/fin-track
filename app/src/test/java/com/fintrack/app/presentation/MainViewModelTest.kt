@@ -1,0 +1,74 @@
+package com.fintrack.app.presentation
+
+import com.fintrack.app.core.data.local.LocalAuthManager
+import com.fintrack.app.core.domain.repository.NetworkRepository
+import com.fintrack.app.core.security.EncryptionManager
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.mockito.kotlin.inOrder
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class MainViewModelTest {
+
+    private val auth: FirebaseAuth = mock()
+    private val localAuthManager: LocalAuthManager = mock()
+    private lateinit var viewModel: MainViewModel
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val network: NetworkRepository = mock()
+        whenever(network.observeNetworkConnectivity()).thenReturn(flowOf(true))
+        viewModel = MainViewModel(
+            networkRepository = network,
+            auth = auth,
+            firestore = mock<FirebaseFirestore>(),
+            encryptionManager = mock<EncryptionManager>(),
+            localAuthManager = localAuthManager
+        )
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `forgot PIN signs out and clears local auth before unlocking`() = runTest {
+        viewModel.setAppLocked(true)
+
+        viewModel.onForgotPin()
+
+        inOrder(auth, localAuthManager) {
+            verify(auth).signOut()
+            verify(localAuthManager).clearLocalAuth()
+        }
+        assertFalse(viewModel.isAppLocked.value)
+    }
+
+    @Test
+    fun `setAppLocked alone does not sign out`() = runTest {
+        viewModel.setAppLocked(true)
+        assertTrue(viewModel.isAppLocked.value)
+
+        viewModel.setAppLocked(false)
+
+        verify(auth, never()).signOut()
+    }
+}
