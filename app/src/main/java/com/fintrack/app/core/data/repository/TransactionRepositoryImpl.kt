@@ -13,6 +13,8 @@ import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.data.local.dao.RecurringTransactionDao
 import com.fintrack.app.core.data.local.model.RecurringTransactionEntity
 import com.fintrack.app.core.data.local.SyncTimestampManager
+import com.fintrack.app.core.data.sync.TransactionSyncMerge
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -127,8 +129,9 @@ class TransactionRepositoryImpl @Inject constructor(
             try {
                 getUserTransactionsCollection()
                     .document(transactionId)
-                    .update("deletedAt", currentTime)
+                    .set(TransactionSyncMerge.deletionPatch(currentTime), SetOptions.merge())
                     .await()
+                transactionDao.markAsSynced(transactionId)
                 Log.d("TransactionRepo", "Transaction deletion synced to Firestore: $transactionId")
             } catch (e: Exception) {
                 Log.e("TransactionRepo", "Error syncing deletion to Firestore (will retry later): ${e.message}")
@@ -212,8 +215,16 @@ class TransactionRepositoryImpl @Inject constructor(
 
                 Log.d("TransactionRepo", "Found ${snapshot.size()} changed transactions")
 
+                // Local changes not yet uploaded must not be overwritten by older cloud copies
+                val pendingLocal = transactionDao.getUnsyncedTransactions(userId).associateBy { it.id }
+
                 val entities = snapshot.documents.mapNotNull { doc ->
                     try {
+                        if (!TransactionSyncMerge.shouldApplyRemote(pendingLocal[doc.id], doc.getLong("updatedAt"))) {
+                            Log.d("TransactionRepo", "Keeping pending local change for ${doc.id}")
+                            return@mapNotNull null
+                        }
+
                         val deletedAt = doc.getLong("deletedAt")
                         
                         // If transaction is marked as deleted, delete it locally
@@ -407,7 +418,7 @@ class TransactionRepositoryImpl @Inject constructor(
                         // For deleted transactions, just update the deletedAt field
                         getUserTransactionsCollection()
                             .document(entity.id)
-                            .update("deletedAt", entity.deletedAt)
+                            .set(TransactionSyncMerge.deletionPatch(entity.deletedAt), SetOptions.merge())
                             .await()
                         Log.d("TransactionRepo", "Synced deletion for transaction: ${entity.id}")
                     } else {

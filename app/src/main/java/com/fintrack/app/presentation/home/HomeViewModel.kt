@@ -287,8 +287,10 @@ class HomeViewModel @Inject constructor(
                 // Optional: Add a minimum delay here if the network is too fast
                 // so the spinner doesn't just "flicker" for 10ms.
                 val syncJob = launch {
-                    transactionRepository.syncTransactionsFromCloud()
+                    // Push first: local edits made offline must reach the cloud before we pull,
+                    // otherwise the pull would treat the cloud copy as current
                     transactionRepository.syncUnsyncedTransactions()
+                    transactionRepository.syncTransactionsFromCloud()
                 }
                 // Ensure the spinner shows for at least 500ms even if net is instant
                 delay(500)
