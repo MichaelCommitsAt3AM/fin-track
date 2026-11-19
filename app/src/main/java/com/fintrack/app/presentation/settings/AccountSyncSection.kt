@@ -1,26 +1,25 @@
 package com.fintrack.app.presentation.settings
 
+import com.fintrack.app.core.ui.components.SheetTone
+import com.fintrack.app.core.ui.components.SheetActionKind
+import com.fintrack.app.core.ui.components.SheetAction
+import com.fintrack.app.core.ui.components.SettingsRowDivider
+import com.fintrack.app.core.ui.components.SettingsDetailItem
+import com.fintrack.app.core.ui.components.DetailTrailing
+import com.fintrack.app.core.ui.components.AppActionSheet
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.automirrored.filled.Login
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.fintrack.app.core.profile.AccountMode
@@ -69,153 +67,109 @@ fun AccountSyncSection(
 
     val deleteState by viewModel.deleteState.collectAsState()
     if (showSyncOffDialog) {
-        SyncOffDialog(
-            onKeepCloud = {
-                showSyncOffDialog = false
-                viewModel.disableSyncKeepCloud()
-            },
-            onDeleteCloud = {
-                showSyncOffDialog = false
-                viewModel.disableSyncAndDeleteCloud()
-            },
-            onDismiss = { showSyncOffDialog = false }
+        AppActionSheet(
+            title = "Turn off Cloud sync?",
+            icon = Icons.Default.CloudOff,
+            heading = "Your phone keeps its data",
+            message = "FinTrack will stop uploading and downloading. The data on this phone stays " +
+                "here either way. Keep your cloud copy so you can turn sync back on later, or " +
+                "delete it from the cloud.",
+            onDismiss = { showSyncOffDialog = false },
+            actions = listOf(
+                SheetAction("Keep my cloud copy") {
+                    showSyncOffDialog = false
+                    viewModel.disableSyncKeepCloud()
+                },
+                SheetAction("Delete my cloud data", SheetActionKind.DANGER) {
+                    showSyncOffDialog = false
+                    viewModel.disableSyncAndDeleteCloud()
+                },
+                SheetAction("Cancel", SheetActionKind.TEXT) { showSyncOffDialog = false }
+            )
         )
     }
     when (val d = deleteState) {
-        is DeleteState.Running -> AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Deleting your cloud data") },
-            text = {
-                Column {
-                    androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(12.dp))
-                    Text(d.step)
-                }
-            },
-            confirmButton = {}
-        )
-        is DeleteState.Failed -> AlertDialog(
-            onDismissRequest = { viewModel.dismissDeleteState() },
-            title = { Text("Could not delete") },
-            text = { Text(d.message) },
-            confirmButton = { TextButton(onClick = { viewModel.disableSyncAndDeleteCloud() }) { Text("Try again") } },
-            dismissButton = { TextButton(onClick = { viewModel.dismissDeleteState() }) { Text("Close") } }
+        is DeleteState.Running -> AppActionSheet(
+            title = "Deleting your cloud data",
+            icon = Icons.Default.CloudOff,
+            heading = d.step,
+            onDismiss = {},
+            dismissible = false,
+            actions = emptyList()
+        ) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        is DeleteState.Failed -> AppActionSheet(
+            title = "Couldn't delete",
+            icon = Icons.Default.ErrorOutline,
+            heading = "Your cloud data wasn't deleted",
+            message = d.message,
+            tone = SheetTone.DANGER,
+            onDismiss = { viewModel.dismissDeleteState() },
+            actions = listOf(
+                SheetAction("Close", SheetActionKind.SECONDARY) { viewModel.dismissDeleteState() },
+                SheetAction("Try again") { viewModel.disableSyncAndDeleteCloud() }
+            )
         )
         DeleteState.Idle -> {}
     }
 
     when (profile.mode) {
         AccountMode.LOCAL_ONLY -> SettingsSection(title = "Account & sync") {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Back up your data", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Your data is stored only on this phone. Create an account to keep it safe " +
-                            "if you lose or replace your phone.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { navController.navigate(AppRoutes.Register.route) }) {
-                            Text("Create account")
-                        }
-                        OutlinedButton(onClick = { navController.navigate(AppRoutes.Login.route) }) {
-                            Text("Sign in")
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = { viewModel.exportTransactionsCsv() }) {
-                        androidx.compose.material3.Icon(Icons.Default.FileDownload, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Export my transactions (CSV)")
-                    }
-                }
-            }
+            SettingsDetailItem(
+                icon = Icons.Default.PhoneAndroid,
+                title = "Stored on this phone only",
+                subtitle = "Create an account to keep your data safe if you lose or replace your phone",
+                trailing = DetailTrailing.None
+            )
+            SettingsRowDivider()
+            SettingsDetailItem(
+                icon = Icons.Default.PersonAdd,
+                title = "Create account",
+                onClick = { navController.navigate(AppRoutes.Register.route) }
+            )
+            SettingsRowDivider()
+            SettingsDetailItem(
+                icon = Icons.AutoMirrored.Filled.Login,
+                title = "Sign in",
+                onClick = { navController.navigate(AppRoutes.Login.route) }
+            )
+            SettingsRowDivider()
+            SettingsDetailItem(
+                icon = Icons.Default.FileDownload,
+                title = "Export my transactions",
+                subtitle = "Save a CSV copy",
+                onClick = { viewModel.exportTransactionsCsv() }
+            )
         }
 
         AccountMode.ACCOUNT -> SettingsSection(title = "Account & sync") {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    if (viewModel.email.isNotBlank()) {
-                        Text(viewModel.email, style = MaterialTheme.typography.bodyLarge)
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            androidx.compose.material3.Icon(Icons.Default.CloudSync, contentDescription = null)
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text("Cloud sync", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    if (profile.cloudSyncEnabled) "Your data is backed up and synced"
-                                    else "Off: your data stays on this phone",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        androidx.compose.material3.Switch(
-                            checked = profile.cloudSyncEnabled,
-                            onCheckedChange = { on ->
-                                if (on) viewModel.enableSync() else showSyncOffDialog = true
-                            }
-                        )
-                    }
-                    when (val t = transfer) {
-                        is CloudTransferState.Running -> {
-                            Spacer(Modifier.height(8.dp))
-                            Text("Syncing your data...", style = MaterialTheme.typography.bodySmall)
-                        }
-                        is CloudTransferState.Failed -> {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "Sync problem: ${t.message}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        else -> {}
-                    }
-                }
+            if (viewModel.email.isNotBlank()) {
+                SettingsDetailItem(
+                    icon = Icons.Default.AccountCircle,
+                    title = viewModel.email,
+                    subtitle = "Signed in",
+                    trailing = DetailTrailing.None
+                )
+                SettingsRowDivider()
             }
+            val syncSubtitle = when (val t = transfer) {
+                is CloudTransferState.Running -> "Syncing your data..."
+                is CloudTransferState.Failed -> "Sync problem: ${t.message}"
+                else -> if (profile.cloudSyncEnabled) "Your data is backed up and synced"
+                else "Off: your data stays on this phone"
+            }
+            SettingsDetailItem(
+                icon = Icons.Default.CloudSync,
+                title = "Cloud sync",
+                subtitle = syncSubtitle,
+                trailing = DetailTrailing.Toggle(
+                    checked = profile.cloudSyncEnabled,
+                    onCheckedChange = { on -> if (on) viewModel.enableSync() else showSyncOffDialog = true }
+                )
+            )
         }
 
         AccountMode.NONE -> {}
     }
-}
-
-@Composable
-private fun SyncOffDialog(onKeepCloud: () -> Unit, onDeleteCloud: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Turn off Cloud sync?") },
-        text = {
-            Text(
-                "FinTrack will stop uploading and downloading. The data on this phone stays here " +
-                    "either way. You can keep your cloud copy (so you can turn sync back on later) " +
-                    "or delete it from the cloud."
-            )
-        },
-        confirmButton = { TextButton(onClick = onKeepCloud) { Text("Keep my cloud copy") } },
-        dismissButton = {
-            Column {
-                TextButton(onClick = onDeleteCloud) {
-                    Text("Delete my cloud data", color = MaterialTheme.colorScheme.error)
-                }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
-            }
-        }
-    )
 }

@@ -1,13 +1,17 @@
 package com.fintrack.app.presentation.auth.pin
 
+import com.fintrack.app.core.ui.components.SheetTone
+import com.fintrack.app.core.ui.components.SheetActionKind
+import com.fintrack.app.core.ui.components.SheetAction
+import com.fintrack.app.core.ui.components.AppActionSheet
+import androidx.compose.material.icons.filled.LockReset
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.Icons
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -119,50 +123,37 @@ fun LocalForgotPinDialog(
     }
 
     if (confirmErase) {
-        AlertDialog(
-            onDismissRequest = { confirmErase = false },
-            title = { Text("Erase all data?") },
-            text = {
-                Text(
-                    "This deletes every transaction, budget and setting stored on this phone. " +
-                        "It can't be undone, and there is no cloud copy to restore from."
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
+        AppActionSheet(
+            title = "Erase all data?",
+            icon = Icons.Default.DeleteForever,
+            heading = "This can't be undone",
+            message = "This deletes every transaction, budget and setting stored on this phone. " +
+                "There is no cloud copy to restore from.",
+            tone = SheetTone.DANGER,
+            onDismiss = { confirmErase = false },
+            actions = listOf(
+                SheetAction("Cancel", SheetActionKind.SECONDARY) { confirmErase = false },
+                SheetAction("Erase everything", SheetActionKind.DANGER) {
                     confirmErase = false
                     viewModel.eraseAndStartOver(onErased)
-                }) { Text("Erase everything") }
-            },
-            dismissButton = { TextButton(onClick = { confirmErase = false }) { Text("Cancel") } }
+                }
+            )
         )
         return
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Forgot your PIN?") },
-        text = {
-            Text(
-                "Your data is only on this phone and you have no account to sign in with, so " +
-                    "FinTrack can't unlock it for you. You can export your transactions first, then " +
-                    "erase the app's data and start over."
-            )
-        },
-        confirmButton = { TextButton(onClick = { authenticateThenExport() }) { Text("Export my data first") } },
-        dismissButton = {
-            Row2(
-                { TextButton(onClick = { confirmErase = true }) { Text("Erase this app's data and start over") } },
-                { TextButton(onClick = onDismiss) { Text("Back") } }
-            )
-        }
+    AppActionSheet(
+        title = "Forgot your PIN?",
+        icon = Icons.Default.LockReset,
+        heading = "No account to unlock with",
+        message = "Your data is only on this phone and you have no account to sign in with, so " +
+            "FinTrack can't unlock it for you. You can export your transactions first, then " +
+            "erase the app's data and start over.",
+        onDismiss = onDismiss,
+        actions = listOf(
+            SheetAction("Export my data first") { authenticateThenExport() },
+            SheetAction("Erase this app's data and start over", SheetActionKind.DANGER) { confirmErase = true },
+            SheetAction("Back", SheetActionKind.TEXT, onClick = onDismiss)
+        )
     )
-}
-
-@Composable
-private fun Row2(first: @Composable () -> Unit, second: @Composable () -> Unit) {
-    androidx.compose.foundation.layout.Column {
-        first()
-        second()
-    }
 }
