@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.settings
 
+import com.fintrack.app.core.ui.components.UserAvatar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -451,10 +452,9 @@ fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Image(
-            painter = painterResource(id = getAvatarResource(user?.avatarId ?: 1)),
+        UserAvatar(
+            avatarId = user?.avatarId ?: 1,
             contentDescription = "Profile Picture",
-            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)

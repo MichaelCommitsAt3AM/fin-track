@@ -109,6 +109,13 @@ fun NavGraph(
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
                 },
+                onNavigateAfterLocalProfile = {
+                    // Local-only users skip profile setup (name "User", no picture)
+                    val route = if (onboardingIntegration != null && onboardingIntegration.isEnabled) AppRoutes.MpesaOnboarding.route else AppRoutes.Setup.route
+                    navController.navigate(route) {
+                        popUpTo(AppRoutes.Login.route) { inclusive = true }
+                    }
+                },
                 onLinkCompleted = {
                     // Back to wherever the link flow was started from (Settings)
                     if (!navController.popBackStack(AppRoutes.Settings.route, inclusive = false)) {

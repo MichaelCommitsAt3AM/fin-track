@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.settings.profile
 
+import com.fintrack.app.core.ui.components.UserAvatar
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -135,10 +136,9 @@ fun ManageProfileScreen(
                 contentAlignment = Alignment.BottomEnd
             ) {
                 // Display current avatar using the SAFE helper function
-                Image(
-                    painter = painterResource(id = getAvatarResource(state.avatarId)),
+                UserAvatar(
+                    avatarId = state.avatarId,
                     contentDescription = "Profile Picture",
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(112.dp)
                         .clip(CircleShape)

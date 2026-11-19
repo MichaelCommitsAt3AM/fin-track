@@ -1,6 +1,7 @@
 package com.fintrack.app.presentation.home
 
 
+import com.fintrack.app.core.ui.components.UserAvatar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -152,12 +153,9 @@ fun HomeHeader(
         Row(verticalAlignment = Alignment.CenterVertically) {
 
             // Clickable avatar
-            Image(
-                painter = painterResource(
-                    id = com.fintrack.app.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
-                ),
+            UserAvatar(
+                avatarId = user?.avatarId ?: 1,
                 contentDescription = "User Avatar",
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
@@ -172,7 +170,7 @@ fun HomeHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = user?.fullName?.substringBefore(" ") ?: "Loading...",
+                    text = user?.let { u -> u.fullName.takeIf { it.isNotBlank() }?.substringBefore(" ") ?: "User" } ?: "Loading...",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -545,12 +543,9 @@ fun ProfileDrawerContent(
             ) {
                 // Large Avatar with border
                 Box {
-                    Image(
-                        painter = painterResource(
-                            id = com.fintrack.app.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
-                        ),
+                    UserAvatar(
+                        avatarId = user?.avatarId ?: 1,
                         contentDescription = "User Avatar Large",
-                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(96.dp)
                             .clip(CircleShape)
@@ -571,7 +566,7 @@ fun ProfileDrawerContent(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = user?.fullName ?: "User Name",
+                    text = user?.fullName?.takeIf { it.isNotBlank() } ?: "User",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface

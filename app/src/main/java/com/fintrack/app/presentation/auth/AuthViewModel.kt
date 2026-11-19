@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.auth
 
+import com.fintrack.app.core.ui.components.NO_AVATAR
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fintrack.app.BuildConfig
@@ -496,6 +497,11 @@ class AuthViewModel @Inject constructor(
 
     // ---------- Continue without an account ----------
 
+    private companion object LocalProfileDefaults {
+        /** Local-only users skip profile setup, so they get a generic name and no picture. */
+        const val DEFAULT_LOCAL_NAME = "User"
+    }
+
     fun continueWithoutAccount() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -505,10 +511,10 @@ class AuthViewModel @Inject constructor(
                 userRepository.createUser(
                     User(
                         userId = profileId,
-                        fullName = "",
+                        fullName = DEFAULT_LOCAL_NAME,
                         email = "",
                         phoneNumber = "",
-                        avatarId = 1,
+                        avatarId = NO_AVATAR,
                         createdAt = now,
                         updatedAt = now
                     )
@@ -516,7 +522,8 @@ class AuthViewModel @Inject constructor(
                 categoryRepository.initDefaultCategories()
                 paymentMethodRepository.initDefaultPaymentMethods()
                 _uiState.value = _uiState.value.copy(isLoading = false)
-                _authEventChannel.send(AuthEvent.NavigateToProfileSetup)
+                // No profile setup for local-only users: go straight to the flavor setup
+                _authEventChannel.send(AuthEvent.NavigateAfterLocalProfile)
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Error creating local profile", e)
                 _uiState.value = _uiState.value.copy(isLoading = false, error = "Could not set up the app: ${e.message}")
@@ -615,5 +622,7 @@ sealed class AuthEvent {
     object NavigateToEmailVerification : AuthEvent()
     object NavigateToSetup : AuthEvent()
     object NavigateToProfileSetup : AuthEvent()
+    /** Local-only profile created; skips profile setup. */
+    object NavigateAfterLocalProfile : AuthEvent()
     object LinkCompleted : AuthEvent()
 }
