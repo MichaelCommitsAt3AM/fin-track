@@ -24,7 +24,8 @@ class MpesaSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val mpesaRepository: MpesaTransactionRepository,
-    private val mpesaPreferences: MpesaOnboardingPreferences
+    private val mpesaPreferences: MpesaOnboardingPreferences,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
 ) : CoroutineWorker(appContext, workerParams) {
     
     companion object {
@@ -55,6 +56,7 @@ class MpesaSyncWorker @AssistedInject constructor(
             
             val count = mpesaRepository.getTransactionCount()
             Log.d(TAG, "M-Pesa sync completed successfully. Total transactions: $count")
+            backupScheduler.requestRun() // no-op unless Cloud backup is on
             
             Result.success()
             

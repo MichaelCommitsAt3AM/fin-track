@@ -7,8 +7,13 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-class MpesaWorkerScheduler @Inject constructor() : WorkerScheduler {
+class MpesaWorkerScheduler @Inject constructor(
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
+) : WorkerScheduler {
     override fun schedule(context: Context) {
+        // Daily encrypted M-Pesa backup (does nothing unless the user turned Cloud backup on)
+        backupScheduler.schedulePeriodic()
+
         val workManager = WorkManager.getInstance(context)
         
         // Schedule Monthly M-Pesa Cost Check (Daily check)

@@ -36,6 +36,7 @@ class MpesaSettingsViewModel @Inject constructor(
     private val categoryDao: CategoryDao,
     private val mpesaCategoryMappingDao: com.fintrack.app.core.data.local.dao.MpesaCategoryMappingDao,
     private val profileManager: ProfileManager,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -218,6 +219,7 @@ class MpesaSettingsViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 merchantCategoryDao.insertMapping(entity)
+                backupScheduler.requestRun() // no-op unless Cloud backup is on
                 
                 _mappingMessage.value = "Mapped $merchantName to $categoryName"
             } catch (e: Exception) {

@@ -36,7 +36,8 @@ class MpesaOnboardingViewModel @Inject constructor(
     private val userRepository: com.fintrack.app.core.domain.repository.UserRepository,
     private val transactionRepository: com.fintrack.app.core.domain.repository.TransactionRepository,
     private val budgetRepository: com.fintrack.app.core.domain.repository.BudgetRepository,
-    private val profileManager: com.fintrack.app.core.profile.ProfileManager
+    private val profileManager: com.fintrack.app.core.profile.ProfileManager,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
 ) : ViewModel() {
 
     // Cache transactions for debug logging in CategorySuggestionsStep
@@ -215,6 +216,7 @@ class MpesaOnboardingViewModel @Inject constructor(
                 }
             }
             mappingDao.insertAll(mappings)
+            backupScheduler.requestRun() // no-op unless Cloud backup is on
             
             // 3. Move to completion
             nextStep()

@@ -29,7 +29,8 @@ class SmsTransactionRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mpesaRepository: MpesaTransactionRepository,
     private val mappingDao: MpesaCategoryMappingDao,
-    private val merchantCategoryDao: com.fintrack.app.core.data.local.dao.MerchantCategoryDao
+    private val merchantCategoryDao: com.fintrack.app.core.data.local.dao.MerchantCategoryDao,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
 ) : ExternalTransactionRepository {
     
     override fun observeNewTransactions(): Flow<List<Transaction>> {
@@ -69,6 +70,7 @@ class SmsTransactionRepository @Inject constructor(
                 categoryName = categoryName
             )
         )
+        backupScheduler.requestRun() // no-op unless Cloud backup is on
     }
 
     private fun mapMpesaTransactions(
