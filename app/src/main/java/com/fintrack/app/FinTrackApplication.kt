@@ -24,6 +24,7 @@ class FinTrackApplication : Application(), Configuration.Provider {
     
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var workerScheduler: WorkerScheduler
+    @Inject lateinit var profileManager: com.fintrack.app.core.profile.ProfileManager
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -32,6 +33,9 @@ class FinTrackApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Load (and, on the first run after the update, migrate) the profile before any UI or
+        // worker needs profileId() in non-suspending code.
+        profileManager.profileId()
         scheduleWorkers()
     }
 
