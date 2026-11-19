@@ -23,4 +23,9 @@ class StoreTransactionRepository @Inject constructor() : ExternalTransactionRepo
     override fun getAllTransactions(): Flow<List<Transaction>> {
         return emptyFlow()
     }
+
+    override suspend fun setCategory(transactionId: String, categoryName: String) {
+        // The store build has no external transactions, so there's nothing to re-categorise
+        throw UnsupportedOperationException("External transactions aren't supported in the store build")
+    }
 }

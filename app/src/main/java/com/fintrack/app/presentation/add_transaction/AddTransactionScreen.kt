@@ -185,7 +185,7 @@ fun AddTransactionScreen(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "Only category and description can be edited",
+                                text = "Only the category can be changed",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

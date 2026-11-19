@@ -88,6 +88,11 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTransaction(transaction: Transaction) {
+        // External (M-Pesa) transactions aren't stored here and must never be uploaded to
+        // Firestore: they stay on the device. Use ExternalTransactionRepository.setCategory.
+        require(!com.fintrack.app.core.domain.repository.ExternalTransactionRepository.isExternalId(transaction.id)) {
+            "External transaction ${transaction.id} can't be saved as a manual transaction"
+        }
         // OFFLINE-FIRST: 1. Update locally first, mark as unsynced
         val updatedTransaction = transaction.copy(updatedAt = System.currentTimeMillis())
         val entityToUpdate = updatedTransaction.toEntity()
