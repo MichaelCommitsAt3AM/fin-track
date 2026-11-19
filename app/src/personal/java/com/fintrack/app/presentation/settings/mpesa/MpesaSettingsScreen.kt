@@ -72,8 +72,10 @@ import com.fintrack.app.presentation.settings.SettingsSection
 fun MpesaSettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToMerchantMapping: () -> Unit,
+    onNavigateToBackup: () -> Unit = {},
     viewModel: MpesaSettingsViewModel = hiltViewModel()
 ) {
+    val backupStatus by viewModel.backupStatus.collectAsState()
     val isRealTimeEnabled by viewModel.isRealTimeEnabled.collectAsState()
     val lookbackPeriod by viewModel.lookbackPeriod.collectAsState()
 
@@ -391,6 +393,22 @@ fun MpesaSettingsScreen(
                     title = "Merchant Categories",
                     trailingText = "Map merchants",
                     onClick = onNavigateToMerchantMapping
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Cloud backup (opt-in, end-to-end encrypted)
+            SettingsSection(title = "Backup") {
+                SettingsItem(
+                    icon = Icons.Default.Sync,
+                    title = "Cloud backup",
+                    trailingText = when {
+                        backupStatus.availability == com.fintrack.app.core.backup.BackupAvailability.NEEDS_ACCOUNT -> "Requires an account"
+                        backupStatus.enabled -> "On"
+                        else -> "Off"
+                    },
+                    onClick = onNavigateToBackup
                 )
             }
 

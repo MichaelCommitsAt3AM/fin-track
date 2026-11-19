@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivacyPolicyScreen(
+    // Flavor-specific extra sections (the personal edition adds its M-Pesa backup section)
+    extraSections: @Composable () -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     Scaffold(
@@ -59,12 +61,12 @@ fun PrivacyPolicyScreen(
 
             PrivacySection(
                 title = "1. Introduction",
-                content = "Welcome to FinTrack. We value your privacy above all else. We want to be absolutely clear: we do not use, sell, or analyze your personal data. The only reason your data is uploaded to our servers is to provide you with a backup and to allow you to seamlessly switch between devices without losing your information."
+                content = "Welcome to FinTrack. We value your privacy above all else. We want to be absolutely clear: we do not use, sell, or analyze your personal data. You can use FinTrack without an account, in which case your data stays on your phone. If you create an account and keep Cloud sync on, your data is uploaded only to give you a backup and to let you switch between devices without losing your information."
             )
 
             PrivacySection(
                 title = "2. Data We Collect",
-                content = "We collect the information you enter into the app (such as transactions, budgets, and goals) and your authentication details. This data is essential for the functionality of the app."
+                content = "The information you enter into the app (such as transactions, budgets, and goals) is stored on your phone. If you have an account and Cloud sync is on, it is also stored in the cloud together with your authentication details. Without an account, or with Cloud sync off, nothing is uploaded."
             )
 
             PrivacySection(
@@ -79,9 +81,11 @@ fun PrivacyPolicyScreen(
 
             PrivacySection(
                 title = "5. Your Legal Rights",
-                content = "You retain full ownership of your data. You have the right to request the deletion of your account and all associated data at any time."
+                content = "You retain full ownership of your data. When you turn Cloud sync off you can choose to delete your cloud copy; your data on the phone is not affected. You can also request the deletion of your account and all associated data at any time."
             )
             
+            extraSections()
+
             PrivacySection(
                 title = "6. Contact Us",
                 content = "If you have any questions about this privacy policy or our privacy practices, please contact us."
@@ -93,7 +97,7 @@ fun PrivacyPolicyScreen(
 }
 
 @Composable
-private fun PrivacySection(
+internal fun PrivacySection(
     title: String,
     content: String
 ) {

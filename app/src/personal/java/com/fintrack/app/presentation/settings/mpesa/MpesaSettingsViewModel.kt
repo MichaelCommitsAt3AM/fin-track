@@ -37,11 +37,14 @@ class MpesaSettingsViewModel @Inject constructor(
     private val mpesaCategoryMappingDao: com.fintrack.app.core.data.local.dao.MpesaCategoryMappingDao,
     private val profileManager: ProfileManager,
     private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler,
+    backupManager: com.fintrack.app.core.backup.MpesaBackupManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val workManager = WorkManager.getInstance(context)
     private val currentUserId get() = profileManager.profileId() ?: ""
+
+    val backupStatus = backupManager.status
 
     // --- Configuration States ---
     val isRealTimeEnabled = mpesaPreferences.isRealTimeEnabled

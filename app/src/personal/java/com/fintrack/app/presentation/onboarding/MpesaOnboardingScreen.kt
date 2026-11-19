@@ -25,7 +25,20 @@ fun MpesaOnboardingScreen(
     viewModel: MpesaOnboardingViewModel = hiltViewModel()
 ) {
     val currentStep by viewModel.currentStep.collectAsState()
-    
+
+    // New phone, signed in to an account that has an M-Pesa backup: offer to restore it
+    val backupViewModel: com.fintrack.app.presentation.settings.mpesa.MpesaBackupViewModel = hiltViewModel()
+    val backupUi by backupViewModel.ui.collectAsState()
+    var offerDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { backupViewModel.refresh() }
+    val showOffer = backupUi.restoreOffer || backupUi.restoreResult != null || backupUi.restoreProgress != null
+    if (currentStep == OnboardingStep.Welcome && showOffer && !offerDismissed) {
+        com.fintrack.app.presentation.settings.mpesa.RestoreDialog(
+            viewModel = backupViewModel,
+            onDismiss = { offerDismissed = true }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0.dp)

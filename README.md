@@ -15,7 +15,8 @@ You can download the latest version of the app from the [GitHub Releases](https:
 
 ### 📡 Offline-First Access
 - **Full Offline Support**: Continue adding transactions, goals, and debts even without internet.
-- **Background Sync**: Data automatically syncs with the cloud (Firestore) as soon as you're back online using WorkManager.
+- **Background Sync**: With an account and Cloud sync on, data automatically syncs with the cloud (Firestore) as soon as you're back online using WorkManager.
+- **Optional Account**: Use FinTrack without an account (data stays on your phone), create one later without losing anything, and turn Cloud sync off any time, optionally deleting your cloud copy.
 - **Local Persistence**: Powered by Room Database for instant load times.
 
 ### 💸 Financial Tracking
@@ -51,7 +52,7 @@ FinTrack comes in two distinct flavors to cater to different user needs:
 The standard version of FinTrack designed for general distribution.
 - **Manual Tracking**: Full manual control over income and expense logging.
 - **Privacy First**: No integration with external banking or SMS services.
-- **Cloud Sync**: Optional cloud synchronization for cross-device access.
+- **Cloud Sync**: Optional cloud synchronization for cross-device access (needs an account; can be switched off).
 
 ### 👤 Personal Flavor (M-Pesa Integration)
 An enhanced version built for automated financial tracking via M-Pesa, with a strict focus on privacy.
@@ -63,8 +64,9 @@ An enhanced version built for automated financial tracking via M-Pesa, with a st
     - **Merchant Insights**: Detailed analytics on where you spend the most (e.g., Safaricom, Restaurants).
 
 - **🔒 Privacy & Security (Critical)**:
-    - **100% On-Device Processing**: M-Pesa SMS messages and transaction data are **NEVER** sent to the cloud.
-    - **Local-Only Analytics**: All parsing, categorization, and insight generation happens locally on your phone.
+    - **On-Device Processing**: M-Pesa SMS messages are read and parsed on your phone and the SMS text is **never** uploaded. M-Pesa transactions are **never uploaded unless you turn on Cloud backup**, and then only end-to-end encrypted with a passphrase only you know (see below).
+    - **Optional Encrypted Cloud Backup** (off by default, needs an account): backs up the parsed fields (receipt number, amount, date, type, merchant, paybill/till/account number, cost) and your category choices, so your history survives a lost phone. The SMS text, balances and phone numbers are never included. The key is derived from your passphrase (PBKDF2-SHA256), so FinTrack cannot read the backup, and **if you forget the passphrase it cannot be restored**.
+    - **Local Analytics**: All parsing, categorization, and insight generation happens locally on your phone.
     - **No External Access**: The app treats financial SMS data as sensitive and does not share it with any third-party servers, ensuring your financial privacy remains intact.
 
 ## 🛠️ Tech Stack

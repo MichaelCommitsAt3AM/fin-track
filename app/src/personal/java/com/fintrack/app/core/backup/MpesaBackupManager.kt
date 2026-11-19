@@ -292,6 +292,128 @@ class MpesaBackupManager @Inject constructor(
         return items
     }
 
+    // ---------------------------------------------------------------- restore
+
+    /**
+     * Restores the M-Pesa history and category choices from the cloud backup into this phone.
+     * Only receipts that are not already in the local database are inserted (existing rows and
+     * category choices always win). Restored rows have no SMS text. On success the backup is
+     * switched on for this phone so it keeps itself up to date.
+     *
+     * @param onProgress (processed, total or null) records so far
+     * @throws WrongPassphraseException when the passphrase does not open the backup
+     * @throws NoBackupException when the account has no backup
+     */
+    suspend fun restore(passphrase: CharArray, onProgress: (Int, Int?) -> Unit = { _, _ -> }): RestoreResult {
+        val uid = requireUid()
+        requireOnline()
+        val meta = fetchMeta(uid) ?: throw NoBackupException()
+        val dek = BackupCrypto.unwrapDek(meta, passphrase)
+        try {
+            val total = try {
+                (records(uid).count().get(com.google.firebase.firestore.AggregateSource.SERVER).await().count +
+                    mappings(uid).count().get(com.google.firebase.firestore.AggregateSource.SERVER).await().count).toInt()
+            } catch (e: Exception) {
+                null
+            }
+            var processed = 0
+            var skipped = 0
+            var restoredTx = 0
+            var restoredChoices = 0
+            val stateRows = ArrayList<MpesaBackupStateEntity>()
+            val existingReceipts = transactionDao.getAllTransactions().first().map { it.mpesaReceiptNumber }.toHashSet()
+
+            // M-Pesa transactions
+            forEachPage(records(uid)) { doc ->
+                processed++
+                onProgress(processed, total)
+                val json = decrypt(dek, doc.id, doc.getString("iv"), doc.getString("ciphertext")) ?: run { skipped++; return@forEachPage }
+                val entity = try {
+                    MpesaBackupPayload.transactionFromJson(json)
+                } catch (e: Exception) {
+                    skipped++
+                    return@forEachPage
+                }
+                // The id is derived from the receipt: a record under any other id is not ours
+                if (BackupCrypto.documentId(dek, entity.mpesaReceiptNumber) != doc.id) { skipped++; return@forEachPage }
+                if (existingReceipts.add(entity.mpesaReceiptNumber)) {
+                    transactionDao.insertTransactions(listOf(entity)) // IGNORE on conflict
+                    restoredTx++
+                    stateRows += MpesaBackupStateEntity(doc.id, KIND_TX, sha256(MpesaBackupPayload.transactionJson(entity)))
+                }
+            }
+
+            // Category choices (never overwrite a choice already made on this phone)
+            forEachPage(mappings(uid)) { doc ->
+                processed++
+                onProgress(processed, total)
+                val json = decrypt(dek, doc.id, doc.getString("iv"), doc.getString("ciphertext")) ?: run { skipped++; return@forEachPage }
+                try {
+                    when (MpesaBackupPayload.mappingKind(json)) {
+                        KIND_RECEIPT -> {
+                            val m = MpesaBackupPayload.receiptMappingFromJson(json)
+                            if (BackupCrypto.documentId(dek, "receipt:" + m.mpesaReceiptNumber) != doc.id) { skipped++; return@forEachPage }
+                            if (mappingDao.getMappingForReceipt(m.mpesaReceiptNumber) == null) {
+                                mappingDao.insert(m)
+                                restoredChoices++
+                                stateRows += MpesaBackupStateEntity(doc.id, KIND_RECEIPT, sha256(MpesaBackupPayload.receiptMappingJson(m)))
+                            }
+                        }
+                        KIND_MERCHANT -> {
+                            val m = MpesaBackupPayload.merchantRuleFromJson(json)
+                            if (BackupCrypto.documentId(dek, "merchant:" + m.merchantName) != doc.id) { skipped++; return@forEachPage }
+                            if (merchantDao.getMapping(m.merchantName) == null) {
+                                merchantDao.insertMapping(m)
+                                restoredChoices++
+                                stateRows += MpesaBackupStateEntity(doc.id, KIND_MERCHANT, sha256(MpesaBackupPayload.merchantRuleJson(m)))
+                            }
+                        }
+                        else -> skipped++
+                    }
+                } catch (e: Exception) {
+                    skipped++
+                }
+            }
+
+            // Keep the backup going from this phone, without re-uploading what was just restored
+            keyCache.save(uid, dek)
+            stateDao.clear()
+            stateRows.chunked(500).forEach { stateDao.upsertAll(it) }
+            prefs.setEnabled(true, uid)
+            scheduler.requestRun()
+            return RestoreResult(restoredTx, restoredChoices, skipped)
+        } finally {
+            dek.fill(0)
+        }
+    }
+
+    private fun decrypt(dek: ByteArray, docId: String, iv: String?, ciphertext: String?): String? {
+        if (iv == null || ciphertext == null) return null
+        return try {
+            String(BackupCrypto.decryptRecord(dek, docId, BackupCrypto.Sealed(BackupCrypto.unb64(iv), BackupCrypto.unb64(ciphertext))), Charsets.UTF_8)
+        } catch (e: GeneralSecurityException) {
+            null // altered or foreign record: skip it
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private suspend fun forEachPage(
+        collection: CollectionReference,
+        handle: suspend (com.google.firebase.firestore.DocumentSnapshot) -> Unit
+    ) {
+        var last: com.google.firebase.firestore.DocumentSnapshot? = null
+        while (true) {
+            var q = collection.orderBy(FieldPath.documentId()).limit(PAGE.toLong())
+            if (last != null) q = q.startAfter(last)
+            val snap = q.get().await()
+            if (snap.isEmpty) return
+            snap.documents.forEach { handle(it) }
+            if (snap.size() < PAGE) return
+            last = snap.documents.last()
+        }
+    }
+
     companion object {
         private const val TAG = "MpesaBackup"
         const val META_COLLECTION = "mpesa_backup"
@@ -303,6 +425,7 @@ class MpesaBackupManager @Inject constructor(
         const val KIND_MERCHANT = "merchant"
         private const val UPLOAD_BATCH = 300
         private const val DELETE_BATCH = 450
+        private const val PAGE = 300
 
         fun sha256(text: String): String =
             MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
