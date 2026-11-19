@@ -27,7 +27,9 @@ class AccountSyncViewModel @Inject constructor(
     private val accountLinker: AccountLinker,
     private val transactionRepository: TransactionRepository,
     private val csvExporter: CsvExporter,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val cloudDataDeleter: com.fintrack.app.core.profile.CloudDataDeleter,
+    private val syncGate: com.fintrack.app.core.profile.SyncGate
 ) : ViewModel() {
 
     val profileState: StateFlow<ProfileState> = profileManager.state
@@ -46,6 +48,34 @@ class AccountSyncViewModel @Inject constructor(
         }
     }
 
+    private val _deleteState = kotlinx.coroutines.flow.MutableStateFlow<DeleteState>(DeleteState.Idle)
+    val deleteState: StateFlow<DeleteState> = _deleteState
+
+    fun dismissDeleteState() {
+        _deleteState.value = DeleteState.Idle
+    }
+
+    /**
+     * Deletes the cloud copy, and only once that has fully succeeded turns sync off. Local data
+     * is never touched. On failure (offline, permissions) sync stays on so nothing is half-done.
+     */
+    fun disableSyncAndDeleteCloud() {
+        if (_deleteState.value is DeleteState.Running) return
+        val uid = syncGate.cloudUidOrNull() ?: return
+        viewModelScope.launch {
+            _deleteState.value = DeleteState.Running("Starting...")
+            try {
+                cloudDataDeleter.deleteAll(uid) { step -> _deleteState.value = DeleteState.Running(step) }
+                profileManager.setCloudSyncEnabled(false)
+                _deleteState.value = DeleteState.Idle
+            } catch (e: com.fintrack.app.core.profile.OfflineException) {
+                _deleteState.value = DeleteState.Failed("You are offline. Try again when you are back online.")
+            } catch (e: Exception) {
+                _deleteState.value = DeleteState.Failed(e.message ?: "Could not delete your cloud data")
+            }
+        }
+    }
+
     /** Keeps the cloud copy untouched; local data is never affected. */
     fun disableSyncKeepCloud() {
         viewModelScope.launch { profileManager.setCloudSyncEnabled(false) }
@@ -58,4 +88,10 @@ class AccountSyncViewModel @Inject constructor(
             _exportEvent.emit(uri)
         }
     }
+}
+
+sealed class DeleteState {
+    object Idle : DeleteState()
+    data class Running(val step: String) : DeleteState()
+    data class Failed(val message: String) : DeleteState()
 }

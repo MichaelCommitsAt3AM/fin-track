@@ -45,6 +45,10 @@ class EncryptionManagerImpl @Inject constructor(
         }
     }
 
+    override fun clearKeyCache() {
+        cachedKey = null
+    }
+
     override suspend fun encrypt(data: String): String {
         if (data.isEmpty()) return ""
         try {

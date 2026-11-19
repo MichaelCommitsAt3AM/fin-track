@@ -107,6 +107,16 @@ class KeyRepositoryImpl @Inject constructor(
         return newDek
     }
 
+    override fun deleteLocalMasterKey(uid: String) {
+        try {
+            val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
+            keyStore.load(null)
+            keyStore.deleteEntry("$MASTER_KEY_ALIAS_PREFIX$uid")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not remove local master key", e)
+        }
+    }
+
     private fun getKeyFromKeystore(alias: String): SecretKey? {
         try {
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)

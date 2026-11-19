@@ -67,14 +67,41 @@ fun AccountSyncSection(
         }
     }
 
+    val deleteState by viewModel.deleteState.collectAsState()
     if (showSyncOffDialog) {
         SyncOffDialog(
             onKeepCloud = {
                 showSyncOffDialog = false
                 viewModel.disableSyncKeepCloud()
             },
+            onDeleteCloud = {
+                showSyncOffDialog = false
+                viewModel.disableSyncAndDeleteCloud()
+            },
             onDismiss = { showSyncOffDialog = false }
         )
+    }
+    when (val d = deleteState) {
+        is DeleteState.Running -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Deleting your cloud data") },
+            text = {
+                Column {
+                    androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(12.dp))
+                    Text(d.step)
+                }
+            },
+            confirmButton = {}
+        )
+        is DeleteState.Failed -> AlertDialog(
+            onDismissRequest = { viewModel.dismissDeleteState() },
+            title = { Text("Could not delete") },
+            text = { Text(d.message) },
+            confirmButton = { TextButton(onClick = { viewModel.disableSyncAndDeleteCloud() }) { Text("Try again") } },
+            dismissButton = { TextButton(onClick = { viewModel.dismissDeleteState() }) { Text("Close") } }
+        )
+        DeleteState.Idle -> {}
     }
 
     when (profile.mode) {
@@ -170,17 +197,25 @@ fun AccountSyncSection(
 }
 
 @Composable
-private fun SyncOffDialog(onKeepCloud: () -> Unit, onDismiss: () -> Unit) {
+private fun SyncOffDialog(onKeepCloud: () -> Unit, onDeleteCloud: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Turn off Cloud sync?") },
         text = {
             Text(
-                "FinTrack will stop uploading and downloading. The data on this phone stays here, " +
-                    "and your cloud copy is kept so you can turn sync back on later."
+                "FinTrack will stop uploading and downloading. The data on this phone stays here " +
+                    "either way. You can keep your cloud copy (so you can turn sync back on later) " +
+                    "or delete it from the cloud."
             )
         },
         confirmButton = { TextButton(onClick = onKeepCloud) { Text("Keep my cloud copy") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            Column {
+                TextButton(onClick = onDeleteCloud) {
+                    Text("Delete my cloud data", color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
     )
 }

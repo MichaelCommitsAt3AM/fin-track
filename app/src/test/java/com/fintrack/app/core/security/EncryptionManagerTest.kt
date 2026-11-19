@@ -129,6 +129,10 @@ class EncryptionManagerTest {
 
         override fun currentUserId(): String = userId
 
+        override fun deleteLocalMasterKey(uid: String) {
+            keys.remove(uid)
+        }
+
         override suspend fun getOrGenerateMasterKey(): SecretKey {
             loads.incrementAndGet()
             delay(10) // widen the race window
