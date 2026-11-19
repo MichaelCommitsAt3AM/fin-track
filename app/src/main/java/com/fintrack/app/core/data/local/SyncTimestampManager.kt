@@ -21,15 +21,15 @@ class SyncTimestampManager @Inject constructor(
     /**
      * Get the last successful sync timestamp for transactions
      */
-    fun getLastTransactionSyncTimestamp(): Long {
-        return prefs.getLong(KEY_LAST_TRANSACTION_SYNC, 0L)
+    fun getLastTransactionSyncTimestamp(uid: String): Long {
+        return prefs.getLong(key(uid), 0L)
     }
 
     /**
      * Update the last successful sync timestamp for transactions
      */
-    fun setLastTransactionSyncTimestamp(timestamp: Long = System.currentTimeMillis()) {
-        prefs.edit().putLong(KEY_LAST_TRANSACTION_SYNC, timestamp).apply()
+    fun setLastTransactionSyncTimestamp(uid: String, timestamp: Long = System.currentTimeMillis()) {
+        prefs.edit().putLong(key(uid), timestamp).apply()
     }
 
     /**
@@ -38,6 +38,12 @@ class SyncTimestampManager @Inject constructor(
     fun clearAllTimestamps() {
         prefs.edit().clear().apply()
     }
+
+    /**
+     * Watermarks are per cloud account (audit M2): a different account must never inherit another
+     * account's watermark. The old global key is ignored (one full re-sync after the update).
+     */
+    private fun key(uid: String) = "$KEY_LAST_TRANSACTION_SYNC:$uid"
 
     companion object {
         private const val KEY_LAST_TRANSACTION_SYNC = "last_transaction_sync"

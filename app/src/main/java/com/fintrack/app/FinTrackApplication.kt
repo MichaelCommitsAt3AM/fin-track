@@ -24,6 +24,7 @@ class FinTrackApplication : Application(), Configuration.Provider {
     
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var workerScheduler: WorkerScheduler
+    @Inject lateinit var cloudSyncScheduler: com.fintrack.app.core.worker.CloudSyncScheduler
     @Inject lateinit var profileManager: com.fintrack.app.core.profile.ProfileManager
 
     override val workManagerConfiguration: Configuration
@@ -42,54 +43,8 @@ class FinTrackApplication : Application(), Configuration.Provider {
     private fun scheduleWorkers() {
         val workManager = WorkManager.getInstance(this)
 
-        // Schedule Transaction Sync Worker (runs when network is available)
-        // This syncs any transactions that were added while offline
-        val syncConstraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-        
-        val transactionSyncWork = OneTimeWorkRequestBuilder<TransactionSyncWorker>()
-            .setConstraints(syncConstraints)
-            .build()
-        
-        workManager.enqueueUniqueWork(
-            TransactionSyncWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
-            transactionSyncWork
-        )
-
-        // Schedule Budget Sync Worker
-        val budgetSyncWork = OneTimeWorkRequestBuilder<com.fintrack.app.core.worker.BudgetSyncWorker>()
-            .setConstraints(syncConstraints)
-            .build()
-            
-        workManager.enqueueUniqueWork(
-            com.fintrack.app.core.worker.BudgetSyncWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
-            budgetSyncWork
-        )
-
-        // Schedule Saving Sync Worker
-        val savingSyncWork = OneTimeWorkRequestBuilder<com.fintrack.app.core.worker.SavingSyncWorker>()
-            .setConstraints(syncConstraints)
-            .build()
-            
-        workManager.enqueueUniqueWork(
-            com.fintrack.app.core.worker.SavingSyncWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
-            savingSyncWork
-        )
-
-        // Schedule Debt Sync Worker
-        val debtSyncWork = OneTimeWorkRequestBuilder<com.fintrack.app.core.worker.DebtSyncWorker>()
-            .setConstraints(syncConstraints)
-            .build()
-            
-        workManager.enqueueUniqueWork(
-            com.fintrack.app.core.worker.DebtSyncWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
-            debtSyncWork
-        )
+        // Cloud sync workers are scheduled by CloudSyncScheduler, only while sync is allowed.
+        cloudSyncScheduler.start()
 
         // Schedule Budget Check (Daily)
         val budgetWork = PeriodicWorkRequestBuilder<BudgetCheckWorker>(1, TimeUnit.DAYS)

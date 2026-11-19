@@ -8,7 +8,8 @@ import com.fintrack.app.core.data.mapper.toEntity
 import com.fintrack.app.core.domain.model.Saving
 import com.fintrack.app.core.domain.model.Contribution
 import com.fintrack.app.core.domain.repository.SavingRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,17 +20,22 @@ import javax.inject.Inject
 class SavingRepositoryImpl @Inject constructor(
     private val savingDao: SavingDao,
     private val contributionDao: ContributionDao,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
+    private val syncGate: SyncGate,
     private val firestore: FirebaseFirestore,
 
     private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository,
     private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : SavingRepository {
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    /** Owner of the Room rows. Not the cloud account: see [cloudUid]. */
+    private fun getUserId(): String? = profileManager.profileId()
+
+    /** Firestore account to sync to, or null when sync must not happen (local-only, sync off). */
+    private fun cloudUid(): String? = syncGate.cloudUidOrNull()
 
     private fun getUserSavingsCollection() = firestore.collection("users")
-        .document(getUserId() ?: "unknown_user")
+        .document(cloudUid() ?: throw IllegalStateException("Cloud sync is not enabled"))
         .collection("savings")
 
     override suspend fun insertSaving(saving: Saving) {
@@ -43,7 +49,7 @@ class SavingRepositoryImpl @Inject constructor(
 
         // Save to Cloud if online
         if (networkRepository.isNetworkAvailable()) {
-            getUserId()?.let {
+            cloudUid()?.let {
                 try {
                     val data = saving.toEntity().copy(
                             isSynced = true,
@@ -87,7 +93,7 @@ class SavingRepositoryImpl @Inject constructor(
 
         // Update in Cloud
         if (networkRepository.isNetworkAvailable()) {
-            getUserId()?.let {
+            cloudUid()?.let {
                 try {
                      val savingData = toEncryptedMap(saving).toMutableMap()
                      savingData["updatedAt"] = entity.updatedAt
@@ -137,7 +143,7 @@ class SavingRepositoryImpl @Inject constructor(
 
         // Delete from Cloud
         if (networkRepository.isNetworkAvailable()) {
-            getUserId()?.let {
+            cloudUid()?.let {
                 try {
                     getUserSavingsCollection()
                         .document(savingId)
@@ -177,7 +183,7 @@ class SavingRepositoryImpl @Inject constructor(
 
                 // Update in Cloud
                  if (networkRepository.isNetworkAvailable()) {
-                    getUserId()?.let { userId ->
+                    cloudUid()?.let { userId ->
                         try {
                             val encryptedAmount = encryptionManager.encrypt(updatedSaving.currentAmount.toString())
                             getUserSavingsCollection()
@@ -204,6 +210,7 @@ class SavingRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncSavingsFromCloud() {
+        if (cloudUid() == null) return
         getUserId()?.let { userId ->
             try {
                 Log.d("SavingRepo", "Starting savings sync for user: $userId")
@@ -262,6 +269,7 @@ class SavingRepositoryImpl @Inject constructor(
     }
     
     override suspend fun syncUnsyncedSavings() {
+        if (cloudUid() == null) return
         val userId = getUserId() ?: return
         
         if (!networkRepository.isNetworkAvailable()) return

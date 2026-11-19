@@ -14,7 +14,8 @@ import com.fintrack.app.core.data.local.dao.PaymentDao
 import com.fintrack.app.core.data.local.dao.PaymentMethodDao
 import com.fintrack.app.core.domain.repository.UserRepository
 import com.fintrack.app.core.data.repository.UserRepositoryImpl
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.fintrack.app.core.security.EncryptionManager
@@ -107,10 +108,11 @@ object DatabaseModule {
     @Singleton
     fun provideUserRepository(
         userDao: UserDao,
-        firebaseAuth: FirebaseAuth,
+        profileManager: ProfileManager,
+        syncGate: SyncGate,
         firestore: FirebaseFirestore,
         encryptionManager: EncryptionManager
     ): UserRepository {
-        return UserRepositoryImpl(userDao, firebaseAuth, firestore, encryptionManager)
+        return UserRepositoryImpl(userDao, profileManager, syncGate, firestore, encryptionManager)
     }
 }

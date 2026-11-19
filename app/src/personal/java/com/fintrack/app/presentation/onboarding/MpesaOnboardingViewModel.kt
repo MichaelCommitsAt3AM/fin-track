@@ -35,7 +35,8 @@ class MpesaOnboardingViewModel @Inject constructor(
     // [NEW] Cloud Sync Repositories
     private val userRepository: com.fintrack.app.core.domain.repository.UserRepository,
     private val transactionRepository: com.fintrack.app.core.domain.repository.TransactionRepository,
-    private val budgetRepository: com.fintrack.app.core.domain.repository.BudgetRepository
+    private val budgetRepository: com.fintrack.app.core.domain.repository.BudgetRepository,
+    private val profileManager: com.fintrack.app.core.profile.ProfileManager
 ) : ViewModel() {
 
     // Cache transactions for debug logging in CategorySuggestionsStep
@@ -190,8 +191,7 @@ class MpesaOnboardingViewModel @Inject constructor(
             // Here we assume repo or room handles it. CategoryRepository doesn't specify behavior
             // but name is usually unique locally.
             // Let's create proper Category objects.
-            val currentUser = userRepository.getCurrentUserOnce()
-            val currentUserId = currentUser?.userId ?: "local"
+            val currentUserId = profileManager.profileId() ?: "local"
 
             val categories = suggestions.map { suggestion ->
                 com.fintrack.app.core.domain.model.Category(

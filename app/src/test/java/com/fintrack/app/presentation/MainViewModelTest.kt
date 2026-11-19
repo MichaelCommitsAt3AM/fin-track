@@ -2,9 +2,9 @@ package com.fintrack.app.presentation
 
 import com.fintrack.app.core.data.local.LocalAuthManager
 import com.fintrack.app.core.domain.repository.NetworkRepository
-import com.fintrack.app.core.security.EncryptionManager
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.presentation.home.CurrentUserObserver
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -28,6 +28,7 @@ class MainViewModelTest {
 
     private val auth: FirebaseAuth = mock()
     private val localAuthManager: LocalAuthManager = mock()
+    private val profileManager: ProfileManager = mock()
     private lateinit var viewModel: MainViewModel
 
     @Before
@@ -38,9 +39,9 @@ class MainViewModelTest {
         viewModel = MainViewModel(
             networkRepository = network,
             auth = auth,
-            firestore = mock<FirebaseFirestore>(),
-            encryptionManager = mock<EncryptionManager>(),
-            localAuthManager = localAuthManager
+            currentUserObserver = mock<CurrentUserObserver>(),
+            localAuthManager = localAuthManager,
+            profileManager = profileManager
         )
     }
 
@@ -55,8 +56,9 @@ class MainViewModelTest {
 
         viewModel.onForgotPin()
 
-        inOrder(auth, localAuthManager) {
+        inOrder(auth, profileManager, localAuthManager) {
             verify(auth).signOut()
+            verify(profileManager).signOutToFreshState()
             verify(localAuthManager).clearLocalAuth()
         }
         assertFalse(viewModel.isAppLocked.value)

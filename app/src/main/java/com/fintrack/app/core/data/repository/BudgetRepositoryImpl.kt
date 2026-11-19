@@ -6,7 +6,8 @@ import com.fintrack.app.core.data.mapper.toDomain
 import com.fintrack.app.core.data.mapper.toEntity
 import com.fintrack.app.core.domain.model.Budget
 import com.fintrack.app.core.domain.repository.BudgetRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,15 +17,20 @@ import javax.inject.Inject
 
 class BudgetRepositoryImpl @Inject constructor(
     private val budgetDao: BudgetDao,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
+    private val syncGate: SyncGate,
     private val firestore: FirebaseFirestore,
     private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository
 ) : BudgetRepository {
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    /** Owner of the Room rows. Not the cloud account: see [cloudUid]. */
+    private fun getUserId(): String? = profileManager.profileId()
+
+    /** Firestore account to sync to, or null when sync must not happen (local-only, sync off). */
+    private fun cloudUid(): String? = syncGate.cloudUidOrNull()
 
     private fun getUserBudgetsCollection() = firestore.collection("users")
-        .document(getUserId() ?: "unknown_user")
+        .document(cloudUid() ?: throw IllegalStateException("Cloud sync is not enabled"))
         .collection("budgets")
 
     override suspend fun insertBudget(budget: Budget) {
@@ -38,7 +44,8 @@ class BudgetRepositoryImpl @Inject constructor(
         budgetDao.insertBudget(entity)
         Log.d("BudgetRepo", "Budget saved locally: ${budget.categoryName}")
 
-        // 2. Save to Cloud if online
+        // 2. Save to Cloud if sync is allowed and we are online
+        if (cloudUid() == null) return
         if (networkRepository.isNetworkAvailable()) {
             try {
                 // Create a unique ID for Firestore: "CategoryName_Month_Year"
@@ -96,7 +103,8 @@ class BudgetRepositoryImpl @Inject constructor(
         budgetDao.softDelete(userId, categoryName, month, year, currentTime)
         Log.d("BudgetRepo", "Budget soft-deleted locally: $compositeId")
 
-        // 2. Delete from Cloud if online
+        // 2. Delete from Cloud if sync is allowed and we are online
+        if (cloudUid() == null) return
         if (networkRepository.isNetworkAvailable()) {
             try {
                 // We choose to DELETE the document entirely from Firestore to cleaner look, 
@@ -119,6 +127,7 @@ class BudgetRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncBudgetsFromCloud() {
+        if (cloudUid() == null) return
         getUserId()?.let { userId ->
             try {
                 Log.d("BudgetRepo", "Starting budget sync for user: $userId")
@@ -160,6 +169,7 @@ class BudgetRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncUnsyncedBudgets() {
+        if (cloudUid() == null) return
         val userId = getUserId() ?: run {
             Log.e("BudgetRepo", "Cannot sync: User not logged in")
             return

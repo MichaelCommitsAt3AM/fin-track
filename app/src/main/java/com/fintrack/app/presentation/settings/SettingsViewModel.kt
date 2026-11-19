@@ -18,7 +18,8 @@ class SettingsViewModel
 @Inject
 constructor(
         private val authRepository: AuthRepository,
-        private val localAuthManager: LocalAuthManager
+        private val localAuthManager: LocalAuthManager,
+        private val profileManager: com.fintrack.app.core.profile.ProfileManager
 ) : ViewModel() {
 
     private val _settingsEventChannel = Channel<SettingsEvent>()
@@ -50,6 +51,7 @@ constructor(
         viewModelScope.launch {
             // Sign out from Firebase first
             authRepository.signOut()
+            profileManager.signOutToFreshState()
             
             // Clear local authentication (PIN and biometric settings)
             localAuthManager.clearLocalAuth()

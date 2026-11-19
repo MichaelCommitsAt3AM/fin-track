@@ -20,11 +20,15 @@ class SavingSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val savingRepository: SavingRepository,
-    private val networkRepository: NetworkRepository
+    private val networkRepository: NetworkRepository,
+    private val syncGate: com.fintrack.app.core.profile.SyncGate
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "SavingSyncWorker started")
+
+        // Local-only, sync off or signed out: nothing to upload
+        if (syncGate.cloudUidOrNull() == null) return Result.success()
 
         return try {
             // Double-check network availability

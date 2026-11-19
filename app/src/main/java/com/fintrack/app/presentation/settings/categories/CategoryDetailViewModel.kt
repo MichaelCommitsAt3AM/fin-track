@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.fintrack.app.core.domain.model.Category
 import com.fintrack.app.core.domain.model.CategoryType
 import com.fintrack.app.core.domain.repository.CategoryRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +35,7 @@ sealed class CategoryDetailEvent {
 @HiltViewModel
 class CategoryDetailViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -121,7 +121,7 @@ class CategoryDetailViewModel @Inject constructor(
         }
 
         // Get userId
-        val userId = firebaseAuth.currentUser?.uid
+        val userId = profileManager.profileId()
         if (userId == null) {
             AppLogger.e("CategoryDetailVM", "User not logged in!")
             viewModelScope.launch {

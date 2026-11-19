@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 
 @HiltWorker
 class GoalCheckWorker @AssistedInject constructor(
@@ -20,7 +20,7 @@ class GoalCheckWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val savingRepository: SavingRepository,
     private val notificationHelper: NotificationHelper,
-    private val firebaseAuth: FirebaseAuth
+    private val profileManager: ProfileManager
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -33,7 +33,7 @@ class GoalCheckWorker @AssistedInject constructor(
     }
 
     private suspend fun checkGoals() {
-        val userId = firebaseAuth.currentUser?.uid ?: return
+        val userId = profileManager.profileId() ?: return
         val savings = savingRepository.getAllSavings(userId).first()
         val today = System.currentTimeMillis()
         

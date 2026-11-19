@@ -6,7 +6,8 @@ import com.fintrack.app.core.data.mapper.toDomain
 import com.fintrack.app.core.data.mapper.toEntity
 import com.fintrack.app.core.domain.model.User
 import com.fintrack.app.core.domain.repository.UserRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,21 +17,26 @@ import javax.inject.Inject
 class UserRepositoryImpl @Inject constructor(
 
     private val userDao: UserDao,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
+    private val syncGate: SyncGate,
     private val firestore: FirebaseFirestore,
     private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : UserRepository {
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    /** Owner of the Room rows (the local profile), not the cloud account. */
+    private fun getUserId(): String? = profileManager.profileId()
 
-    private fun getUserDocument(userId: String) =
-        firestore.collection("users").document(userId)
+    private fun cloudUid(): String? = syncGate.cloudUidOrNull()
+
+    private fun getUserDocument(cloudUid: String) =
+        firestore.collection("users").document(cloudUid)
 
     override suspend fun createUser(user: User) {
         // 1. Save locally
         userDao.insertUser(user.toEntity())
 
-        // 2. Save to Firestore
+        // 2. Save to Firestore (only when sync is allowed)
+        val cloudUid = cloudUid() ?: return
         try {
             val userMap = hashMapOf(
                 "userId" to user.userId,
@@ -42,7 +48,7 @@ class UserRepositoryImpl @Inject constructor(
                 "updatedAt" to user.updatedAt
             )
 
-            getUserDocument(user.userId)
+            getUserDocument(cloudUid)
                 .set(userMap)
                 .await()
 
@@ -56,7 +62,8 @@ class UserRepositoryImpl @Inject constructor(
         // 1. Update locally
         userDao.updateUser(user.toEntity())
 
-        // 2. Update in Firestore
+        // 2. Update in Firestore (only when sync is allowed)
+        val cloudUid = cloudUid() ?: return
         try {
             val updateMap = hashMapOf(
                 "fullName" to encryptionManager.encrypt(user.fullName),
@@ -65,8 +72,8 @@ class UserRepositoryImpl @Inject constructor(
                 "updatedAt" to System.currentTimeMillis()
             )
 
-            getUserDocument(user.userId)
-                .update(updateMap as Map<String, Any>)
+            getUserDocument(cloudUid)
+                .set(updateMap as Map<String, Any>, com.google.firebase.firestore.SetOptions.merge())
                 .await()
 
             Log.d("UserRepo", "User updated: ${user.userId}")
@@ -91,11 +98,12 @@ class UserRepositoryImpl @Inject constructor(
 
     override suspend fun syncUserFromCloud() {
         val userId = getUserId()
-        if (userId != null) {
+        val cloudUid = cloudUid()
+        if (userId != null && cloudUid != null) {
             try {
                 Log.d("UserRepo", "Syncing user from cloud: $userId")
 
-                val userDoc = getUserDocument(userId).get().await()
+                val userDoc = getUserDocument(cloudUid).get().await()
 
                 if (userDoc.exists()) {
                     // Decrypt fields
@@ -104,7 +112,7 @@ class UserRepositoryImpl @Inject constructor(
                     val phoneNumber = userDoc.getString("phoneNumber")?.let { encryptionManager.decrypt(it) } ?: ""
                     
                     val user = User(
-                        userId = userDoc.getString("userId") ?: userId,
+                        userId = userId, // always the local profile, whatever the other phone stored
                         fullName = fullName,
                         email = email,
                         phoneNumber = phoneNumber,
@@ -122,7 +130,7 @@ class UserRepositoryImpl @Inject constructor(
                 Log.e("UserRepo", "Error syncing user: ${e.message}")
             }
         } else {
-            Log.e("UserRepo", "Cannot sync: User ID is null")
+            Log.d("UserRepo", "Cloud sync not enabled, skipping user sync")
         }
     }
 
@@ -130,9 +138,10 @@ class UserRepositoryImpl @Inject constructor(
         // 1. Delete locally
         userDao.deleteUser(userId)
 
-        // 2. Delete from Firestore
+        // 2. Delete from Firestore (only when sync is allowed)
+        val cloudUid = cloudUid() ?: return
         try {
-            getUserDocument(userId).delete().await()
+            getUserDocument(cloudUid).delete().await()
             Log.d("UserRepo", "User deleted: $userId")
         } catch (e: Exception) {
             Log.e("UserRepo", "Error deleting user: ${e.message}")

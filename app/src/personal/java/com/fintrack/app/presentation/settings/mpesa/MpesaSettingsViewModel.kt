@@ -15,7 +15,7 @@ import com.fintrack.app.core.data.preferences.MpesaOnboardingPreferences
 import com.fintrack.app.core.domain.repository.MpesaTransactionRepository
 import com.fintrack.app.core.worker.MpesaSyncWorker
 import androidx.work.WorkInfo
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,12 +35,12 @@ class MpesaSettingsViewModel @Inject constructor(
     private val merchantCategoryDao: MerchantCategoryDao,
     private val categoryDao: CategoryDao,
     private val mpesaCategoryMappingDao: com.fintrack.app.core.data.local.dao.MpesaCategoryMappingDao,
+    private val profileManager: ProfileManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val workManager = WorkManager.getInstance(context)
-    private val auth = FirebaseAuth.getInstance()
-    private val currentUserId get() = auth.currentUser?.uid ?: ""
+    private val currentUserId get() = profileManager.profileId() ?: ""
 
     // --- Configuration States ---
     val isRealTimeEnabled = mpesaPreferences.isRealTimeEnabled

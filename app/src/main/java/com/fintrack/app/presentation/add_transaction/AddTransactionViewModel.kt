@@ -13,7 +13,7 @@ import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.domain.repository.PaymentMethodRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.use_case.GetCategoriesUseCase
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,7 +71,8 @@ class AddTransactionViewModel @Inject constructor(
     private val paymentMethodRepository: PaymentMethodRepository,
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val localAuthManager: LocalAuthManager,
-    private val externalTransactionRepository: ExternalTransactionRepository
+    private val externalTransactionRepository: ExternalTransactionRepository,
+    private val profileManager: ProfileManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddTransactionUiState())
@@ -183,7 +184,7 @@ class AddTransactionViewModel @Inject constructor(
     private fun saveTransaction() {
         val state = _uiState.value
         val amountDouble = state.amount.toDoubleOrNull()
-        val userId = FirebaseAuth.getInstance().currentUser?.uid // ADD THIS
+        val userId = profileManager.profileId() // ADD THIS
 
 
         // --- Validation ---
@@ -245,7 +246,7 @@ class AddTransactionViewModel @Inject constructor(
 
             // 2. Save Recurring Rule (If enabled) - Only for new transactions
             if (state.isRecurring && !state.isEditMode) {
-                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                val userId = profileManager.profileId() ?: return@launch
 
                 val recurringRule = RecurringTransaction(
                     type = state.transactionType,

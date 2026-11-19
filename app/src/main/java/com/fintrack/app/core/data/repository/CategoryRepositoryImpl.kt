@@ -9,7 +9,8 @@ import com.fintrack.app.core.domain.repository.CategoryRepository
 import com.fintrack.app.core.domain.repository.NetworkRepository
 import com.fintrack.app.core.domain.model.CategoryType
 import com.fintrack.app.core.data.local.model.CategoryEntity
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,16 +20,20 @@ import javax.inject.Inject
 class CategoryRepositoryImpl @Inject constructor(
     private val categoryDao: CategoryDao, // Hilt will inject this
     private val firestore: FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
+    private val syncGate: SyncGate,
     private val networkRepository: NetworkRepository
 ) : CategoryRepository {
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    /** Owner of the Room rows. Not the cloud account: see [cloudUid]. */
+    private fun getUserId(): String? = profileManager.profileId()
 
-    private fun getUserCategoriesCollection() =
-        firestore.collection("users")
-            .document(getUserId() ?: "unknown_user")
-            .collection("categories")
+    /** Firestore account to sync to, or null when sync must not happen (local-only, sync off). */
+    private fun cloudUid(): String? = syncGate.cloudUidOrNull()
+
+    private fun getUserCategoriesCollection() = firestore.collection("users")
+        .document(cloudUid() ?: throw IllegalStateException("Cloud sync is not enabled"))
+        .collection("categories")
 
     // --- Initialize Default categories ---
     override suspend fun initDefaultCategories() {
@@ -52,7 +57,8 @@ class CategoryRepositoryImpl @Inject constructor(
         categoryDao.insertCategory(entity)
         Log.d("CategoryRepo", "Category saved locally: ${category.name}")
 
-        // 2. If online, attempt to sync to Firestore immediately
+        // 2. If sync is allowed and we are online, attempt to sync to Firestore immediately
+        if (cloudUid() == null) return
         if (networkRepository.isNetworkAvailable()) {
             try {
                 val firestoreData = hashMapOf(
@@ -86,8 +92,8 @@ class CategoryRepositoryImpl @Inject constructor(
         // 1. Delete locally
         categoryDao.deleteCategory(category.name, userId)
 
-        // 2. Delete from Cloud
-        getUserId()?.let {
+        // 2. Delete from Cloud (only when sync is allowed)
+        cloudUid()?.let {
             try {
                 getUserCategoriesCollection()
                     .document(category.name)
@@ -106,7 +112,8 @@ class CategoryRepositoryImpl @Inject constructor(
         categoryDao.insertAll(categories.map { it.toEntity() })
         Log.d("CategoryRepo", "Saved ${categories.size} categories locally")
 
-        // 2. Save to cloud (Batch writing) if online
+        // 2. Save to cloud (Batch writing) if sync is allowed and we are online
+        if (cloudUid() == null) return
         if (networkRepository.isNetworkAvailable()) {
             try {
                 val batch = firestore.batch()
@@ -147,6 +154,7 @@ class CategoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncCategoriesFromCloud() {
+        if (cloudUid() == null) return
         getUserId()?.let { userId ->
             try {
                 Log.d("CategoryRepo", "Starting category sync for user: $userId")
@@ -187,6 +195,7 @@ class CategoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncUnsyncedCategories() {
+        if (cloudUid() == null) return
         val userId = getUserId() ?: run {
             Log.e("CategoryRepo", "Cannot sync: User not logged in")
             return

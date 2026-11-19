@@ -8,7 +8,7 @@ import com.fintrack.app.core.domain.model.RecurringTransaction
 import com.fintrack.app.core.domain.model.TransactionType
 import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.domain.use_case.GetCategoriesUseCase
-import com.google.firebase.auth.FirebaseAuth // ADD THIS
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +53,7 @@ sealed class EditRecurringTransactionEvent {
 class EditRecurringTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val getCategoriesUseCase: GetCategoriesUseCase,
-    private val firebaseAuth: FirebaseAuth // ADD THIS
+    private val profileManager: ProfileManager // ADD THIS
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditRecurringTransactionUiState())
@@ -119,7 +119,7 @@ class EditRecurringTransactionViewModel @Inject constructor(
     private fun saveTransaction() {
         val state = _uiState.value
         val amountDouble = state.amount.toDoubleOrNull()
-        val userId = firebaseAuth.currentUser?.uid // ADD THIS
+        val userId = profileManager.profileId() // ADD THIS
 
         if (userId == null) {
             _uiState.value = _uiState.value.copy(error = "User not logged in")

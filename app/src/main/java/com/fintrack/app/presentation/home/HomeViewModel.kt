@@ -44,12 +44,10 @@ class HomeViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
     private val networkRepository: NetworkRepository,
-    private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore,
+    private val currentUserObserver: CurrentUserObserver,
     private val localAuthManager: LocalAuthManager,
     private val externalTransactionRepository: ExternalTransactionRepository,
-    private val flavorIntegration: AppFlavorIntegration,
-    private val encryptionManager: EncryptionManager
+    private val flavorIntegration: AppFlavorIntegration
 ) : ViewModel() {
 
     // --- Sync Status ---
@@ -71,63 +69,14 @@ class HomeViewModel @Inject constructor(
             initialValue = Currency.KSH
         )
 
-    // --- Real-time User Data (Firestore Listener) ---
-    // This flow updates immediately when the user changes their profile in Settings
-    val currentUser: StateFlow<UserUiModel?> = callbackFlow {
-        val user = auth.currentUser
-        if (user != null) {
-            // Attach a real-time listener to the specific user document
-            val listener = firestore.collection("users").document(user.uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null && snapshot.exists()) {
-                        // Launch coroutine to handle suspending decryption
-                        launch {
-                            val avatarId = snapshot.getLong("avatarId")?.toInt() ?: 1
-                            val encryptedName = snapshot.getString("fullName") ?: user.displayName ?: "User"
-                            
-                            val fullName = try {
-                                encryptionManager.decrypt(encryptedName)
-                            } catch (e: Exception) {
-                                encryptedName
-                            }
-                            
-                            val email = user.email ?: ""
-
-                            trySend(
-                                UserUiModel(
-                                    fullName = fullName,
-                                    email = email,
-                                    avatarId = avatarId
-                                )
-                            )
-                        }
-                    } else {
-                        trySend(
-                            UserUiModel(
-                                fullName = user.displayName ?: "User",
-                                email = user.email ?: "",
-                                avatarId = 1
-                            )
-                        )
-                    }
-                }
-
-            // Clean up the listener when the ViewModel/Flow is cleared
-            awaitClose { listener.remove() }
-        } else {
-            trySend(null)
-            close()
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = null
-    )
+    // --- Real-time User Data ---
+    // Follows the Firestore profile when cloud sync is on, the on-device profile otherwise
+    val currentUser: StateFlow<UserUiModel?> = currentUserObserver.observe()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
 
     // --- Recent Transactions ---
     // --- Recent Transactions ---

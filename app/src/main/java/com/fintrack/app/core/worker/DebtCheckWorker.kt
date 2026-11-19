@@ -12,7 +12,7 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 
 @HiltWorker
 class DebtCheckWorker @AssistedInject constructor(
@@ -20,7 +20,7 @@ class DebtCheckWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val debtRepository: DebtRepository,
     private val notificationHelper: NotificationHelper,
-    private val firebaseAuth: FirebaseAuth
+    private val profileManager: ProfileManager
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -33,7 +33,7 @@ class DebtCheckWorker @AssistedInject constructor(
     }
 
     private suspend fun checkDebts() {
-        val userId = firebaseAuth.currentUser?.uid ?: return
+        val userId = profileManager.profileId() ?: return
         val debts = debtRepository.getAllDebts(userId).first()
         val today = System.currentTimeMillis()
         val prefs = appContext.getSharedPreferences("worker_prefs", Context.MODE_PRIVATE)

@@ -5,7 +5,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
 import com.fintrack.app.BuildConfig
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.security.KeyStore
@@ -20,7 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class KeyRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth
+    private val syncGate: SyncGate
 ) : KeyRepository {
 
     companion object {
@@ -37,7 +37,9 @@ class KeyRepositoryImpl @Inject constructor(
         private val APP_KEK_BYTES = "FinTrackSuperSecretKeyForDEKWait".toByteArray().copyOf(32) // Ensure 32 bytes
     }
 
-    override fun currentUserId(): String? = firebaseAuth.currentUser?.uid
+    // Only the cloud account (sync on) may use the cloud-wrapped key: local-only users never
+    // reach Firestore for a key.
+    override fun currentUserId(): String? = syncGate.cloudUidOrNull()
 
     override suspend fun getOrGenerateMasterKey(): SecretKey {
         val userId = currentUserId() ?: throw IllegalStateException("User not logged in")

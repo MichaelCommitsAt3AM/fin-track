@@ -35,7 +35,8 @@ class AuthViewModel @Inject constructor(
     private val repository: AuthRepository,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val profileManager: com.fintrack.app.core.profile.ProfileManager
 ) : ViewModel() {
 
     private val TAG = "AuthViewModel"
@@ -95,6 +96,7 @@ class AuthViewModel @Inject constructor(
             val user = _currentUser.value
             if (user != null) {
                 if (user.isEmailVerified) {
+                    profileManager.linkAccount(user.uid)
 
                     // Refreshes user data from the cloud every time the app is opened
                     syncUserData()
@@ -200,11 +202,13 @@ class AuthViewModel @Inject constructor(
             val result = repository.signUpWithEmail(email, password)
 
             if (result.user != null) {
+                // Data is owned by the profile; the Firebase UID only names the cloud location
+                profileManager.linkAccount(result.user.uid)
 
                 // CREATE USER RECORD IN DATABASE
                 try {
                     val user = User(
-                        userId = result.user.uid,
+                        userId = profileManager.profileId() ?: result.user.uid,
                         fullName = email.substringBefore("@"), // Default name from email
                         email = email,
                         phoneNumber = "",
@@ -252,6 +256,8 @@ class AuthViewModel @Inject constructor(
 
             if (result.user != null) {
                 if (result.user.isEmailVerified) {
+                    profileManager.linkAccount(result.user.uid)
+
                     // Load all user's data from the cloud
                     syncUserData()
 
@@ -361,6 +367,7 @@ class AuthViewModel @Inject constructor(
 
             if (result.user != null) {
                 AppLogger.d(TAG, "Sign-in successful for user: ${AppLogger.sanitizeUserId(result.user.uid)}")
+                profileManager.linkAccount(result.user.uid)
                 try {
                     // Check if user exists in database
                     AppLogger.d(TAG, "Checking if user exists in database")
@@ -370,7 +377,7 @@ class AuthViewModel @Inject constructor(
                         AppLogger.d(TAG, "New user detected, creating user record")
                         // New user - create user record
                         val newUser = User(
-                            userId = result.user.uid,
+                            userId = profileManager.profileId() ?: result.user.uid,
                             fullName = result.user.displayName ?: result.user.email?.substringBefore("@") ?: "User",
                             email = result.user.email ?: "",
                             phoneNumber = result.user.phoneNumber ?: "",
@@ -430,12 +437,13 @@ class AuthViewModel @Inject constructor(
     private suspend fun handleAuthResult(result: AuthResult) {
         _uiState.value = _uiState.value.copy(isLoading = false)
         if (result.user != null) {
+            profileManager.linkAccount(result.user.uid)
             // CREATE USER RECORD if it doesn't exist
             try {
                 val existingUser = userRepository.getCurrentUserOnce()
                 if (existingUser == null) {
                     val newUser = User(
-                        userId = result.user.uid,
+                        userId = profileManager.profileId() ?: result.user.uid,
                         fullName = result.user.displayName ?: result.user.email?.substringBefore("@") ?: "User",
                         email = result.user.email ?: "",
                         phoneNumber = result.user.phoneNumber ?: "",
@@ -461,6 +469,13 @@ class AuthViewModel @Inject constructor(
 
     fun signOut() {
         repository.signOut()
+        viewModelScope.launch {
+            // Only an account profile is dropped; a local-only profile (mid-way through linking
+            // an account) must keep its data.
+            if (profileManager.state.value.mode == com.fintrack.app.core.profile.AccountMode.ACCOUNT) {
+                profileManager.signOutToFreshState()
+            }
+        }
     }
 }
 
