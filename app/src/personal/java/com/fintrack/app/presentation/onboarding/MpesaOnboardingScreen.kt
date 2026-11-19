@@ -25,6 +25,7 @@ fun MpesaOnboardingScreen(
     viewModel: MpesaOnboardingViewModel = hiltViewModel()
 ) {
     val currentStep by viewModel.currentStep.collectAsState()
+    val selectedLookback by viewModel.selectedLookbackPeriod.collectAsState()
 
     // New phone, signed in to an account that has an M-Pesa backup: offer to restore it
     val backupViewModel: com.fintrack.app.presentation.settings.mpesa.MpesaBackupViewModel = hiltViewModel()
@@ -78,6 +79,8 @@ fun MpesaOnboardingScreen(
                 )
                 
                 OnboardingStep.Permissions -> PermissionsStep(
+                    selectedLookback = selectedLookback,
+                    onLookbackChange = { viewModel.setLookbackPeriod(it) },
                     onPermissionsGranted = { readSms, receiveSms ->
                         viewModel.onPermissionsGranted(readSms, receiveSms)
                     },

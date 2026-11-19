@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.onboarding.steps
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -19,44 +20,42 @@ import com.fintrack.app.presentation.ui.theme.FinTrackGreen
 fun CompletionStep(
     onComplete: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+    OnboardingStepLayout(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        bottomBar = {
+            Button(
+                onClick = onComplete,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text("Start Using FinTrack", fontWeight = FontWeight.Bold)
+            }
+        }
     ) {
+        Spacer(modifier = Modifier.height(64.dp))
+
         Icon(
             imageVector = Icons.Default.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(120.dp),
             tint = FinTrackGreen
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Text(
             text = "Setup Complete!",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Text(
             text = "Your M-Pesa transactions are now being tracked automatically.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        Button(
-            onClick = onComplete,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Start Using FinTrack")
-        }
     }
 }
