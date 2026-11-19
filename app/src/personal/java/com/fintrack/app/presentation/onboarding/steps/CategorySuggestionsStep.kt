@@ -43,28 +43,41 @@ fun CategorySuggestionsStep(
         viewModel.logCategoryDebugInfo()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            CategorySuggestionsContent(suggestions, viewModel, onNext)
+    OnboardingStepLayout(
+        bottomBar = {
+            Button(
+                onClick = { viewModel.acceptCategorySuggestions() },
+                enabled = suggestions.isNotEmpty(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = FinTrackGreen),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Create ${suggestions.size} Categories", fontWeight = FontWeight.Bold)
+            }
+            OutlinedButton(
+                onClick = onNext,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) {
+                Text("Skip for Now")
+            }
+            Text(
+                text = "You can always manage categories later in Settings.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
         }
+    ) {
+        CategorySuggestionsContent(suggestions)
     }
 }
 
 @Composable
 private fun ColumnScope.CategorySuggestionsContent(
-    suggestions: List<CategorySuggestion>,
-    viewModel: MpesaOnboardingViewModel,
-    onNext: () -> Unit
+    suggestions: List<CategorySuggestion>
 ) {
     Text(
         text = "Auto-Organize",
@@ -99,41 +112,6 @@ private fun ColumnScope.CategorySuggestionsContent(
             Spacer(modifier = Modifier.height(12.dp))
         }
     }
-
-    Spacer(modifier = Modifier.height(32.dp))
-
-    // Accept All Button
-    Button(
-        onClick = { viewModel.acceptCategorySuggestions() },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = suggestions.isNotEmpty(),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = FinTrackGreen
-        )
-    ) {
-        Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Create ${suggestions.size} Categories")
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    // Skip Button
-    OutlinedButton(
-        onClick = onNext,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Skip for Now")
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Text(
-        text = "You can always manage categories later in Settings.",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.align(Alignment.CenterHorizontally)
-    )
 }
 
 @Composable

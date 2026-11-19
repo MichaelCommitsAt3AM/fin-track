@@ -56,6 +56,7 @@ fun TransactionListScreen(
     val plannedTransactions by viewModel.plannedUiState.collectAsState()
     val currency by viewModel.currencyPreference.collectAsState()
     val isMpesaSupported by viewModel.isMpesaSupported.collectAsState()
+    val weeklySummary by viewModel.weeklySummary.collectAsState()
     
     // Check if any planned transaction applies tomorrow
     val hasTransactionTomorrow = remember(plannedTransactions) {
@@ -120,6 +121,19 @@ fun TransactionListScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
+            // --- Weekly spending overview (hidden while searching to keep results in focus) ---
+            if (searchQuery.isEmpty()) {
+                item(key = "weekly_summary") {
+                    WeeklySpendingSummaryCard(
+                        summary = weeklySummary,
+                        currencySymbol = currency.symbol,
+                        onPreviousWeek = { viewModel.previousWeek() },
+                        onNextWeek = { viewModel.nextWeek() },
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+
             // --- Header (Search & Filters) ---
             item(key = "header") {
                 TransactionListHeader(

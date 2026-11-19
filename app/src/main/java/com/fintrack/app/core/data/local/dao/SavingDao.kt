@@ -40,4 +40,8 @@ interface SavingDao {
     // Mark as updated
     @Query("UPDATE savings SET isSynced = 1 WHERE id = :savingId")
     suspend fun markAsSynced(savingId: String)
+
+    // Mark every live row of a profile as needing upload (enabling sync / linking an account)
+    @Query("UPDATE savings SET isSynced = 0 WHERE userId = :userId AND deletedAt IS NULL")
+    suspend fun markAllUnsynced(userId: String)
 }

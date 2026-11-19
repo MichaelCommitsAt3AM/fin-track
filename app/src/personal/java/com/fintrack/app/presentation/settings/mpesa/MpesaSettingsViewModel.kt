@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.settings.mpesa
 
+import com.fintrack.app.core.domain.model.LookbackPeriod
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,7 +15,7 @@ import com.fintrack.app.core.data.preferences.MpesaOnboardingPreferences
 import com.fintrack.app.core.domain.repository.MpesaTransactionRepository
 import com.fintrack.app.core.worker.MpesaSyncWorker
 import androidx.work.WorkInfo
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,19 +35,23 @@ class MpesaSettingsViewModel @Inject constructor(
     private val merchantCategoryDao: MerchantCategoryDao,
     private val categoryDao: CategoryDao,
     private val mpesaCategoryMappingDao: com.fintrack.app.core.data.local.dao.MpesaCategoryMappingDao,
+    private val profileManager: ProfileManager,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler,
+    backupManager: com.fintrack.app.core.backup.MpesaBackupManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val workManager = WorkManager.getInstance(context)
-    private val auth = FirebaseAuth.getInstance()
-    private val currentUserId get() = auth.currentUser?.uid ?: ""
+    private val currentUserId get() = profileManager.profileId() ?: ""
+
+    val backupStatus = backupManager.status
 
     // --- Configuration States ---
     val isRealTimeEnabled = mpesaPreferences.isRealTimeEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val lookbackPeriodMonths = mpesaPreferences.lookbackPeriodMonths
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 3)
+    val lookbackPeriod = mpesaPreferences.lookbackPeriod
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LookbackPeriod.DEFAULT)
 
     // --- Merchant Mapping Data ---
     val availableCategories = categoryDao.getAllCategories(currentUserId)
@@ -151,22 +156,27 @@ class MpesaSettingsViewModel @Inject constructor(
         }
     }
 
-    fun setLookbackPeriod(months: Int) {
+    /** Saves the new period, then rescans the inbox with it. */
+    fun changeLookbackPeriodAndRescan(period: LookbackPeriod) {
         viewModelScope.launch {
-            mpesaPreferences.setLookbackPeriod(months)
+            mpesaPreferences.setLookbackPeriod(period)
+            // Pass the period explicitly rather than reading the StateFlow, which may not
+            // have observed the write yet (it used to rescan with the old value).
+            enqueueRescan(period)
         }
     }
 
     fun triggerRescan() {
-        viewModelScope.launch {
-            val months = lookbackPeriodMonths.value
-            val request = OneTimeWorkRequestBuilder<MpesaSyncWorker>()
-                .setInputData(workDataOf(MpesaSyncWorker.INPUT_LOOKBACK_MONTHS to months))
-                .build()
-            
-            workManager.enqueue(request)
-            _syncWorkId.value = request.id
-        }
+        enqueueRescan(lookbackPeriod.value)
+    }
+
+    private fun enqueueRescan(period: LookbackPeriod) {
+        val request = OneTimeWorkRequestBuilder<MpesaSyncWorker>()
+            .setInputData(workDataOf(MpesaSyncWorker.INPUT_LOOKBACK_MONTHS to period.months))
+            .build()
+
+        workManager.enqueue(request)
+        _syncWorkId.value = request.id
     }
 
     fun resetOnboarding() {
@@ -212,6 +222,7 @@ class MpesaSettingsViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 merchantCategoryDao.insertMapping(entity)
+                backupScheduler.requestRun() // no-op unless Cloud backup is on
                 
                 _mappingMessage.value = "Mapped $merchantName to $categoryName"
             } catch (e: Exception) {

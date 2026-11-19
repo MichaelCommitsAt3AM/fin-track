@@ -35,7 +35,9 @@ class MpesaOnboardingViewModel @Inject constructor(
     // [NEW] Cloud Sync Repositories
     private val userRepository: com.fintrack.app.core.domain.repository.UserRepository,
     private val transactionRepository: com.fintrack.app.core.domain.repository.TransactionRepository,
-    private val budgetRepository: com.fintrack.app.core.domain.repository.BudgetRepository
+    private val budgetRepository: com.fintrack.app.core.domain.repository.BudgetRepository,
+    private val profileManager: com.fintrack.app.core.profile.ProfileManager,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
 ) : ViewModel() {
 
     // Cache transactions for debug logging in CategorySuggestionsStep
@@ -57,7 +59,7 @@ class MpesaOnboardingViewModel @Inject constructor(
     private val _insights = MutableStateFlow(OnboardingInsights())
     val insights: StateFlow<OnboardingInsights> = _insights
     
-    private val _selectedLookbackPeriod = MutableStateFlow(LookbackPeriod.THREE_MONTHS)
+    private val _selectedLookbackPeriod = MutableStateFlow(LookbackPeriod.DEFAULT)
     val selectedLookbackPeriod: StateFlow<LookbackPeriod> = _selectedLookbackPeriod
     
     /**
@@ -161,14 +163,7 @@ class MpesaOnboardingViewModel @Inject constructor(
                 )
                 
                 // Save lookback period preference
-                onboardingPrefs.setLookbackPeriod(
-                    when (lookbackPeriod) {
-                        LookbackPeriod.ONE_MONTH -> 1
-                        LookbackPeriod.THREE_MONTHS -> 3
-                        LookbackPeriod.SIX_MONTHS -> 6
-                        LookbackPeriod.ONE_YEAR -> 12
-                    }
-                )
+                onboardingPrefs.setLookbackPeriod(lookbackPeriod)
                 
                 // Auto-advance after 1.5 seconds
                 delay(1500)
@@ -197,8 +192,7 @@ class MpesaOnboardingViewModel @Inject constructor(
             // Here we assume repo or room handles it. CategoryRepository doesn't specify behavior
             // but name is usually unique locally.
             // Let's create proper Category objects.
-            val currentUser = userRepository.getCurrentUserOnce()
-            val currentUserId = currentUser?.userId ?: "local"
+            val currentUserId = profileManager.profileId() ?: "local"
 
             val categories = suggestions.map { suggestion ->
                 com.fintrack.app.core.domain.model.Category(
@@ -222,6 +216,7 @@ class MpesaOnboardingViewModel @Inject constructor(
                 }
             }
             mappingDao.insertAll(mappings)
+            backupScheduler.requestRun() // no-op unless Cloud backup is on
             
             // 3. Move to completion
             nextStep()

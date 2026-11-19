@@ -2,6 +2,8 @@ package com.fintrack.app.core.security
 
 import java.util.Base64
 import android.util.Log
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
@@ -19,14 +21,32 @@ class EncryptionManagerImpl @Inject constructor(
         private const val PREFIX = "ENC[v1]:"
     }
 
-    // Cache the key in memory for the session to avoid repeated Keystore/Firestore lookups
-    private var cachedMasterKey: SecretKey? = null
+    private class CachedKey(val userId: String, val key: SecretKey)
+
+    // Cache the key in memory to avoid repeated Keystore/Firestore lookups. The cache is tied to
+    // the user it was loaded for: this is a process-wide singleton, so after a logout/login as a
+    // different user the old key must not be reused.
+    @Volatile
+    private var cachedKey: CachedKey? = null
+
+    // Serialises first-time key loading. Without it, parallel syncs right after sign-up each
+    // found no key and each generated (and uploaded) a different one; data encrypted with any
+    // key but the last uploaded was unrecoverable.
+    private val keyMutex = Mutex()
 
     private suspend fun getMasterKey(): SecretKey {
-        if (cachedMasterKey == null) {
-            cachedMasterKey = keyRepository.getOrGenerateMasterKey()
+        val userId = keyRepository.currentUserId()
+            ?: throw IllegalStateException("User not logged in")
+        cachedKey?.takeIf { it.userId == userId }?.let { return it.key }
+
+        return keyMutex.withLock {
+            cachedKey?.takeIf { it.userId == userId }?.key
+                ?: keyRepository.getOrGenerateMasterKey().also { cachedKey = CachedKey(userId, it) }
         }
-        return cachedMasterKey!!
+    }
+
+    override fun clearKeyCache() {
+        cachedKey = null
     }
 
     override suspend fun encrypt(data: String): String {

@@ -435,7 +435,8 @@ fun NavGraphBuilder.settingsNavGraph(
             }
         ) {
             PrivacyPolicyScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                extraSections = { settingsIntegration?.apply { PrivacyPolicyExtras() } }
             )
         }
         // 13. Terms of Service Screen

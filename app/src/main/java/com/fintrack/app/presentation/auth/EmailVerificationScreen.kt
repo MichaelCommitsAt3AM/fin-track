@@ -20,10 +20,12 @@ fun EmailVerificationScreen(
     onNavigateToProfileSetup: () -> Unit,
     onNavigateToSetup: () -> Unit,
     onNavigateToLogin: () -> Unit,
+    onLinkCompleted: () -> Unit = {},
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    if (state.pendingCombineUid != null) CombineDataDialog(viewModel)
     val cooldownSeconds by viewModel.verificationCooldownSeconds.collectAsState()
     val attemptsRemaining by viewModel.verificationAttemptsRemaining.collectAsState()
 
@@ -45,6 +47,7 @@ fun EmailVerificationScreen(
                     }
                 }
                 is AuthEvent.NavigateToLogin -> onNavigateToLogin()
+                is AuthEvent.LinkCompleted -> onLinkCompleted()
                 is AuthEvent.NavigateToEmailVerification -> {}
                 else -> {}
             }

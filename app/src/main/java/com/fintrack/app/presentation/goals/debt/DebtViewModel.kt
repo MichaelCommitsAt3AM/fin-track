@@ -8,7 +8,7 @@ import com.fintrack.app.core.domain.model.Debt
 import com.fintrack.app.core.domain.model.DebtType
 import com.fintrack.app.core.domain.model.Payment
 import com.fintrack.app.core.domain.repository.DebtRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,12 +23,12 @@ import javax.inject.Inject
 @HiltViewModel
 class DebtViewModel @Inject constructor(
     private val debtRepository: DebtRepository,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
     private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val userId: String?
-        get() = firebaseAuth.currentUser?.uid
+        get() = profileManager.profileId()
 
     // State for all debts
     private val _debts = MutableStateFlow<List<Debt>>(emptyList())

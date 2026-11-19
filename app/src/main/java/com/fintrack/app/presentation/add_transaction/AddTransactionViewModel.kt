@@ -13,7 +13,7 @@ import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.domain.repository.PaymentMethodRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.use_case.GetCategoriesUseCase
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,7 +71,8 @@ class AddTransactionViewModel @Inject constructor(
     private val paymentMethodRepository: PaymentMethodRepository,
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val localAuthManager: LocalAuthManager,
-    private val externalTransactionRepository: ExternalTransactionRepository
+    private val externalTransactionRepository: ExternalTransactionRepository,
+    private val profileManager: ProfileManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddTransactionUiState())
@@ -117,65 +119,38 @@ class AddTransactionViewModel @Inject constructor(
     }
 
     fun loadTransaction(transactionId: String?) {
-        if (transactionId.isNullOrEmpty()) return
-        
+        // Only load once: this is called again when returning from e.g. "Add category",
+        // and reloading would overwrite a category the user already picked.
+        if (transactionId.isNullOrEmpty() || _uiState.value.transactionId == transactionId) return
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            // First, try to load from regular transaction repository
-            transactionRepository.getTransactionById(transactionId).collect { transaction ->
-                if (transaction != null) {
-                    val currentTime = System.currentTimeMillis()
-                    val isPlanned = transaction.date > currentTime
-                    
-                    _uiState.value = _uiState.value.copy(
-                        transactionId = transactionId,
-                        isEditMode = true,
-                        transactionType = transaction.type,
-                        amount = transaction.amount.toString(),
-                        description = transaction.notes ?: "",
-                        selectedCategory = transaction.category,
-                        selectedPaymentMethod = transaction.paymentMethod,
-                        date = transaction.date,
-                        isPlannedTransaction = isPlanned,
-                        isMpesaTransaction = false,
-                        isLoading = false
-                    )
-                } else if (transactionId.startsWith("mpesa_")) {
-                    // If not found in regular repository and ID starts with "mpesa_", check external repository
-                    externalTransactionRepository.getAllTransactions().collect { externalTransactions ->
-                        val mpesaTransaction = externalTransactions.find { it.id == transactionId }
-                        
-                        if (mpesaTransaction != null) {
-                            val currentTime = System.currentTimeMillis()
-                            val isPlanned = mpesaTransaction.date > currentTime
-                            
-                            _uiState.value = _uiState.value.copy(
-                                transactionId = transactionId,
-                                isEditMode = true,
-                                transactionType = mpesaTransaction.type,
-                                amount = mpesaTransaction.amount.toString(),
-                                description = mpesaTransaction.notes ?: "",
-                                selectedCategory = mpesaTransaction.category,
-                                selectedPaymentMethod = mpesaTransaction.paymentMethod,
-                                date = mpesaTransaction.date,
-                                isPlannedTransaction = isPlanned,
-                                isMpesaTransaction = true, // Mark as M-Pesa transaction
-                                isLoading = false
-                            )
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                error = "Transaction not found"
-                            )
-                        }
-                    }
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Transaction not found"
-                    )
-                }
+
+            val isMpesa = ExternalTransactionRepository.isExternalId(transactionId)
+            // One-shot reads: the old code kept collecting these flows, so any later DB change
+            // (like saving a category mapping) would reset the form.
+            val transaction = if (isMpesa) {
+                externalTransactionRepository.getAllTransactions().first().find { it.id == transactionId }
+            } else {
+                transactionRepository.getTransactionById(transactionId).first()
+            }
+
+            _uiState.value = if (transaction != null) {
+                _uiState.value.copy(
+                    transactionId = transactionId,
+                    isEditMode = true,
+                    transactionType = transaction.type,
+                    amount = transaction.amount.toString(),
+                    description = transaction.notes ?: "",
+                    selectedCategory = transaction.category,
+                    selectedPaymentMethod = transaction.paymentMethod,
+                    date = transaction.date,
+                    isPlannedTransaction = transaction.date > System.currentTimeMillis(),
+                    isMpesaTransaction = isMpesa,
+                    isLoading = false
+                )
+            } else {
+                _uiState.value.copy(isLoading = false, error = "Transaction not found")
             }
         }
     }
@@ -209,7 +184,7 @@ class AddTransactionViewModel @Inject constructor(
     private fun saveTransaction() {
         val state = _uiState.value
         val amountDouble = state.amount.toDoubleOrNull()
-        val userId = FirebaseAuth.getInstance().currentUser?.uid // ADD THIS
+        val userId = profileManager.profileId() // ADD THIS
 
 
         // --- Validation ---
@@ -232,6 +207,21 @@ class AddTransactionViewModel @Inject constructor(
         // -----------------
 
         _uiState.value = _uiState.value.copy(isLoading = true)
+
+        // M-Pesa transactions are read-only copies of an SMS: only the category can change,
+        // and it's saved as a local override (never as a manual transaction / to the cloud).
+        if (state.isMpesaTransaction && !state.transactionId.isNullOrEmpty()) {
+            viewModelScope.launch {
+                try {
+                    externalTransactionRepository.setCategory(state.transactionId, state.selectedCategory)
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _eventChannel.send(AddTransactionEvent.NavigateBack)
+                } catch (e: Exception) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Couldn't update category: ${e.message}")
+                }
+            }
+            return
+        }
 
         viewModelScope.launch {
             val transaction = Transaction(
@@ -256,7 +246,7 @@ class AddTransactionViewModel @Inject constructor(
 
             // 2. Save Recurring Rule (If enabled) - Only for new transactions
             if (state.isRecurring && !state.isEditMode) {
-                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                val userId = profileManager.profileId() ?: return@launch
 
                 val recurringRule = RecurringTransaction(
                     type = state.transactionType,

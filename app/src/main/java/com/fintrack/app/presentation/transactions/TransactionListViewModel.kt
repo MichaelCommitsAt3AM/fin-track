@@ -13,6 +13,8 @@ import com.fintrack.app.core.domain.model.TransactionType
 import com.fintrack.app.core.domain.repository.CategoryRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
+import com.fintrack.app.core.domain.util.SpendingPeriods
+import com.fintrack.app.core.domain.util.WeeklySpendingSummary
 import com.fintrack.app.presentation.settings.getIconByName
 import com.fintrack.app.presentation.ui.theme.FinTrackGreen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +28,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
@@ -68,7 +72,7 @@ class TransactionListViewModel @Inject constructor(
             initialValue = Currency.KSH
         )
 
-    private val _currentLimit = MutableStateFlow(30)
+    private val _currentLimit = MutableStateFlow(TransactionListFilter.PAGE_SIZE)
     val currentLimit: StateFlow<Int> = _currentLimit
 
     // We need categories to map icons/colors correctly
@@ -104,42 +108,56 @@ class TransactionListViewModel @Inject constructor(
         
         // Combine manual + M-Pesa transactions
         combine(manualFlow, mpesaFlow) { manual, mpesa ->
-            // Apply source filtering
-            val filteredTransactions = when (sourceFilter) {
-                "Manual" -> manual
-                "M-Pesa" -> mpesa
-                else -> {
-                    // Combine both sources and sort by date (newest first)
-                    (manual + mpesa).sortedByDescending { it.date }
-                }
-            }
-            
-            // Apply type filter (Income/Expense/All)
-            val typeFiltered = when (filter) {
-                "Income" -> filteredTransactions.filter { it.type == TransactionType.INCOME }
-                "Expense" -> filteredTransactions.filter { it.type == TransactionType.EXPENSE }
-                else -> filteredTransactions
-            }
-            
-            // Apply search filter if query exists
-            val searchFiltered = if (query.isNotEmpty()) {
-                typeFiltered.filter { transaction ->
-                    transaction.notes?.contains(query, ignoreCase = true) == true ||
-                    transaction.category.contains(query, ignoreCase = true) ||
-                    transaction.paymentMethod?.contains(query, ignoreCase = true) == true
-                }
+            TransactionListFilter.apply(manual, mpesa, filter, sourceFilter, query, limit)
+        }
+    }
+
+    // --- Weekly Spending Summary ---
+    // 0 = current week, -1 = last week, etc. Never positive (no future weeks).
+    private val _weekOffset = MutableStateFlow(0)
+    val weekOffset: StateFlow<Int> = _weekOffset.asStateFlow()
+
+    private val firstDayOfWeek = SpendingPeriods.localeFirstDayOfWeek()
+
+    private fun weekStartFor(offset: Int): LocalDate =
+        SpendingPeriods.weekStartOf(LocalDate.now(), firstDayOfWeek).plusWeeks(offset.toLong())
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val weeklySummary: StateFlow<WeeklySpendingSummary> = _weekOffset
+        .flatMapLatest { offset ->
+            val zone = ZoneId.systemDefault()
+            val weekStart = weekStartFor(offset)
+            // Load the previous week as well so we can show the comparison
+            val rangeStart = weekStart.minusWeeks(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val rangeEnd = weekStart.plusWeeks(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+
+            val localFlow = transactionRepository.getTransactionsByDateRange(rangeStart, rangeEnd)
+            val externalFlow = if (flavorIntegration.supportsMpesa) {
+                externalTransactionRepository.getAllTransactions()
             } else {
-                typeFiltered
+                kotlinx.coroutines.flow.flowOf(emptyList())
             }
-            
-            // Apply pagination limit (only when not searching)
-            if (query.isEmpty() && sourceFilter != "M-Pesa") {
-                // M-Pesa is limited at source (50 items), no need to limit again
-                searchFiltered.take(limit)
-            } else {
-                searchFiltered
+
+            combine(localFlow, externalFlow) { local, external ->
+                // Planned (future-dated) transactions haven't happened yet, so they don't count as spending
+                val now = System.currentTimeMillis()
+                val relevant = (local + external).filter { it.date in rangeStart..minOf(rangeEnd, now) }
+                SpendingPeriods.weeklySummary(relevant, weekStart, LocalDate.now(), zone)
             }
         }
+        .flowOn(kotlinx.coroutines.Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = WeeklySpendingSummary.empty(weekStartFor(0), LocalDate.now())
+        )
+
+    fun previousWeek() {
+        _weekOffset.value -= 1
+    }
+
+    fun nextWeek() {
+        if (_weekOffset.value < 0) _weekOffset.value += 1
     }
 
     // Planned transactions flow - always fetch planned transactions
@@ -254,26 +272,22 @@ class TransactionListViewModel @Inject constructor(
 
     fun loadMore() {
         if (_searchQuery.value.isEmpty()) {
-            _currentLimit.value += 30 // Load next 30 items
+            _currentLimit.value += TransactionListFilter.PAGE_SIZE
         }
     }
     
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        // Reset limit on search clear? Not strictly necessary as we switch flows, but good practice
-        if (query.isEmpty() && _currentLimit.value > 20) {
-           // _currentLimit.value = 20 // Optional: reset limit when clearing search
-        }
     }
 
     fun onFilterSelected(filter: String) {
         _selectedFilter.value = filter
-        _currentLimit.value = 20 // Reset limit when changing filters
+        _currentLimit.value = TransactionListFilter.PAGE_SIZE // Back to the first page
     }
     
     fun onSourceFilterSelected(source: String) {
         _selectedSourceFilter.value = source
-        _currentLimit.value = 20 // Reset pagination
+        _currentLimit.value = TransactionListFilter.PAGE_SIZE // Back to the first page
     }
     
     fun toggleSourceFilterExpanded() {

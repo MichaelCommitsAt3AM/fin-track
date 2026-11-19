@@ -62,6 +62,7 @@ import kotlinx.coroutines.launch
 class MainActivity : FragmentActivity() { // Changed to FragmentActivity for BiometricPrompt
 
     @Inject lateinit var localAuthManager: LocalAuthManager
+    @Inject lateinit var profileManager: com.fintrack.app.core.profile.ProfileManager
     @Inject lateinit var settingsIntegration: com.fintrack.app.presentation.navigation.SettingsIntegration
     @Inject lateinit var onboardingIntegration: com.fintrack.app.presentation.navigation.OnboardingIntegration
 
@@ -169,6 +170,14 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                 val currentBiometricEnabled by localAuthManager.isBiometricEnabled.collectAsState(initial = isBiometricEnabled)
                 var showPinLock by remember(currentBiometricEnabled) { mutableStateOf(!currentBiometricEnabled) }
 
+                val showLocalForgotPin by mainViewModel.showLocalForgotPin.collectAsState()
+                if (isAppLocked && showLocalForgotPin) {
+                    com.fintrack.app.presentation.auth.pin.LocalForgotPinDialog(
+                        onDismiss = { mainViewModel.dismissLocalForgotPin() },
+                        onErased = { mainViewModel.onLocalDataErased() }
+                    )
+                }
+
                 if (isAppLocked) {
                     Surface(
                             modifier = Modifier.fillMaxSize(),
@@ -179,8 +188,9 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                                     onPinVerified = { mainViewModel.setAppLocked(false) },
                                     onUseBiometrics = { showPinLock = false },
                                     onForgotPin = {
-                                        // Unlock to allow navigation to recovery flows
-                                        mainViewModel.setAppLocked(false)
+                                        // Signs out and clears the PIN before unlocking, so the
+                                        // user lands on Login instead of inside the account
+                                        mainViewModel.onForgotPin()
                                     },
                                     isBiometricAvailable = currentBiometricEnabled
                             )
@@ -199,7 +209,13 @@ class MainActivity : FragmentActivity() { // Changed to FragmentActivity for Bio
                     // This runs only after the local app lock is cleared
                     val startDestination = remember {
                         val currentUser = FirebaseAuth.getInstance().currentUser
+                        val profileMode = profileManager.state.value.mode
                         when {
+                            // Chose "Continue without an account": no sign-in or email check applies
+                            profileMode == com.fintrack.app.core.profile.AccountMode.LOCAL_ONLY -> {
+                                runBlocking { onboardingIntegration.getStartDestinationIfRequired() }
+                                    ?: AppRoutes.Home.route
+                            }
                             currentUser == null -> AppRoutes.Login.route
                             !currentUser.isEmailVerified -> AppRoutes.VerifyEmail.route
                             else -> {

@@ -24,7 +24,8 @@ class MpesaSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val mpesaRepository: MpesaTransactionRepository,
-    private val mpesaPreferences: MpesaOnboardingPreferences
+    private val mpesaPreferences: MpesaOnboardingPreferences,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
 ) : CoroutineWorker(appContext, workerParams) {
     
     companion object {
@@ -32,36 +33,30 @@ class MpesaSyncWorker @AssistedInject constructor(
         const val WORK_NAME = "mpesa_sync_work"
         const val INPUT_LOOKBACK_MONTHS = "lookback_months"
         
-        // Default lookback period if not specified
-        const val DEFAULT_LOOKBACK_MONTHS = 3
     }
     
     override suspend fun doWork(): Result {
         Log.d(TAG, "Starting M-Pesa SMS sync worker")
         
         return try {
-            // Get lookback period: Prefer User Setting > Input Data > Default
-            val lookbackMonths = try {
-                mpesaPreferences.lookbackPeriodMonths.first()
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to read preferences, falling back to input data", e)
-                inputData.getInt(INPUT_LOOKBACK_MONTHS, DEFAULT_LOOKBACK_MONTHS)
+            // An explicit rescan (e.g. from Settings) passes the period to scan.
+            // The routine periodic sync passes nothing and only checks recent messages:
+            // older ones were already imported, and rescanning years of SMS every
+            // few hours would waste battery.
+            val lookbackPeriod = if (inputData.keyValueMap.containsKey(INPUT_LOOKBACK_MONTHS)) {
+                LookbackPeriod.fromMonths(inputData.getInt(INPUT_LOOKBACK_MONTHS, LookbackPeriod.DEFAULT.months))
+            } else {
+                LookbackPeriod.ROUTINE_SYNC
             }
 
-            val lookbackPeriod = when (lookbackMonths) {
-                1 -> LookbackPeriod.ONE_MONTH
-                6 -> LookbackPeriod.SIX_MONTHS
-                12 -> LookbackPeriod.ONE_YEAR
-                else -> LookbackPeriod.THREE_MONTHS
-            }
-            
-            Log.d(TAG, "Syncing with lookback period: $lookbackPeriod ($lookbackMonths months)")
+            Log.d(TAG, "Syncing with lookback period: $lookbackPeriod")
             
             // Perform sync
             mpesaRepository.syncMpesaSms(lookbackPeriod)
             
             val count = mpesaRepository.getTransactionCount()
             Log.d(TAG, "M-Pesa sync completed successfully. Total transactions: $count")
+            backupScheduler.requestRun() // no-op unless Cloud backup is on
             
             Result.success()
             

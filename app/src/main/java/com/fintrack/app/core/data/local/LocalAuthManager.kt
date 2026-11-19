@@ -8,11 +8,14 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.fintrack.app.core.domain.model.Currency
 import com.fintrack.app.core.util.SecurityUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 private val Context.dataStore by preferencesDataStore(name = "auth_prefs")
 
@@ -42,39 +45,38 @@ class LocalAuthManager @Inject constructor(@ApplicationContext private val conte
     }
 
     /**
-     * Sets and securely hashes the user's PIN.
-     * The PIN is salted and hashed using SHA-256 before storage.
-     * 
+     * Sets and securely hashes the user's PIN (PBKDF2, see [SecurityUtils.createPinHash]).
+     * Hashing is deliberately slow, so it runs off the main thread.
+     *
      * @param pin The plaintext PIN (should be validated before calling this)
      */
     suspend fun setUserPin(pin: String) {
-        val hashedPin = SecurityUtils.createPinHash(pin)
+        val hashedPin = withContext(Dispatchers.Default) { SecurityUtils.createPinHash(pin) }
         context.dataStore.edit { it[USER_PIN] = hashedPin }
     }
 
     /**
      * Verifies if the provided PIN matches the stored hash.
-     * Automatically migrates plaintext PINs to hashed format on first verification.
-     * 
+     * Plaintext and legacy SHA-256 hashes are upgraded to the current format after a
+     * successful verification.
+     *
      * @param inputPin The PIN entered by the user
      * @return true if PIN is correct, false otherwise
      */
     suspend fun verifyPin(inputPin: String): Boolean {
         val storedPin = context.dataStore.data.first()[USER_PIN] ?: return false
-        
-        // Check if stored PIN is in plaintext (legacy format) and migrate if needed
-        if (!SecurityUtils.isHashedPin(storedPin)) {
-            // Legacy plaintext PIN - migrate to hashed format
-            if (storedPin == inputPin) {
-                // Correct PIN, hash and store it
-                setUserPin(inputPin)
-                return true
-            }
-            return false
+
+        val matches = if (SecurityUtils.isHashedPin(storedPin)) {
+            withContext(Dispatchers.Default) { SecurityUtils.verifyPin(inputPin, storedPin) }
+        } else {
+            // Legacy plaintext PIN
+            MessageDigest.isEqual(storedPin.toByteArray(), inputPin.toByteArray())
         }
-        
-        // Modern hashed PIN - verify using constant-time comparison
-        return SecurityUtils.verifyPin(inputPin, storedPin)
+
+        if (matches && SecurityUtils.needsRehash(storedPin)) {
+            setUserPin(inputPin)
+        }
+        return matches
     }
 
     /**

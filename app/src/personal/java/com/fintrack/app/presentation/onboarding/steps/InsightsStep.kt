@@ -34,27 +34,24 @@ fun InsightsStep(
 ) {
     val insights by viewModel.insights.collectAsState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            InsightsContent(insights, onNext)
+    OnboardingStepLayout(
+        bottomBar = {
+            Button(
+                onClick = onNext,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text("Next", fontWeight = FontWeight.Bold)
+            }
         }
+    ) {
+        InsightsContent(insights)
     }
 }
 
 @Composable
 private fun ColumnScope.InsightsContent(
-    insights: OnboardingInsights,
-    onNext: () -> Unit
+    insights: OnboardingInsights
 ) {
     Text(
         text = "Your Patterns",
@@ -135,14 +132,6 @@ private fun ColumnScope.InsightsContent(
         )
     }
 
-    Spacer(modifier = Modifier.height(32.dp))
-
-    Button(
-        onClick = onNext,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Next")
-    }
 }
 
 @Composable

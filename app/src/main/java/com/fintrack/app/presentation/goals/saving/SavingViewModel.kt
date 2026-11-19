@@ -7,7 +7,7 @@ import com.fintrack.app.core.domain.model.Contribution
 import com.fintrack.app.core.domain.model.Currency
 import com.fintrack.app.core.domain.model.Saving
 import com.fintrack.app.core.domain.repository.SavingRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,12 +22,12 @@ import javax.inject.Inject
 @HiltViewModel
 class SavingViewModel @Inject constructor(
     private val savingRepository: SavingRepository,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
     private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     private val userId: String?
-        get() = firebaseAuth.currentUser?.uid
+        get() = profileManager.profileId()
 
     // State for all savings
     private val _savings = MutableStateFlow<List<Saving>>(emptyList())

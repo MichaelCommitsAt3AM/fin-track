@@ -28,4 +28,11 @@ interface SettingsIntegration {
      */
     @Composable
     fun SettingsEntryPoint(navController: NavHostController)
+
+    /**
+     * Extra sections for the Privacy Policy screen (variant-specific data handling).
+     * Empty by default.
+     */
+    @Composable
+    fun PrivacyPolicyExtras() {}
 }

@@ -18,6 +18,10 @@ interface TransactionRepository {
     // Using Flow to get real-time updates in the UI
     fun getAllTransactionsPaged(limit: Int): Flow<List<Transaction>>
 
+    /**
+     * Transactions dated within [startDate]..[endDate] that have already happened
+     * (future-dated/planned ones are excluded; see [Transaction.hasOccurred]).
+     */
     fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<Transaction>>
 
     fun getTransactionsByTypePaged(type: String, limit: Int): Flow<List<Transaction>>

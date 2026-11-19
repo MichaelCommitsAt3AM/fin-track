@@ -38,21 +38,47 @@ enum class MpesaTransactionType {
 }
 
 /**
- * Lookback period for SMS scanning.
+ * How far back to scan the SMS inbox for M-Pesa messages.
+ *
+ * Single source of truth for the options, their labels and the default:
+ * settings, onboarding, the worker and preferences all go through this enum.
+ *
+ * @param months Number of months to scan, or [ALL_MONTHS] for the whole inbox.
+ *               This value is what gets persisted in preferences / worker input.
  */
-enum class LookbackPeriod(val months: Int) {
-    ONE_MONTH(1),
-    THREE_MONTHS(3),    // Default
-    SIX_MONTHS(6),
-    ONE_YEAR(12);
-    
+enum class LookbackPeriod(val months: Int, val label: String) {
+    ONE_MONTH(1, "1 month"),
+    THREE_MONTHS(3, "3 months"),
+    SIX_MONTHS(6, "6 months"),
+    ONE_YEAR(12, "1 year"),
+    TWO_YEARS(24, "2 years"),
+    THREE_YEARS(36, "3 years"),
+    ALL_TIME(ALL_MONTHS, "All messages");
+
     /**
      * Calculate the start timestamp for this lookback period.
      */
     fun getStartTimestamp(currentTime: Long = System.currentTimeMillis()): Long {
+        if (this == ALL_TIME) return 0L
         val calendar = java.util.Calendar.getInstance()
         calendar.timeInMillis = currentTime
         calendar.add(java.util.Calendar.MONTH, -months)
         return calendar.timeInMillis
     }
+
+    companion object {
+        val DEFAULT = ONE_YEAR
+
+        /**
+         * Window used by the routine background sync. It only needs to catch messages
+         * the real-time receiver missed, so it doesn't rescan the whole lookback period.
+         */
+        val ROUTINE_SYNC = ONE_MONTH
+
+        /** Maps a persisted month count back to an option, falling back to [DEFAULT] for unknown values. */
+        fun fromMonths(months: Int): LookbackPeriod = entries.firstOrNull { it.months == months } ?: DEFAULT
+    }
 }
+
+/** Persisted value for [LookbackPeriod.ALL_TIME]. */
+const val ALL_MONTHS = 0

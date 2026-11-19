@@ -11,6 +11,7 @@ import com.fintrack.app.core.domain.repository.MpesaTransactionRepository
 import com.fintrack.app.core.data.local.dao.MpesaCategoryMappingDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -28,7 +29,8 @@ class SmsTransactionRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mpesaRepository: MpesaTransactionRepository,
     private val mappingDao: MpesaCategoryMappingDao,
-    private val merchantCategoryDao: com.fintrack.app.core.data.local.dao.MerchantCategoryDao
+    private val merchantCategoryDao: com.fintrack.app.core.data.local.dao.MerchantCategoryDao,
+    private val backupScheduler: com.fintrack.app.core.backup.MpesaBackupScheduler
 ) : ExternalTransactionRepository {
     
     override fun observeNewTransactions(): Flow<List<Transaction>> {
@@ -50,6 +52,25 @@ class SmsTransactionRepository @Inject constructor(
         ) { mpesaTransactions, receiptMappings, merchantMappings ->
             mapMpesaTransactions(mpesaTransactions, receiptMappings, merchantMappings)
         }
+    }
+
+    /**
+     * Stores a receipt-level category override. It takes precedence over merchant mappings
+     * and auto-detection in [mapMpesaTransactions], stays on the device, and survives
+     * rescans because it's keyed by receipt number rather than the SMS row.
+     */
+    override suspend fun setCategory(transactionId: String, categoryName: String) {
+        val smsId = transactionId.removePrefix(ID_PREFIX)
+        val mpesa = mpesaRepository.getAllTransactions().first().firstOrNull { it.smsId == smsId }
+            ?: throw IllegalArgumentException("M-Pesa transaction not found: $transactionId")
+
+        mappingDao.insert(
+            MpesaCategoryMappingEntity(
+                mpesaReceiptNumber = mpesa.mpesaReceiptNumber,
+                categoryName = categoryName
+            )
+        )
+        backupScheduler.requestRun() // no-op unless Cloud backup is on
     }
 
     private fun mapMpesaTransactions(
@@ -75,7 +96,7 @@ class SmsTransactionRepository @Inject constructor(
                 ?: determineMpesaCategory(mpesa.transactionType.name, mpesa.smartClues)
 
             Transaction(
-                id = "mpesa_${mpesa.smsId}",
+                id = "$ID_PREFIX${mpesa.smsId}",
                 userId = "local", // M-Pesa transactions are user-agnostic for now
                 type = mpesa.type,
                 amount = mpesa.amount,
@@ -167,5 +188,9 @@ class SmsTransactionRepository @Inject constructor(
             tags.add("Auto-categorized")
         }
         return tags
+    }
+
+    private companion object {
+        const val ID_PREFIX = ExternalTransactionRepository.ID_PREFIX
     }
 }

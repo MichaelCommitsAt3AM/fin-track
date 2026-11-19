@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.fintrack.app.core.domain.model.LookbackPeriod
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -37,12 +38,12 @@ class MpesaOnboardingPreferences @Inject constructor(
         }
     
     /**
-     * Flow of the selected lookback period in months (1, 3, 6, or 12).
-     * Default: 3 months
+     * Flow of the selected lookback period. Defaults to [LookbackPeriod.DEFAULT] (1 year)
+     * when the user hasn't picked one.
      */
-    val lookbackPeriodMonths: Flow<Int> = 
+    val lookbackPeriod: Flow<LookbackPeriod> =
         context.onboardingDataStore.data.map { preferences ->
-            preferences[LOOKBACK_PERIOD_MONTHS] ?: 3
+            preferences[LOOKBACK_PERIOD_MONTHS]?.let(LookbackPeriod::fromMonths) ?: LookbackPeriod.DEFAULT
         }
     
     /**
@@ -65,14 +66,10 @@ class MpesaOnboardingPreferences @Inject constructor(
     
     /**
      * Set the lookback period for SMS scanning.
-     * @param months Number of months to look back (1, 3, 6, or 12)
      */
-    suspend fun setLookbackPeriod(months: Int) {
-        require(months in listOf(1, 3, 6, 12)) { 
-            "Lookback period must be 1, 3, 6, or 12 months" 
-        }
+    suspend fun setLookbackPeriod(period: LookbackPeriod) {
         context.onboardingDataStore.edit { preferences ->
-            preferences[LOOKBACK_PERIOD_MONTHS] = months
+            preferences[LOOKBACK_PERIOD_MONTHS] = period.months
         }
     }
     

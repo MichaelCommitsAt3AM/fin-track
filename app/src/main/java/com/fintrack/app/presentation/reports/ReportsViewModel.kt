@@ -12,6 +12,7 @@ import com.fintrack.app.core.domain.repository.BudgetRepository
 import com.fintrack.app.core.domain.repository.CategoryRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
+import com.fintrack.app.core.domain.util.SpendingPeriods
 import com.fintrack.app.core.utils.CsvExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
@@ -43,6 +47,11 @@ class ReportsViewModel @Inject constructor(
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
 
+    // Spending Trends granularity. Weekly is the default because it's more actionable day-to-day.
+    private val _trendPeriod = MutableStateFlow(TrendPeriod.WEEKLY)
+
+    private val firstDayOfWeek = SpendingPeriods.localeFirstDayOfWeek()
+
     // SharedFlow for one-time events (like triggering the share sheet)
     private val _exportEvent = MutableSharedFlow<Uri?>()
     val exportEvent = _exportEvent.asSharedFlow()
@@ -58,10 +67,10 @@ class ReportsViewModel @Inject constructor(
         transactionRepository.getAllTransactionsPaged(Int.MAX_VALUE),
         if (flavorIntegration.supportsMpesa) externalTransactionRepository.getAllTransactions() else kotlinx.coroutines.flow.flowOf(emptyList()),
         categoryRepository.getAllCategories(),
-        _currentMonth,
+        combine(_currentMonth, _trendPeriod) { month, period -> month to period },
         currencyPreference
-    ) { localTransactions, externalTransactions, categories, currentMonth, currency ->
-        
+    ) { localTransactions, externalTransactions, categories, (currentMonth, trendPeriod), currency ->
+
         val transactions = localTransactions + externalTransactions
 
 
@@ -97,28 +106,9 @@ class ReportsViewModel @Inject constructor(
             }
             .sumOf { it.amount }
 
-        // 3. Prepare Bar Chart Data (Last 6 Months Trends)
-        val sixMonthsAgo = currentMonth.minusMonths(5)
-
-        val trendData = transactions
-            .filter {
-                val date = Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                val ym = YearMonth.from(date)
-                !ym.isBefore(sixMonthsAgo) && !ym.isAfter(currentMonth)
-            }
-            .groupBy {
-                YearMonth.from(Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate())
-            }
-            .entries
-            .sortedBy { it.key }
-            .map { (ym, txs) ->
-                MonthlyFinancials(
-                    month = ym.month.name.take(3),
-                    year = ym.year,
-                    income = txs.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
-                    expense = txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-                )
-            }
+        // 3. Spending Trends, ending at the selected month.
+        // Empty periods are kept (as 0) so the x-axis never silently skips a week/month.
+        val trend = buildTrend(transactions, currentMonth, trendPeriod)
 
         ReportsUiState(
             isLoading = false,
@@ -126,7 +116,9 @@ class ReportsViewModel @Inject constructor(
             totalIncome = income,
             totalExpense = totalExpense,
             categoryBreakdown = breakdown,
-            monthlyTrends = trendData,
+            trend = trend,
+            trendPeriod = trendPeriod,
+            isCurrentMonth = currentMonth == YearMonth.now(),
             currency = currency
         )
     }.stateIn(
@@ -135,12 +127,46 @@ class ReportsViewModel @Inject constructor(
         initialValue = ReportsUiState(isLoading = true)
     )
 
+    private fun buildTrend(
+        transactions: List<com.fintrack.app.core.domain.model.Transaction>,
+        month: YearMonth,
+        period: TrendPeriod
+    ): List<TrendPoint> = when (period) {
+        TrendPeriod.WEEKLY -> {
+            // Anchor on the current week when viewing this month, otherwise on the month's last week
+            val today = LocalDate.now()
+            val anchorDay = if (month == YearMonth.from(today)) today else month.atEndOfMonth()
+            val lastWeekStart = SpendingPeriods.weekStartOf(anchorDay, firstDayOfWeek)
+            val labelFormat = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+            SpendingPeriods.weeklyExpenseTrend(transactions, lastWeekStart, WEEKS_IN_TREND, firstDayOfWeek)
+                .map { TrendPoint(label = it.start.format(labelFormat), detail = "Week of ${it.start.format(labelFormat)}", amount = it.amount) }
+        }
+        TrendPeriod.MONTHLY -> {
+            val shortFormat = DateTimeFormatter.ofPattern("MMM", Locale.getDefault())
+            val longFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
+            SpendingPeriods.monthlyExpenseTrend(transactions, month, MONTHS_IN_TREND)
+                .map { TrendPoint(label = it.start.format(shortFormat), detail = it.start.format(longFormat), amount = it.amount) }
+        }
+    }
+
     fun previousMonth() {
         _currentMonth.value = _currentMonth.value.minusMonths(1)
     }
 
     fun nextMonth() {
-        _currentMonth.value = _currentMonth.value.plusMonths(1)
+        // Future months have no data, so don't let the user page into them
+        if (_currentMonth.value < YearMonth.now()) {
+            _currentMonth.value = _currentMonth.value.plusMonths(1)
+        }
+    }
+
+    fun setTrendPeriod(period: TrendPeriod) {
+        _trendPeriod.value = period
+    }
+
+    private companion object {
+        const val WEEKS_IN_TREND = 8
+        const val MONTHS_IN_TREND = 6
     }
 
     fun exportData() {
@@ -169,7 +195,9 @@ data class ReportsUiState(
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val categoryBreakdown: List<CategoryReportData> = emptyList(),
-    val monthlyTrends: List<MonthlyFinancials> = emptyList(),
+    val trend: List<TrendPoint> = emptyList(),
+    val trendPeriod: TrendPeriod = TrendPeriod.WEEKLY,
+    val isCurrentMonth: Boolean = true,
     val currency: Currency = Currency.KSH
 )
 
@@ -181,11 +209,15 @@ data class CategoryReportData(
     val transactionCount: Int
 )
 
-data class MonthlyFinancials(
-    val month: String,
-    val year: Int,
-    val income: Double,
-    val expense: Double
+enum class TrendPeriod(val label: String, val unit: String) {
+    WEEKLY("Weeks", "week"),
+    MONTHLY("Months", "month")
+}
+
+data class TrendPoint(
+    val label: String,   // short x-axis label, e.g. "10 Nov" or "Nov"
+    val detail: String,  // full label shown when the point is selected
+    val amount: Double
 )
 
 fun String.toColor(): Color {

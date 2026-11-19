@@ -7,16 +7,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -45,9 +48,14 @@ fun LoginScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
     onNavigateToEmailVerification: () -> Unit,
+    onNavigateToProfileSetup: () -> Unit = {},
+    onNavigateAfterLocalProfile: () -> Unit = onNavigateToProfileSetup,
+    onLinkCompleted: () -> Unit = {},
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val isLinking by viewModel.isLinking.collectAsState()
+    var showLocalOnlyDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -96,6 +104,17 @@ fun LoginScreen(
         )
     }
 
+    if (state.pendingCombineUid != null) CombineDataDialog(viewModel)
+    if (showLocalOnlyDialog) {
+        LocalOnlyConfirmDialog(
+            onConfirm = {
+                showLocalOnlyDialog = false
+                viewModel.continueWithoutAccount()
+            },
+            onDismiss = { showLocalOnlyDialog = false }
+        )
+    }
+
     // Listen for one-time events
     LaunchedEffect(key1 = true) {
         viewModel.authEvent.collect { event ->
@@ -103,6 +122,9 @@ fun LoginScreen(
                 is AuthEvent.NavigateToSetup -> onNavigateToSetup()
                 is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
                 AuthEvent.NavigateToLogin -> onNavigateToLogin()
+                AuthEvent.NavigateToProfileSetup -> onNavigateToProfileSetup()
+                AuthEvent.NavigateAfterLocalProfile -> onNavigateAfterLocalProfile()
+                AuthEvent.LinkCompleted -> onLinkCompleted()
                 else -> {}
             }
         }
@@ -122,6 +144,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(horizontal = 32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -138,12 +161,12 @@ fun LoginScreen(
 
             // Headline
             Text(
-                text = "Welcome Back!",
+                text = if (isLinking) "Back up your data" else "Welcome Back!",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Log in to manage your finances.",
+                text = if (isLinking) "Log in or create an account. Your data on this phone is kept." else "Log in to manage your finances.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -276,6 +299,62 @@ fun LoginScreen(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                // Local-only option: a first-class choice, not a hidden link
+                if (!isLinking) {
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(
+                            "or",
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Same style as the Google button so the three options read as one set
+                    OutlinedButton(
+                        onClick = { showLocalOnlyDialog = true },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhoneAndroid,
+                            contentDescription = null,
+                            tint = FinTrackGreen,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Continue without an account",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        "Your data stays on this phone. You can create an account later.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }

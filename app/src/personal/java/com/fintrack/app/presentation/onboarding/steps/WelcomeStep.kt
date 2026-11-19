@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.onboarding.steps
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -23,85 +24,66 @@ fun WelcomeStep(
     onNext: () -> Unit,
     onSkip: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+    OnboardingStepLayout(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        bottomBar = {
+            Button(
+                onClick = onNext,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text("Get Started", fontWeight = FontWeight.Bold)
+            }
+            TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+                Text("Skip for Now")
+            }
+        }
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        // Icon
+        Spacer(modifier = Modifier.height(32.dp))
+
         Icon(
             imageVector = Icons.Default.Lock,
             contentDescription = null,
             modifier = Modifier.size(120.dp),
             tint = FinTrackGreen
         )
-        
-        // Title & Description
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "M-Pesa Integration",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Track your M-Pesa transactions automatically. Your data stays on your device — never uploaded to the cloud.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        // Privacy features
-        Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "M-Pesa Integration",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Track your M-Pesa transactions automatically. Your data stays on your device unless you turn on encrypted Cloud backup.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             PrivacyFeature(
                 icon = Icons.Default.Lock,
                 title = "Local Storage Only",
-                description = "Data never leaves your device"
+                description = "Stays on your device unless you opt in to backup"
             )
-            
             PrivacyFeature(
                 icon = Icons.Default.Shield,
                 title = "Separate Database",
                 description = "M-Pesa data isolated and secure"
             )
-            
             PrivacyFeature(
                 icon = Icons.Default.AutoAwesome,
                 title = "Smart Detection",
                 description = "Auto-categorize transactions"
             )
-        }
-        
-        // Buttons
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Get Started")
-            }
-            
-            TextButton(
-                onClick = onSkip,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Skip for Now")
-            }
         }
     }
 }

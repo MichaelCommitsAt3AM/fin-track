@@ -1,6 +1,7 @@
 package com.fintrack.app.presentation.home
 
 
+import com.fintrack.app.core.ui.components.UserAvatar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,6 +57,19 @@ fun HomeScreen(
     val weeklySpending by viewModel.weeklySpending.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
 
+    // Switch to the Transactions bottom-nav tab (same behaviour as tapping the tab itself)
+    val navigateToTransactions: () -> Unit = {
+        navController.navigate(BottomNavItem.Transactions.route) {
+            navController.graph.startDestinationRoute?.let { route ->
+                popUpTo(route) {
+                    saveState = true
+                }
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     // Root Box is essential for Overlay behavior
     Box(
         modifier = Modifier
@@ -89,7 +103,8 @@ fun HomeScreen(
                     WeeklySpendingCard(
                         amountSpent = weeklySpending.first,
                         lastWeekSpent = weeklySpending.second,
-                        currencySymbol = currency.symbol
+                        currencySymbol = currency.symbol,
+                        onClick = navigateToTransactions
                     )
                 }
 
@@ -104,17 +119,7 @@ fun HomeScreen(
                     TransactionsSection(
                         transactions = recentTransactions,
                         currencySymbol = currency.symbol,
-                        onViewAllClick = {
-                            navController.navigate(BottomNavItem.Transactions.route) {
-                                navController.graph.startDestinationRoute?.let { route ->
-                                    popUpTo(route) {
-                                        saveState = true
-                                    }
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
+                        onViewAllClick = navigateToTransactions
                     )
                 }
             }
@@ -148,12 +153,9 @@ fun HomeHeader(
         Row(verticalAlignment = Alignment.CenterVertically) {
 
             // Clickable avatar
-            Image(
-                painter = painterResource(
-                    id = com.fintrack.app.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
-                ),
+            UserAvatar(
+                avatarId = user?.avatarId ?: 1,
                 contentDescription = "User Avatar",
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
@@ -168,7 +170,7 @@ fun HomeHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = user?.fullName?.substringBefore(" ") ?: "Loading...",
+                    text = user?.let { u -> u.fullName.takeIf { it.isNotBlank() }?.substringBefore(" ") ?: "User" } ?: "Loading...",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -194,7 +196,8 @@ fun HomeHeader(
 fun WeeklySpendingCard(
     amountSpent: Double = 433.62,
     lastWeekSpent: Double = 377.06,
-    currencySymbol: String = "Ksh"
+    currencySymbol: String = "Ksh",
+    onClick: () -> Unit = {}
 ) {
     val difference = amountSpent - lastWeekSpent
     val percentageChange = if (lastWeekSpent > 0) {
@@ -208,6 +211,7 @@ fun WeeklySpendingCard(
             .padding(vertical = 8.dp)
     ) {
         Card(
+            onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
@@ -539,12 +543,9 @@ fun ProfileDrawerContent(
             ) {
                 // Large Avatar with border
                 Box {
-                    Image(
-                        painter = painterResource(
-                            id = com.fintrack.app.presentation.utils.getAvatarResource(user?.avatarId ?: 1)
-                        ),
+                    UserAvatar(
+                        avatarId = user?.avatarId ?: 1,
                         contentDescription = "User Avatar Large",
-                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(96.dp)
                             .clip(CircleShape)
@@ -565,7 +566,7 @@ fun ProfileDrawerContent(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = user?.fullName ?: "User Name",
+                    text = user?.fullName?.takeIf { it.isNotBlank() } ?: "User",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface

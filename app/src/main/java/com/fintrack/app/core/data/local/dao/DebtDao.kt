@@ -40,4 +40,8 @@ interface DebtDao {
     // Mark as updated
     @Query("UPDATE debts SET isSynced = 1 WHERE id = :debtId")
     suspend fun markAsSynced(debtId: String)
+
+    // Mark every live row of a profile as needing upload (enabling sync / linking an account)
+    @Query("UPDATE debts SET isSynced = 0 WHERE userId = :userId AND deletedAt IS NULL")
+    suspend fun markAllUnsynced(userId: String)
 }

@@ -17,7 +17,7 @@ import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.di.AppFlavorIntegration
 import com.fintrack.app.core.domain.use_case.GetCategoriesUseCase
 import com.fintrack.app.presentation.settings.getIconByName
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -80,11 +80,11 @@ class BudgetsViewModel @Inject constructor(
     private val externalTransactionRepository: ExternalTransactionRepository,
     private val appFlavorIntegration: AppFlavorIntegration,
     private val localAuthManager: LocalAuthManager,
-    private val firebaseAuth: FirebaseAuth
+    private val profileManager: ProfileManager
 ) : ViewModel() {
 
     private val userId: String?
-        get() = firebaseAuth.currentUser?.uid
+        get() = profileManager.profileId()
 
     // Current month and year
     private val currentMonth = Calendar.getInstance().get(Calendar.MONTH) + 1
@@ -580,7 +580,7 @@ class BudgetsViewModel @Inject constructor(
     private fun saveBudget() {
         val state = _addBudgetState.value
         val amountDouble = state.amount.toDoubleOrNull()
-        val userId = firebaseAuth.currentUser?.uid
+        val userId = profileManager.profileId()
 
         // Validation
         if (userId == null) {

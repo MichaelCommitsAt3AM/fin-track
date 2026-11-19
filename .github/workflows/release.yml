@@ -1,0 +1,105 @@
+# Builds signed release APKs (+ a Play Store AAB) and attaches them to a DRAFT GitHub Release.
+#
+# Trigger: push a version tag, e.g.
+#   git tag v1.2.0 && git push origin v1.2.0
+# The draft lets you review the auto-generated notes before publishing it on GitHub.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   KEYSTORE_BASE64        base64 of your release .jks   (base64 -w0 release.jks)
+#   KEYSTORE_PASSWORD      keystore password
+#   KEY_ALIAS              key alias
+#   KEY_PASSWORD           key password
+#   GOOGLE_SERVICES_JSON   base64 of your production google-services.json
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (e.g. v1.2.0)'
+        required: true
+
+permissions:
+  contents: write # needed to create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          # v1.2.3 -> versionName 1.2.3, versionCode 10203 (always increases with the version)
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Tag '$TAG' must look like v1.2.3"; exit 1
+          fi
+          CODE=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION (versionCode $CODE)"
+
+      - name: Restore signing key and Firebase config
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::KEYSTORE_BASE64 and GOOGLE_SERVICES_JSON secrets are required"; exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+
+      - name: Build signed release
+        env:
+          # ORG_GRADLE_PROJECT_* become Gradle properties read by app/build.gradle.kts
+          ORG_GRADLE_PROJECT_RELEASE_STORE_FILE: ${{ runner.temp }}/release.jks
+          ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_VERSION_NAME: ${{ steps.version.outputs.name }}
+          ORG_GRADLE_PROJECT_VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: ./gradlew assembleStoreRelease assemblePersonalRelease bundleStoreRelease
+
+      - name: Collect artifacts
+        run: |
+          mkdir dist
+          V=${{ steps.version.outputs.name }}
+          cp app/build/outputs/apk/store/release/*.apk    "dist/FinTrack-$V.apk"
+          cp app/build/outputs/apk/personal/release/*.apk "dist/FinTrack-$V-mpesa.apk"
+          cp app/build/outputs/bundle/storeRelease/*.aab  "dist/FinTrack-$V.aab"
+          # Fail loudly if signing silently didn't happen
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          for apk in dist/*.apk; do "$APKSIGNER" verify --print-certs "$apk"; done
+          ls -la dist
+
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --draft \
+            --title "FinTrack $TAG" \
+            --generate-notes
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" app/google-services.json

@@ -22,7 +22,7 @@ object MpesaSyncScheduler {
      */
     fun scheduleOneTimeSync(
         context: Context,
-        lookbackPeriod: LookbackPeriod = LookbackPeriod.THREE_MONTHS,
+        lookbackPeriod: LookbackPeriod = LookbackPeriod.DEFAULT,
         requiresCharging: Boolean = false,
         requiresDeviceIdle: Boolean = false
     ) {
@@ -62,7 +62,7 @@ object MpesaSyncScheduler {
      */
     fun schedulePeriodicSync(
         context: Context,
-        lookbackPeriod: LookbackPeriod = LookbackPeriod.ONE_MONTH
+        lookbackPeriod: LookbackPeriod = LookbackPeriod.ROUTINE_SYNC
     ) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.NOT_REQUIRED)

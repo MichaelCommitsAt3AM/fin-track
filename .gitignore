@@ -25,3 +25,8 @@ app/src/storeDev/google-services.json
 logs/
 error.log
 app/release/
+
+# Firebase config: real one is supplied locally / via the GOOGLE_SERVICES_JSON secret in CI
+app/google-services.json
+app/src/debug/google-services.json
+app/src/release/google-services.json

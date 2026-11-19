@@ -1,6 +1,7 @@
 package com.fintrack.app.core.data.repository
 
 import android.content.Context
+import com.fintrack.app.core.backup.MpesaBackupPayload
 import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
@@ -44,7 +45,7 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod): List<MpesaTransaction> {
-        Log.d(TAG, "Starting M-Pesa SMS sync with lookback period: ${lookbackPeriod.months} months")
+        Log.d(TAG, "Starting M-Pesa SMS sync with lookback period: ${lookbackPeriod.label}")
         
         val startTimestamp = lookbackPeriod.getStartTimestamp()
         val smsUri: Uri = Telephony.Sms.CONTENT_URI
@@ -90,7 +91,12 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
                     
                     if (existing != null) {
                         // Check if we need to re-parse due to version update
-                        if (existing.parserVersion < PARSER_VERSION) {
+                        // A row restored from the cloud backup has no SMS body of its own. Here
+                        // we do have the SMS, so adopt it (the stored row flips back to SMS);
+                        // otherwise only re-parse when the parser improved.
+                        if (existing.source == MpesaBackupPayload.SOURCE_BACKUP ||
+                            existing.parserVersion < PARSER_VERSION
+                        ) {
                             if (storeTransaction(parsed, smsBody, smsDate, uniqueSmsId)) {
                                 updatedCount++
                             }

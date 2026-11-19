@@ -25,4 +25,18 @@ interface ExternalTransactionRepository {
      * @return Flow of all transactions from external sources.
      */
     fun getAllTransactions(): Flow<List<Transaction>>
+
+    /**
+     * Re-categorise an external transaction. External transactions are read-only copies of
+     * their source (e.g. an SMS), so the category is stored as a local override instead of
+     * editing the transaction itself.
+     */
+    suspend fun setCategory(transactionId: String, categoryName: String)
+
+    companion object {
+        /** Prefix for IDs of external (M-Pesa) transactions, so they're never mistaken for manual ones. */
+        const val ID_PREFIX = "mpesa_"
+
+        fun isExternalId(transactionId: String) = transactionId.startsWith(ID_PREFIX)
+    }
 }

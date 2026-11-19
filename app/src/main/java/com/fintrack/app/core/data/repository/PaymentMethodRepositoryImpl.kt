@@ -4,17 +4,17 @@ import com.fintrack.app.core.data.local.dao.PaymentMethodDao
 import com.fintrack.app.core.data.local.model.PaymentMethodEntity
 import com.fintrack.app.core.domain.model.PaymentMethod
 import com.fintrack.app.core.domain.repository.PaymentMethodRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class PaymentMethodRepositoryImpl @Inject constructor(
     private val paymentMethodDao: PaymentMethodDao,
-    private val firebaseAuth: FirebaseAuth
+    private val profileManager: ProfileManager
 ) : PaymentMethodRepository {
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    private fun getUserId(): String? = profileManager.profileId()
 
     override suspend fun initDefaultPaymentMethods() {
         val userId = getUserId() ?: return

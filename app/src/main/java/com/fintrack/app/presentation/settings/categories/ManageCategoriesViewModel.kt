@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fintrack.app.core.domain.model.Category
 import com.fintrack.app.core.domain.model.CategoryType
 import com.fintrack.app.core.domain.repository.CategoryRepository
-import com.google.firebase.auth.FirebaseAuth // ADD THIS
+import com.fintrack.app.core.profile.ProfileManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +18,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ManageCategoriesViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
-    private val firebaseAuth: FirebaseAuth // ADD THIS
+    private val profileManager: ProfileManager // ADD THIS
 ) : ViewModel() {
 
     // State for the selected tab (Expense vs Income)
@@ -63,7 +63,7 @@ class ManageCategoriesViewModel @Inject constructor(
 
     // Helper to add a category
     fun addCategory(name: String, type: CategoryType, iconName: String, colorHex: String) {
-        val userId = firebaseAuth.currentUser?.uid ?: return // ADD THIS
+        val userId = profileManager.profileId() ?: return // ADD THIS
 
         viewModelScope.launch {
             val newCat = Category(

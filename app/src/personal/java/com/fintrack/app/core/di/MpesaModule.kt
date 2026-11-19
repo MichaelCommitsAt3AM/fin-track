@@ -49,7 +49,7 @@ abstract class MpesaModule {
                 MpesaDatabase::class.java,
                 MpesaDatabase.DATABASE_NAME
             )
-                .addMigrations(MpesaDatabase.MIGRATION_2_3)
+                .addMigrations(MpesaDatabase.MIGRATION_2_3, MpesaDatabase.MIGRATION_3_4)
                 .build()
         }
         
@@ -77,6 +77,14 @@ abstract class MpesaModule {
             return database.merchantCategoryDao()
         }
         
+        @Provides
+        @Singleton
+        fun provideMpesaBackupStateDao(
+            database: MpesaDatabase
+        ): com.fintrack.app.core.data.local.dao.MpesaBackupStateDao {
+            return database.mpesaBackupStateDao()
+        }
+
         @Provides
         @Singleton
         fun provideSmartClueDetector(): SmartClueDetector {

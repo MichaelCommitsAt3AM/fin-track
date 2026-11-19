@@ -13,7 +13,10 @@ import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.data.local.dao.RecurringTransactionDao
 import com.fintrack.app.core.data.local.model.RecurringTransactionEntity
 import com.fintrack.app.core.data.local.SyncTimestampManager
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.data.sync.TransactionSyncMerge
+import com.google.firebase.firestore.SetOptions
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -22,7 +25,8 @@ import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
     private val db: FinanceDatabase,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
+    private val syncGate: SyncGate,
     private val firestore: FirebaseFirestore,
     private val networkRepository: NetworkRepository,
     private val syncTimestampManager: SyncTimestampManager,
@@ -32,15 +36,18 @@ class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao = db.transactionDao()
     private val recurringTransactionDao: RecurringTransactionDao = db.recurringTransactionDao()
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    /** Owner of the Room rows. Not the cloud account: see [cloudUid]. */
+    private fun getUserId(): String? = profileManager.profileId()
 
-    private fun getUserTransactionsCollection() = firestore.collection("users")
-        .document(getUserId() ?: "unknown_user")
-        .collection("transactions")
+    /** Firestore account to sync to, or null when sync must not happen (local-only, sync off). */
+    private fun cloudUid(): String? = syncGate.cloudUidOrNull()
 
-    private fun getUserRecurringTransactionsCollection() = firestore.collection("users")
-        .document(getUserId() ?: "unknown_user")
-        .collection("recurring_transactions")
+    private fun cloudUserDoc() = firestore.collection("users")
+        .document(cloudUid() ?: throw IllegalStateException("Cloud sync is not enabled"))
+
+    private fun getUserTransactionsCollection() = cloudUserDoc().collection("transactions")
+
+    private fun getUserRecurringTransactionsCollection() = cloudUserDoc().collection("recurring_transactions")
 
     // ============ REGULAR TRANSACTIONS ============
 
@@ -50,7 +57,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
         // If ID is empty, generate a new one
         val transactionId = if (transaction.id.isEmpty()) {
-            getUserTransactionsCollection().document().id
+            firestore.collection("users").document().id // local random ID, no network or path used
         } else {
             transaction.id
         }
@@ -69,7 +76,8 @@ class TransactionRepositoryImpl @Inject constructor(
         transactionDao.insertTransaction(transactionWithId.toEntity())
         Log.d("TransactionRepo", "Transaction saved locally: $transactionId ${if (isPlanned) "(Planned)" else ""}")
 
-        // 2. If online, attempt to sync to Firestore immediately
+        // 2. If sync is allowed and we're online, attempt to sync to Firestore immediately
+        if (cloudUid() == null) return
         if (networkRepository.isNetworkAvailable()) {
             try {
                 val encryptedData = toEncryptedMap(transactionWithId)
@@ -88,14 +96,21 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTransaction(transaction: Transaction) {
+        // External (M-Pesa) transactions aren't stored here and must never be uploaded to
+        // Firestore: they stay on the device. Use ExternalTransactionRepository.setCategory.
+        require(!com.fintrack.app.core.domain.repository.ExternalTransactionRepository.isExternalId(transaction.id)) {
+            "External transaction ${transaction.id} can't be saved as a manual transaction"
+        }
         // OFFLINE-FIRST: 1. Update locally first, mark as unsynced
-        val updatedTransaction = transaction.copy(updatedAt = System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        // Re-derive isPlanned: the date may have been moved into (or out of) the future
+        val updatedTransaction = transaction.copy(updatedAt = now, isPlanned = transaction.date > now)
         val entityToUpdate = updatedTransaction.toEntity()
         transactionDao.updateTransaction(entityToUpdate)
         Log.d("TransactionRepo", "Transaction updated locally: ${transaction.id}")
 
         // 2. If online, attempt to sync to Firestore immediately
-        getUserId()?.let {
+        cloudUid()?.let {
             if (networkRepository.isNetworkAvailable()) {
                 try {
                     val encryptedData = toEncryptedMap(updatedTransaction)
@@ -122,13 +137,15 @@ class TransactionRepositoryImpl @Inject constructor(
         transactionDao.softDelete(transactionId, currentTime)
         Log.d("TransactionRepo", "Transaction soft-deleted locally: $transactionId")
         
-        // If online, sync deletion to Firestore
+        // If sync is allowed and we're online, sync deletion to Firestore
+        if (cloudUid() == null) return
         if (networkRepository.isNetworkAvailable()) {
             try {
                 getUserTransactionsCollection()
                     .document(transactionId)
-                    .update("deletedAt", currentTime)
+                    .set(TransactionSyncMerge.deletionPatch(currentTime), SetOptions.merge())
                     .await()
+                transactionDao.markAsSynced(transactionId)
                 Log.d("TransactionRepo", "Transaction deletion synced to Firestore: $transactionId")
             } catch (e: Exception) {
                 Log.e("TransactionRepo", "Error syncing deletion to Firestore (will retry later): ${e.message}")
@@ -155,7 +172,10 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<Transaction>> {
         val userId = getUserId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
         return transactionDao.getTransactionsByDateRange(userId, startDate, endDate).map { entityList ->
-            entityList.map { it.toDomain() }
+            // Evaluate "now" per emission (not once at subscription) so planned items start
+            // counting once their date passes and the table next changes
+            val now = System.currentTimeMillis()
+            entityList.map { it.toDomain() }.filter { it.hasOccurred(now) }
         }
     }
 
@@ -189,10 +209,11 @@ class TransactionRepositoryImpl @Inject constructor(
 
 
     override suspend fun syncTransactionsFromCloud() {
+        val cloudUid = cloudUid() ?: return
         getUserId()?.let { userId ->
             try {
-                // Get last sync timestamp
-                val lastSyncTimestamp = syncTimestampManager.getLastTransactionSyncTimestamp()
+                // Get last sync timestamp (per cloud account)
+                val lastSyncTimestamp = syncTimestampManager.getLastTransactionSyncTimestamp(cloudUid)
                 val currentSyncTimestamp = System.currentTimeMillis()
                 
                 Log.d("TransactionRepo", "Incremental sync: fetching transactions updated after $lastSyncTimestamp")
@@ -212,8 +233,16 @@ class TransactionRepositoryImpl @Inject constructor(
 
                 Log.d("TransactionRepo", "Found ${snapshot.size()} changed transactions")
 
+                // Local changes not yet uploaded must not be overwritten by older cloud copies
+                val pendingLocal = transactionDao.getUnsyncedTransactions(userId).associateBy { it.id }
+
                 val entities = snapshot.documents.mapNotNull { doc ->
                     try {
+                        if (!TransactionSyncMerge.shouldApplyRemote(pendingLocal[doc.id], doc.getLong("updatedAt"))) {
+                            Log.d("TransactionRepo", "Keeping pending local change for ${doc.id}")
+                            return@mapNotNull null
+                        }
+
                         val deletedAt = doc.getLong("deletedAt")
                         
                         // If transaction is marked as deleted, delete it locally
@@ -267,7 +296,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 }
                 
                 // Update last sync timestamp
-                syncTimestampManager.setLastTransactionSyncTimestamp(currentSyncTimestamp)
+                syncTimestampManager.setLastTransactionSyncTimestamp(cloudUid, currentSyncTimestamp)
                 Log.d("TransactionRepo", "Incremental sync completed successfully")
                 
             } catch (e: Exception) {
@@ -287,7 +316,8 @@ class TransactionRepositoryImpl @Inject constructor(
         // 1. Save locally
         recurringTransactionDao.insert(transactionWithUserId.toEntity())
 
-        // 2. Save to Firestore
+        // 2. Save to Firestore (only when sync is allowed)
+        if (cloudUid() == null) return
         try {
             val docId = if (recurringTransaction.id == 0) {
                 getUserRecurringTransactionsCollection().document().id
@@ -323,7 +353,8 @@ class TransactionRepositoryImpl @Inject constructor(
         recurringTransactionDao.deleteById(recurringTransaction.id)
         Log.d("TransactionRepo", "Deleted recurring transaction locally: ${recurringTransaction.id}")
 
-        // 2. Delete from Firestore
+        // 2. Delete from Firestore (only when sync is allowed)
+        if (cloudUid() == null) return
         try {
             getUserRecurringTransactionsCollection()
                 .document(recurringTransaction.id.toString())
@@ -337,6 +368,7 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncRecurringTransactionsFromCloud() {
+        if (cloudUid() == null) return
         getUserId()?.let { userId ->
             try {
                 Log.d("TransactionRepo", "Starting recurring transactions sync for user: $userId")
@@ -386,6 +418,10 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncUnsyncedTransactions() {
+        if (cloudUid() == null) {
+            Log.d("TransactionRepo", "Cloud sync not enabled, skipping sync")
+            return
+        }
         val userId = getUserId() ?: run {
             Log.e("TransactionRepo", "Cannot sync: User not logged in")
             return
@@ -407,7 +443,7 @@ class TransactionRepositoryImpl @Inject constructor(
                         // For deleted transactions, just update the deletedAt field
                         getUserTransactionsCollection()
                             .document(entity.id)
-                            .update("deletedAt", entity.deletedAt)
+                            .set(TransactionSyncMerge.deletionPatch(entity.deletedAt), SetOptions.merge())
                             .await()
                         Log.d("TransactionRepo", "Synced deletion for transaction: ${entity.id}")
                     } else {

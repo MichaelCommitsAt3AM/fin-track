@@ -8,7 +8,8 @@ import com.fintrack.app.core.data.mapper.toEntity
 import com.fintrack.app.core.domain.model.Debt
 import com.fintrack.app.core.domain.model.Payment
 import com.fintrack.app.core.domain.repository.DebtRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.SyncGate
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,16 +20,21 @@ import javax.inject.Inject
 class DebtRepositoryImpl @Inject constructor(
     private val debtDao: DebtDao,
     private val paymentDao: PaymentDao,
-    private val firebaseAuth: FirebaseAuth,
+    private val profileManager: ProfileManager,
+    private val syncGate: SyncGate,
     private val firestore: FirebaseFirestore,
     private val networkRepository: com.fintrack.app.core.domain.repository.NetworkRepository,
     private val encryptionManager: com.fintrack.app.core.security.EncryptionManager
 ) : DebtRepository {
 
-    private fun getUserId(): String? = firebaseAuth.currentUser?.uid
+    /** Owner of the Room rows. Not the cloud account: see [cloudUid]. */
+    private fun getUserId(): String? = profileManager.profileId()
+
+    /** Firestore account to sync to, or null when sync must not happen (local-only, sync off). */
+    private fun cloudUid(): String? = syncGate.cloudUidOrNull()
 
     private fun getUserDebtsCollection() = firestore.collection("users")
-        .document(getUserId() ?: "unknown_user")
+        .document(cloudUid() ?: throw IllegalStateException("Cloud sync is not enabled"))
         .collection("debts")
 
     override suspend fun insertDebt(debt: Debt) {
@@ -42,7 +48,7 @@ class DebtRepositoryImpl @Inject constructor(
 
         // Save to Cloud if online
         if (networkRepository.isNetworkAvailable()) {
-            getUserId()?.let {
+            cloudUid()?.let {
                 try {
 
                      val debtData = toEncryptedMap(debt).toMutableMap()
@@ -76,7 +82,7 @@ class DebtRepositoryImpl @Inject constructor(
 
         // Update in Cloud
         if (networkRepository.isNetworkAvailable()) {
-            getUserId()?.let {
+            cloudUid()?.let {
                 try {
 
                     val debtData = toEncryptedMap(debt).toMutableMap()
@@ -121,7 +127,7 @@ class DebtRepositoryImpl @Inject constructor(
 
         // Delete from Cloud
         if (networkRepository.isNetworkAvailable()) {
-            getUserId()?.let {
+            cloudUid()?.let {
                 try {
                     getUserDebtsCollection()
                         .document(debtId)
@@ -154,7 +160,7 @@ class DebtRepositoryImpl @Inject constructor(
                  
                  // Update in cloud
                   if (networkRepository.isNetworkAvailable()) {
-                    getUserId()?.let { userId ->
+                    cloudUid()?.let { userId ->
                         try {
                             val encryptedBalance = encryptionManager.encrypt(updatedDebt.currentBalance.toString())
                             getUserDebtsCollection()
@@ -180,6 +186,7 @@ class DebtRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncDebtsFromCloud() {
+        if (cloudUid() == null) return
         getUserId()?.let { userId ->
             try {
                 Log.d("DebtRepo", "Starting debts sync for user: $userId")
@@ -239,6 +246,7 @@ class DebtRepositoryImpl @Inject constructor(
     }
     
     override suspend fun syncUnsyncedDebts() {
+        if (cloudUid() == null) return
         val userId = getUserId() ?: return
          if (!networkRepository.isNetworkAvailable()) return
          

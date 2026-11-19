@@ -81,7 +81,7 @@ interface TransactionDao {
     suspend fun deleteById(id: String)
 
     @Query("SELECT * FROM transactions WHERE isSynced = 0 AND userId = :userId")
-    fun getUnsyncedTransactions(userId: String): List<TransactionEntity>
+    suspend fun getUnsyncedTransactions(userId: String): List<TransactionEntity>
 
     // Get only planned (future) transactions
     @Query("""
@@ -98,11 +98,16 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :transactionId AND userId = :userId AND deletedAt IS NULL LIMIT 1")
     fun getTransactionById(transactionId: String, userId: String): Flow<TransactionEntity?>
 
-    // Soft delete a transaction (also marks as unsynced for offline support)
-    @Query("UPDATE transactions SET deletedAt = :deletedAt, isSynced = 0 WHERE id = :transactionId")
+    // Soft delete a transaction (also marks as unsynced for offline support). updatedAt moves with
+    // deletedAt so the delete wins conflict checks and is picked up by incremental sync.
+    @Query("UPDATE transactions SET deletedAt = :deletedAt, updatedAt = :deletedAt, isSynced = 0 WHERE id = :transactionId")
     suspend fun softDelete(transactionId: String, deletedAt: Long)
 
     // Mark a transaction as synced
     @Query("UPDATE transactions SET isSynced = 1 WHERE id = :transactionId")
     suspend fun markAsSynced(transactionId: String)
+
+    // Mark every live row of a profile as needing upload (enabling sync / linking an account)
+    @Query("UPDATE transactions SET isSynced = 0 WHERE userId = :userId AND deletedAt IS NULL")
+    suspend fun markAllUnsynced(userId: String)
 }
