@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
@@ -45,9 +46,13 @@ fun LoginScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
     onNavigateToEmailVerification: () -> Unit,
+    onNavigateToProfileSetup: () -> Unit = {},
+    onLinkCompleted: () -> Unit = {},
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val isLinking by viewModel.isLinking.collectAsState()
+    var showLocalOnlyDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -96,6 +101,17 @@ fun LoginScreen(
         )
     }
 
+    if (state.pendingCombineUid != null) CombineDataDialog(viewModel)
+    if (showLocalOnlyDialog) {
+        LocalOnlyConfirmDialog(
+            onConfirm = {
+                showLocalOnlyDialog = false
+                viewModel.continueWithoutAccount()
+            },
+            onDismiss = { showLocalOnlyDialog = false }
+        )
+    }
+
     // Listen for one-time events
     LaunchedEffect(key1 = true) {
         viewModel.authEvent.collect { event ->
@@ -103,6 +119,8 @@ fun LoginScreen(
                 is AuthEvent.NavigateToSetup -> onNavigateToSetup()
                 is AuthEvent.NavigateToEmailVerification -> onNavigateToEmailVerification()
                 AuthEvent.NavigateToLogin -> onNavigateToLogin()
+                AuthEvent.NavigateToProfileSetup -> onNavigateToProfileSetup()
+                AuthEvent.LinkCompleted -> onLinkCompleted()
                 else -> {}
             }
         }
@@ -122,6 +140,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(horizontal = 32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -138,12 +157,12 @@ fun LoginScreen(
 
             // Headline
             Text(
-                text = "Welcome Back!",
+                text = if (isLinking) "Back up your data" else "Welcome Back!",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Log in to manage your finances.",
+                text = if (isLinking) "Log in or create an account. Your data on this phone is kept." else "Log in to manage your finances.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -299,6 +318,13 @@ fun LoginScreen(
                         fontSize = 16.sp
                     ),
                 )
+            }
+
+            if (!isLinking) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = { showLocalOnlyDialog = true }, enabled = !state.isLoading) {
+                    Text("Continue without an account", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }

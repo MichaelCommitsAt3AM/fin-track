@@ -40,4 +40,8 @@ interface BudgetDao {
     // Mark as updated
     @Query("UPDATE budgets SET isSynced = 1 WHERE userId = :userId AND categoryName = :categoryName AND month = :month AND year = :year")
     suspend fun markAsSynced(userId: String, categoryName: String, month: Int, year: Int)
+
+    // Mark every live row of a profile as needing upload (enabling sync / linking an account)
+    @Query("UPDATE budgets SET isSynced = 0 WHERE userId = :userId AND deletedAt IS NULL")
+    suspend fun markAllUnsynced(userId: String)
 }

@@ -53,6 +53,7 @@ fun SettingsScreen(
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     val themePreference by viewModel.themePreference.collectAsState()
     val currencyPreference by viewModel.currencyPreference.collectAsState()
+    val profileState by viewModel.profileState.collectAsState()
 
     var showThemeSheet by remember { mutableStateOf(false) }
     var showCurrencySheet by remember { mutableStateOf(false) }
@@ -106,9 +107,12 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
         ) {
             // Profile Section
-            ProfileHeader()
+            ProfileHeader(viewModel)
 
+            Spacer(modifier = Modifier.height(24.dp))
 
+            // Account & sync (local-only back-up card, or email + Cloud sync switch)
+            AccountSyncSection(navController)
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -200,8 +204,8 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Logout Button
-            Button(
+            // Logout Button (a local-only profile has no account to sign out of)
+            if (profileState.mode == com.fintrack.app.core.profile.AccountMode.ACCOUNT) Button(
                 onClick = { viewModel.onLogout() },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -441,27 +445,14 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
 
 @Composable
 fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
-    val context = LocalContext.current
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    var avatarId by remember { mutableStateOf(1) }
-
-    LaunchedEffect(key1 = currentUser?.uid) {
-        currentUser?.uid?.let { uid ->
-            try {
-                val userDoc = FirebaseFirestore.getInstance().collection("users").document(uid).get().await()
-                avatarId = userDoc.getLong("avatarId")?.toInt() ?: 1
-            } catch (e: Exception) {
-                avatarId = 1
-            }
-        }
-    }
+    val user by viewModel.currentUser.collectAsState()
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
         Image(
-            painter = painterResource(id = getAvatarResource(avatarId)),
+            painter = painterResource(id = getAvatarResource(user?.avatarId ?: 1)),
             contentDescription = "Profile Picture",
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -472,12 +463,12 @@ fun ProfileHeader(viewModel: SettingsViewModel = hiltViewModel()) {
         Spacer(modifier = Modifier.width(16.dp))
         Column {
             Text(
-                text = currentUser?.displayName ?: "User",
+                text = user?.fullName?.takeIf { it.isNotBlank() } ?: "User",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = currentUser?.email ?: "",
+                text = user?.email ?: "",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -37,4 +37,8 @@ interface CategoryDao {
     // Get all unsynced categories for a user
     @Query("SELECT * FROM categories WHERE userId = :userId AND isSynced = 0")
     suspend fun getUnsyncedCategories(userId: String): List<CategoryEntity>
+
+    // Mark every live row of a profile as needing upload (enabling sync / linking an account)
+    @Query("UPDATE categories SET isSynced = 0 WHERE userId = :userId ")
+    suspend fun markAllUnsynced(userId: String)
 }

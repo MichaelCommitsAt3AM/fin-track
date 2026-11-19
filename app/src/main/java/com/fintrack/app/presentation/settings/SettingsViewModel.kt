@@ -19,8 +19,17 @@ class SettingsViewModel
 constructor(
         private val authRepository: AuthRepository,
         private val localAuthManager: LocalAuthManager,
-        private val profileManager: com.fintrack.app.core.profile.ProfileManager
+        private val profileManager: com.fintrack.app.core.profile.ProfileManager,
+        currentUserObserver: com.fintrack.app.presentation.home.CurrentUserObserver
 ) : ViewModel() {
+
+    val profileState = profileManager.state
+
+    val currentUser = currentUserObserver.observe().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+    )
 
     private val _settingsEventChannel = Channel<SettingsEvent>()
     val settingsEvent = _settingsEventChannel.receiveAsFlow()

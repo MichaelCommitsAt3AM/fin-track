@@ -17,7 +17,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -36,7 +39,9 @@ class AuthViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
     private val userRepository: UserRepository,
-    private val profileManager: com.fintrack.app.core.profile.ProfileManager
+    private val profileManager: com.fintrack.app.core.profile.ProfileManager,
+    private val accountLinker: com.fintrack.app.core.profile.AccountLinker,
+    private val paymentMethodRepository: com.fintrack.app.core.domain.repository.PaymentMethodRepository
 ) : ViewModel() {
 
     private val TAG = "AuthViewModel"
@@ -44,6 +49,14 @@ class AuthViewModel @Inject constructor(
     // Holds the current user (null if logged out)
     private val _currentUser = MutableStateFlow<FirebaseUser?>(null)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
+
+    private fun isLocalOnly() =
+        profileManager.state.value.mode == com.fintrack.app.core.profile.AccountMode.LOCAL_ONLY
+
+    /** True while a local-only user is signing in / registering to back up their data. */
+    val isLinking: StateFlow<Boolean> = profileManager.state
+        .map { it.mode == com.fintrack.app.core.profile.AccountMode.LOCAL_ONLY }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, isLocalOnly())
 
     // Holds the state of the UI (is it loading? is there an error?)
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -95,7 +108,9 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             val user = _currentUser.value
             if (user != null) {
-                if (user.isEmailVerified) {
+                if (user.isEmailVerified && isLocalOnly()) {
+                    beginLink(user)
+                } else if (user.isEmailVerified) {
                     profileManager.linkAccount(user.uid)
 
                     // Refreshes user data from the cloud every time the app is opened
@@ -202,6 +217,9 @@ class AuthViewModel @Inject constructor(
             val result = repository.signUpWithEmail(email, password)
 
             if (result.user != null) {
+                // A local-only user keeps their profile: the account is linked once the email is
+                // verified (see checkEmailVerification), so nothing to create here.
+                if (!isLocalOnly()) {
                 // Data is owned by the profile; the Firebase UID only names the cloud location
                 profileManager.linkAccount(result.user.uid)
 
@@ -224,6 +242,7 @@ class AuthViewModel @Inject constructor(
 
                 // Initialize default categories for the new user
                 categoryRepository.initDefaultCategories()
+                }
 
                 // Send verification email and check for errors
                 val verificationResult = repository.sendEmailVerification()
@@ -255,7 +274,9 @@ class AuthViewModel @Inject constructor(
             val result = repository.signInWithEmail(email, password)
 
             if (result.user != null) {
-                if (result.user.isEmailVerified) {
+                if (result.user.isEmailVerified && isLocalOnly()) {
+                    beginLink(result.user)
+                } else if (result.user.isEmailVerified) {
                     profileManager.linkAccount(result.user.uid)
 
                     // Load all user's data from the cloud
@@ -324,7 +345,9 @@ class AuthViewModel @Inject constructor(
 
             user?.reload()?.await()
 
-            if (user?.isEmailVerified == true) {
+            if (user?.isEmailVerified == true && isLocalOnly()) {
+                beginLink(user)
+            } else if (user?.isEmailVerified == true) {
                 _uiState.value = _uiState.value.copy(isLoading = false)
                 _authEventChannel.send(AuthEvent.NavigateToHome)
             } else {
@@ -367,6 +390,10 @@ class AuthViewModel @Inject constructor(
 
             if (result.user != null) {
                 AppLogger.d(TAG, "Sign-in successful for user: ${AppLogger.sanitizeUserId(result.user.uid)}")
+                if (isLocalOnly()) {
+                    beginLink(result.user)
+                    return@launch
+                }
                 profileManager.linkAccount(result.user.uid)
                 try {
                     // Check if user exists in database
@@ -467,6 +494,81 @@ class AuthViewModel @Inject constructor(
     }
 
 
+    // ---------- Continue without an account ----------
+
+    fun continueWithoutAccount() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val profileId = profileManager.createLocalProfile()
+                val now = System.currentTimeMillis()
+                userRepository.createUser(
+                    User(
+                        userId = profileId,
+                        fullName = "",
+                        email = "",
+                        phoneNumber = "",
+                        avatarId = 1,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+                categoryRepository.initDefaultCategories()
+                paymentMethodRepository.initDefaultPaymentMethods()
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                _authEventChannel.send(AuthEvent.NavigateToProfileSetup)
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Error creating local profile", e)
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Could not set up the app: ${e.message}")
+            }
+        }
+    }
+
+    // ---------- Link a local-only profile to an account ----------
+
+    private suspend fun beginLink(user: FirebaseUser) {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        val hasData = try {
+            accountLinker.cloudHasData(user.uid)
+        } catch (e: Exception) {
+            // Cannot tell whether the account has data: stay local rather than risk a bad merge
+            repository.signOut()
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Could not check your account. Check your connection and try again."
+            )
+            return
+        }
+        if (hasData) {
+            _uiState.value = _uiState.value.copy(isLoading = false, pendingCombineUid = user.uid)
+        } else {
+            completeLink(user.uid, user.email, combine = false)
+        }
+    }
+
+    fun confirmCombine() {
+        val uid = _uiState.value.pendingCombineUid ?: return
+        viewModelScope.launch { completeLink(uid, repository.getCurrentUser()?.email, combine = true) }
+    }
+
+    fun cancelCombine() {
+        repository.signOut() // stays local-only
+        _uiState.value = _uiState.value.copy(pendingCombineUid = null)
+    }
+
+    private suspend fun completeLink(uid: String, email: String?, combine: Boolean) {
+        _uiState.value = _uiState.value.copy(isLoading = true)
+        profileManager.linkAccount(uid) // keeps the local profile ID: no Room row is re-keyed
+        if (!combine && !email.isNullOrBlank()) {
+            userRepository.getCurrentUserOnce()?.let {
+                userRepository.updateUser(it.copy(email = email, updatedAt = System.currentTimeMillis()))
+            }
+        }
+        accountLinker.startTransfer(pullFromCloud = combine)
+        _uiState.value = _uiState.value.copy(isLoading = false, pendingCombineUid = null)
+        _authEventChannel.send(AuthEvent.LinkCompleted)
+    }
+
     fun signOut() {
         repository.signOut()
         viewModelScope.launch {
@@ -489,6 +591,8 @@ data class AuthUiState(
     val isEmailVerificationSent: Boolean = false,
     val isPasswordResetSent: Boolean = false,
     val showEmailVerificationDialog: Boolean = false,
+    /** Set while we wait for the user to confirm combining with existing cloud data. */
+    val pendingCombineUid: String? = null,
     val error: String? = null
 )
 
@@ -510,4 +614,6 @@ sealed class AuthEvent {
     object NavigateToLogin : AuthEvent()
     object NavigateToEmailVerification : AuthEvent()
     object NavigateToSetup : AuthEvent()
+    object NavigateToProfileSetup : AuthEvent()
+    object LinkCompleted : AuthEvent()
 }

@@ -2,7 +2,10 @@ package com.fintrack.app.presentation
 
 import com.fintrack.app.core.data.local.LocalAuthManager
 import com.fintrack.app.core.domain.repository.NetworkRepository
+import com.fintrack.app.core.profile.AccountMode
 import com.fintrack.app.core.profile.ProfileManager
+import com.fintrack.app.core.profile.ProfileState
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.fintrack.app.presentation.home.CurrentUserObserver
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
@@ -31,9 +34,14 @@ class MainViewModelTest {
     private val profileManager: ProfileManager = mock()
     private lateinit var viewModel: MainViewModel
 
+    private fun withMode(mode: AccountMode) {
+        whenever(profileManager.state).thenReturn(MutableStateFlow(ProfileState("p", mode, "p", true)))
+    }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
+        withMode(AccountMode.ACCOUNT)
         val network: NetworkRepository = mock()
         whenever(network.observeNetworkConnectivity()).thenReturn(flowOf(true))
         viewModel = MainViewModel(
@@ -62,6 +70,19 @@ class MainViewModelTest {
             verify(localAuthManager).clearLocalAuth()
         }
         assertFalse(viewModel.isAppLocked.value)
+    }
+
+    @Test
+    fun `forgot PIN for a local-only user never unlocks or signs out`() = runTest {
+        withMode(AccountMode.LOCAL_ONLY)
+        viewModel.setAppLocked(true)
+
+        viewModel.onForgotPin()
+
+        assertTrue(viewModel.isAppLocked.value)
+        assertTrue(viewModel.showLocalForgotPin.value)
+        verify(auth, never()).signOut()
+        verify(localAuthManager, never()).clearLocalAuth()
     }
 
     @Test

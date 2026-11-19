@@ -17,7 +17,9 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val syncGate: com.fintrack.app.core.profile.SyncGate,
+    private val userRepository: com.fintrack.app.core.domain.repository.UserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -33,11 +35,21 @@ class ProfileViewModel @Inject constructor(
     private fun loadUserProfile() {
         viewModelScope.launch {
             val currentUser = firebaseAuth.currentUser
-            if (currentUser != null) {
+            val cloudUid = syncGate.cloudUidOrNull()
+            if (cloudUid == null) {
+                // Local-only (or sync off): the profile lives on this phone
+                val local = userRepository.getCurrentUserOnce()
+                _uiState.value = _uiState.value.copy(
+                    fullName = local?.fullName ?: "",
+                    email = currentUser?.email ?: local?.email.orEmpty(),
+                    phoneNumber = local?.phoneNumber ?: "",
+                    avatarId = local?.avatarId ?: 1
+                )
+            } else if (currentUser != null) {
                 try {
                     // Load profile from Firestore
                     val userDoc = firestore.collection("users")
-                        .document(currentUser.uid)
+                        .document(cloudUid)
                         .get()
                         .await()
 
@@ -83,7 +95,26 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentUser = firebaseAuth.currentUser
-                if (currentUser != null) {
+                val cloudUid = syncGate.cloudUidOrNull()
+                if (cloudUid == null) {
+                    // Local-only (or sync off): save on this phone only
+                    val local = userRepository.getCurrentUserOnce()
+                    if (local != null) {
+                        userRepository.updateUser(
+                            local.copy(
+                                fullName = _uiState.value.fullName,
+                                phoneNumber = _uiState.value.phoneNumber,
+                                avatarId = _uiState.value.avatarId,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _eventChannel.send(ProfileEvent.ShowSuccess("Profile updated successfully"))
+                    } else {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _eventChannel.send(ProfileEvent.ShowError("Profile not found"))
+                    }
+                } else if (currentUser != null) {
                     // Update Firebase Auth display name
                     val profileUpdates = UserProfileChangeRequest.Builder()
                         .setDisplayName(_uiState.value.fullName)
@@ -100,7 +131,7 @@ class ProfileViewModel @Inject constructor(
                     )
 
                     firestore.collection("users")
-                        .document(currentUser.uid)
+                        .document(cloudUid)
                         .set(userProfile, com.google.firebase.firestore.SetOptions.merge())
                         .await()
 

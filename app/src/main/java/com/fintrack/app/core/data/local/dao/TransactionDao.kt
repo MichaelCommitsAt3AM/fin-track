@@ -106,4 +106,8 @@ interface TransactionDao {
     // Mark a transaction as synced
     @Query("UPDATE transactions SET isSynced = 1 WHERE id = :transactionId")
     suspend fun markAsSynced(transactionId: String)
+
+    // Mark every live row of a profile as needing upload (enabling sync / linking an account)
+    @Query("UPDATE transactions SET isSynced = 0 WHERE userId = :userId AND deletedAt IS NULL")
+    suspend fun markAllUnsynced(userId: String)
 }

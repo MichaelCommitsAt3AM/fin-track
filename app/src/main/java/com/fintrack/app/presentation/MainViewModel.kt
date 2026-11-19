@@ -55,15 +55,38 @@ class MainViewModel @Inject constructor(
         _isAppLocked.value = locked
     }
 
+    /** True while a local-only user is shown the "forgot PIN" options. */
+    private val _showLocalForgotPin = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val showLocalForgotPin: StateFlow<Boolean> = _showLocalForgotPin.asStateFlow()
+
+    fun dismissLocalForgotPin() {
+        _showLocalForgotPin.value = false
+    }
+
+    /** The local data was erased: nothing left to protect, so the lock can lift. */
+    fun onLocalDataErased() {
+        _showLocalForgotPin.value = false
+        _isAppLocked.value = false
+    }
+
     /**
-     * "Forgot PIN?" on the lock screen. The user can't prove who they are locally, so end the
-     * Firebase session and wipe the local PIN/biometric settings *before* lifting the lock.
-     * The app then starts at Login, and the user must re-authenticate with their account
-     * password and set a new PIN. Simply unlocking here would hand anyone holding the phone
-     * full access to the still-signed-in account.
+     * "Forgot PIN?" on the lock screen.
+     *
+     * With an account: the user can't prove who they are locally, so end the Firebase session
+     * and wipe the local PIN/biometric settings *before* lifting the lock. The app then starts at
+     * Login, and the user must re-authenticate with their account password and set a new PIN.
+     * Simply unlocking here would hand anyone holding the phone full access.
+     *
+     * Local-only: there is no account to fall back on, so this never unlocks. It only offers
+     * (see LocalForgotPinDialog) to export the data behind the phone's own screen lock, or to
+     * erase everything and start over.
      */
     fun onForgotPin() {
         viewModelScope.launch {
+            if (profileManager.state.value.mode == com.fintrack.app.core.profile.AccountMode.LOCAL_ONLY) {
+                _showLocalForgotPin.value = true
+                return@launch
+            }
             auth.signOut()
             profileManager.signOutToFreshState()
             localAuthManager.clearLocalAuth()

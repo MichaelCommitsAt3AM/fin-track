@@ -103,7 +103,18 @@ fun NavGraph(
                         popUpTo(AppRoutes.Login.route) { inclusive = true }
                     }
                 },
-                onNavigateToLogin = { navController.navigate(AppRoutes.Login.route) }
+                onNavigateToLogin = { navController.navigate(AppRoutes.Login.route) },
+                onNavigateToProfileSetup = {
+                    navController.navigate(AppRoutes.ProfileSetup.route) {
+                        popUpTo(AppRoutes.Login.route) { inclusive = true }
+                    }
+                },
+                onLinkCompleted = {
+                    // Back to wherever the link flow was started from (Settings)
+                    if (!navController.popBackStack(AppRoutes.Settings.route, inclusive = false)) {
+                        navController.navigate(BottomNavItem.Home.route) { popUpTo(0) }
+                    }
+                }
             )
         }
 
@@ -129,6 +140,12 @@ fun NavGraph(
                     navController.navigate(route) {
                         popUpTo(AppRoutes.Register.route) { inclusive = true }
                     }
+                },
+                onLinkCompleted = {
+                    // Back to wherever the link flow was started from (Settings)
+                    if (!navController.popBackStack(AppRoutes.Settings.route, inclusive = false)) {
+                        navController.navigate(BottomNavItem.Home.route) { popUpTo(0) }
+                    }
                 }
             )
         }
@@ -150,7 +167,13 @@ fun NavGraph(
                         popUpTo(AppRoutes.VerifyEmail.route) { inclusive = true }
                     }
                 },
-                onNavigateToLogin = { navController.popBackStack() }
+                onNavigateToLogin = { navController.popBackStack() },
+                onLinkCompleted = {
+                    // Back to wherever the link flow was started from (Settings)
+                    if (!navController.popBackStack(AppRoutes.Settings.route, inclusive = false)) {
+                        navController.navigate(BottomNavItem.Home.route) { popUpTo(0) }
+                    }
+                }
             )
         }
 
