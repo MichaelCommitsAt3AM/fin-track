@@ -1,6 +1,12 @@
 package com.fintrack.app.core.security
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -28,6 +34,7 @@ class EncryptionManagerTest {
         keyGen.init(256)
         secretKey = keyGen.generateKey()
 
+        whenever(keyRepository.currentUserId()).thenReturn("user-a")
         runBlocking {
             whenever(keyRepository.getOrGenerateMasterKey()).thenReturn(secretKey)
         }
@@ -84,5 +91,50 @@ class EncryptionManagerTest {
     fun `decrypt empty string returns empty string`() = runBlocking {
         val result = encryptionManager.decrypt("")
         assertEquals("", result)
+    }
+
+    @Test
+    fun `concurrent first use loads the master key only once`() = runBlocking {
+        val repo = CountingKeyRepository()
+        val manager = EncryptionManagerImpl(repo)
+
+        coroutineScope {
+            repeat(20) { launch(Dispatchers.Default) { manager.encrypt("x") } }
+        }
+
+        assertEquals(1, repo.loads.get())
+    }
+
+    @Test
+    fun `switching user loads that user's key instead of reusing the cached one`() = runBlocking {
+        val repo = CountingKeyRepository()
+        val manager = EncryptionManagerImpl(repo)
+
+        val forA = manager.encrypt("secret")
+        repo.userId = "user-b"
+        val forB = manager.encrypt("secret")
+
+        assertEquals(2, repo.loads.get())
+        // B's key must not decrypt A's data (the failure path logs via android.util.Log,
+        // which throws under plain JVM tests, so accept either a throw or a placeholder)
+        assertNotEquals("secret", runCatching { manager.decrypt(forA) }.getOrNull())
+        assertEquals("secret", manager.decrypt(forB))
+    }
+
+    /** Hands out a distinct key per user and counts how often a key was loaded. */
+    private class CountingKeyRepository : KeyRepository {
+        @Volatile var userId: String = "user-a"
+        val loads = AtomicInteger()
+        private val keys = ConcurrentHashMap<String, SecretKey>()
+
+        override fun currentUserId(): String = userId
+
+        override suspend fun getOrGenerateMasterKey(): SecretKey {
+            loads.incrementAndGet()
+            delay(10) // widen the race window
+            return keys.getOrPut(userId) {
+                KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+            }
+        }
     }
 }

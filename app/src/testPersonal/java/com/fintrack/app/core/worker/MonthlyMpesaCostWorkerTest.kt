@@ -3,7 +3,9 @@ package com.fintrack.app.core.worker
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.work.ListenableWorker
+import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import androidx.work.testing.TestListenableWorkerBuilder
 import com.fintrack.app.core.common.NotificationHelper
 import com.fintrack.app.core.domain.model.LookbackPeriod
 import com.fintrack.app.core.domain.model.MpesaTransaction
@@ -27,7 +29,6 @@ import java.time.ZoneId
 class MonthlyMpesaCostWorkerTest {
 
     @Mock lateinit var context: Context
-    @Mock lateinit var workerParams: WorkerParameters
     @Mock lateinit var mockNotificationHelper: NotificationHelper
 
     private lateinit var worker: MonthlyMpesaCostWorker
@@ -41,6 +42,7 @@ class MonthlyMpesaCostWorkerTest {
         
         fakePrefs = FakeSharedPreferences()
         whenever(context.getSharedPreferences(any(), any())).thenReturn(fakePrefs)
+        whenever(context.applicationContext).thenReturn(context)
         
         fakeRepository = FakeMpesaTransactionRepository()
         fakeTimeProvider = FakeTimeProvider()
@@ -57,13 +59,7 @@ class MonthlyMpesaCostWorkerTest {
         
         fakeRepository.setTransactions(listOf(item1, item2))
         
-        worker = MonthlyMpesaCostWorker(
-            context,
-            workerParams,
-            fakeRepository,
-            mockNotificationHelper,
-            fakeTimeProvider
-        )
+        worker = buildWorker()
 
         val result = worker.doWork()
 
@@ -84,13 +80,7 @@ class MonthlyMpesaCostWorkerTest {
             createTransaction(0.0, timestamp = getTimestampFor(2024, 3, 1))
         ))
 
-        worker = MonthlyMpesaCostWorker(
-            context,
-            workerParams,
-            fakeRepository,
-            mockNotificationHelper,
-            fakeTimeProvider
-        )
+        worker = buildWorker()
 
         val result = worker.doWork()
 
@@ -110,13 +100,7 @@ class MonthlyMpesaCostWorkerTest {
             createTransaction(50.0, timestamp = getTimestampFor(2024, 4, 10))
         ))
 
-        worker = MonthlyMpesaCostWorker(
-            context,
-            workerParams,
-            fakeRepository,
-            mockNotificationHelper,
-            fakeTimeProvider
-        )
+        worker = buildWorker()
 
         val result = worker.doWork()
 
@@ -136,13 +120,7 @@ class MonthlyMpesaCostWorkerTest {
             createTransaction(100.0, timestamp = getTimestampFor(2024, 4, 15)) // April cost: 100 (Increase)
         ))
 
-        worker = MonthlyMpesaCostWorker(
-            context,
-            workerParams,
-            fakeRepository,
-            mockNotificationHelper,
-            fakeTimeProvider
-        )
+        worker = buildWorker()
 
         worker.doWork()
 
@@ -153,6 +131,28 @@ class MonthlyMpesaCostWorkerTest {
             }
         )
     }
+
+    /**
+     * Builds the worker through WorkManager's test builder so the CoroutineWorker gets real
+     * WorkerParameters (task executor, foreground/progress updaters). Constructing it directly
+     * with a mocked WorkerParameters NPEs inside CoroutineWorker's init.
+     */
+    private fun buildWorker(): MonthlyMpesaCostWorker =
+        TestListenableWorkerBuilder<MonthlyMpesaCostWorker>(context)
+            .setWorkerFactory(object : WorkerFactory() {
+                override fun createWorker(
+                    appContext: Context,
+                    workerClassName: String,
+                    workerParameters: WorkerParameters
+                ): ListenableWorker = MonthlyMpesaCostWorker(
+                    appContext,
+                    workerParameters,
+                    fakeRepository,
+                    mockNotificationHelper,
+                    fakeTimeProvider
+                )
+            })
+            .build()
 
     private fun getTimestampFor(year: Int, month: Int, day: Int): Long {
         return java.time.LocalDateTime.of(year, month, day, 12, 0)

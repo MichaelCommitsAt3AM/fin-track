@@ -37,8 +37,10 @@ class KeyRepositoryImpl @Inject constructor(
         private val APP_KEK_BYTES = "FinTrackSuperSecretKeyForDEKWait".toByteArray().copyOf(32) // Ensure 32 bytes
     }
 
+    override fun currentUserId(): String? = firebaseAuth.currentUser?.uid
+
     override suspend fun getOrGenerateMasterKey(): SecretKey {
-        val userId = firebaseAuth.currentUser?.uid ?: throw IllegalStateException("User not logged in")
+        val userId = currentUserId() ?: throw IllegalStateException("User not logged in")
         val keyAlias = "$MASTER_KEY_ALIAS_PREFIX$userId"
 
         // 1. Try to get from Android Keystore (Local Cache)

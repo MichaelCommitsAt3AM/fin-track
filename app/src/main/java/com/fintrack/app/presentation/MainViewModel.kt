@@ -2,6 +2,7 @@ package com.fintrack.app.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fintrack.app.core.data.local.LocalAuthManager
 import com.fintrack.app.core.domain.repository.NetworkRepository
 import com.fintrack.app.core.security.EncryptionManager
 import com.fintrack.app.presentation.home.UserUiModel
@@ -22,7 +23,8 @@ class MainViewModel @Inject constructor(
     private val networkRepository: NetworkRepository,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val encryptionManager: EncryptionManager
+    private val encryptionManager: EncryptionManager,
+    private val localAuthManager: LocalAuthManager
 ) : ViewModel() {
 
     /**
@@ -96,5 +98,20 @@ class MainViewModel @Inject constructor(
 
     fun setAppLocked(locked: Boolean) {
         _isAppLocked.value = locked
+    }
+
+    /**
+     * "Forgot PIN?" on the lock screen. The user can't prove who they are locally, so end the
+     * Firebase session and wipe the local PIN/biometric settings *before* lifting the lock.
+     * The app then starts at Login, and the user must re-authenticate with their account
+     * password and set a new PIN. Simply unlocking here would hand anyone holding the phone
+     * full access to the still-signed-in account.
+     */
+    fun onForgotPin() {
+        viewModelScope.launch {
+            auth.signOut()
+            localAuthManager.clearLocalAuth()
+            _isAppLocked.value = false
+        }
     }
 }

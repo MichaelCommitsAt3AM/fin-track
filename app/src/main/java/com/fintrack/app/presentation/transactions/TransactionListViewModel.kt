@@ -72,7 +72,7 @@ class TransactionListViewModel @Inject constructor(
             initialValue = Currency.KSH
         )
 
-    private val _currentLimit = MutableStateFlow(30)
+    private val _currentLimit = MutableStateFlow(TransactionListFilter.PAGE_SIZE)
     val currentLimit: StateFlow<Int> = _currentLimit
 
     // We need categories to map icons/colors correctly
@@ -108,41 +108,7 @@ class TransactionListViewModel @Inject constructor(
         
         // Combine manual + M-Pesa transactions
         combine(manualFlow, mpesaFlow) { manual, mpesa ->
-            // Apply source filtering
-            val filteredTransactions = when (sourceFilter) {
-                "Manual" -> manual
-                "M-Pesa" -> mpesa
-                else -> {
-                    // Combine both sources and sort by date (newest first)
-                    (manual + mpesa).sortedByDescending { it.date }
-                }
-            }
-            
-            // Apply type filter (Income/Expense/All)
-            val typeFiltered = when (filter) {
-                "Income" -> filteredTransactions.filter { it.type == TransactionType.INCOME }
-                "Expense" -> filteredTransactions.filter { it.type == TransactionType.EXPENSE }
-                else -> filteredTransactions
-            }
-            
-            // Apply search filter if query exists
-            val searchFiltered = if (query.isNotEmpty()) {
-                typeFiltered.filter { transaction ->
-                    transaction.notes?.contains(query, ignoreCase = true) == true ||
-                    transaction.category.contains(query, ignoreCase = true) ||
-                    transaction.paymentMethod?.contains(query, ignoreCase = true) == true
-                }
-            } else {
-                typeFiltered
-            }
-            
-            // Apply pagination limit (only when not searching)
-            if (query.isEmpty() && sourceFilter != "M-Pesa") {
-                // M-Pesa is limited at source (50 items), no need to limit again
-                searchFiltered.take(limit)
-            } else {
-                searchFiltered
-            }
+            TransactionListFilter.apply(manual, mpesa, filter, sourceFilter, query, limit)
         }
     }
 
@@ -306,26 +272,22 @@ class TransactionListViewModel @Inject constructor(
 
     fun loadMore() {
         if (_searchQuery.value.isEmpty()) {
-            _currentLimit.value += 30 // Load next 30 items
+            _currentLimit.value += TransactionListFilter.PAGE_SIZE
         }
     }
     
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        // Reset limit on search clear? Not strictly necessary as we switch flows, but good practice
-        if (query.isEmpty() && _currentLimit.value > 20) {
-           // _currentLimit.value = 20 // Optional: reset limit when clearing search
-        }
     }
 
     fun onFilterSelected(filter: String) {
         _selectedFilter.value = filter
-        _currentLimit.value = 20 // Reset limit when changing filters
+        _currentLimit.value = TransactionListFilter.PAGE_SIZE // Back to the first page
     }
     
     fun onSourceFilterSelected(source: String) {
         _selectedSourceFilter.value = source
-        _currentLimit.value = 20 // Reset pagination
+        _currentLimit.value = TransactionListFilter.PAGE_SIZE // Back to the first page
     }
     
     fun toggleSourceFilterExpanded() {
