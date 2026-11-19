@@ -15,6 +15,7 @@ import com.fintrack.app.core.domain.repository.NetworkRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
 import com.fintrack.app.core.security.EncryptionManager
 import com.fintrack.app.core.di.AppFlavorIntegration
+import com.fintrack.app.core.domain.util.SpendingPeriods
 import com.fintrack.app.presentation.settings.getIconByName
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -24,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -249,44 +251,11 @@ class HomeViewModel @Inject constructor(
             flowOf(emptyList())
         }
     ) { localTransactions, externalTransactions ->
-            val transactions = localTransactions + externalTransactions
-            val calendar = Calendar.getInstance()
-
-            // Current Week Range
-            calendar.timeInMillis = System.currentTimeMillis()
-            calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            val weekStart = calendar.timeInMillis
-
-            calendar.add(Calendar.DAY_OF_WEEK, 6)
-            calendar.set(Calendar.HOUR_OF_DAY, 23)
-            calendar.set(Calendar.MINUTE, 59)
-            calendar.set(Calendar.SECOND, 59)
-            calendar.set(Calendar.MILLISECOND, 999)
-            val weekEnd = calendar.timeInMillis
-
-            // Last Week Range
-            calendar.timeInMillis = weekStart
-            calendar.add(Calendar.DAY_OF_YEAR, -7)
-            val lastWeekStart = calendar.timeInMillis
-            calendar.add(Calendar.DAY_OF_YEAR, 6)
-            calendar.set(Calendar.HOUR_OF_DAY, 23)
-            calendar.set(Calendar.MINUTE, 59)
-            calendar.set(Calendar.SECOND, 59)
-            val lastWeekEnd = calendar.timeInMillis
-
-            val thisWeekTotal = transactions
-                .filter { it.type == TransactionType.EXPENSE && it.date in weekStart..weekEnd }
-                .sumOf { it.amount }
-
-            val lastWeekTotal = transactions
-                .filter { it.type == TransactionType.EXPENSE && it.date in lastWeekStart..lastWeekEnd }
-                .sumOf { it.amount }
-
-            Pair(thisWeekTotal, lastWeekTotal)
+            // Same week definition as the Transactions screen's weekly card
+            val today = LocalDate.now()
+            val weekStart = SpendingPeriods.weekStartOf(today, SpendingPeriods.localeFirstDayOfWeek())
+            val summary = SpendingPeriods.weeklySummary(localTransactions + externalTransactions, weekStart, today)
+            Pair(summary.totalSpent, summary.previousWeekSpent)
         }
         .stateIn(
             scope = viewModelScope,

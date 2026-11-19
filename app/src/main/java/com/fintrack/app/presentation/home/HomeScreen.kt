@@ -56,6 +56,19 @@ fun HomeScreen(
     val weeklySpending by viewModel.weeklySpending.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
 
+    // Switch to the Transactions bottom-nav tab (same behaviour as tapping the tab itself)
+    val navigateToTransactions: () -> Unit = {
+        navController.navigate(BottomNavItem.Transactions.route) {
+            navController.graph.startDestinationRoute?.let { route ->
+                popUpTo(route) {
+                    saveState = true
+                }
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     // Root Box is essential for Overlay behavior
     Box(
         modifier = Modifier
@@ -89,7 +102,8 @@ fun HomeScreen(
                     WeeklySpendingCard(
                         amountSpent = weeklySpending.first,
                         lastWeekSpent = weeklySpending.second,
-                        currencySymbol = currency.symbol
+                        currencySymbol = currency.symbol,
+                        onClick = navigateToTransactions
                     )
                 }
 
@@ -104,17 +118,7 @@ fun HomeScreen(
                     TransactionsSection(
                         transactions = recentTransactions,
                         currencySymbol = currency.symbol,
-                        onViewAllClick = {
-                            navController.navigate(BottomNavItem.Transactions.route) {
-                                navController.graph.startDestinationRoute?.let { route ->
-                                    popUpTo(route) {
-                                        saveState = true
-                                    }
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
+                        onViewAllClick = navigateToTransactions
                     )
                 }
             }
@@ -194,7 +198,8 @@ fun HomeHeader(
 fun WeeklySpendingCard(
     amountSpent: Double = 433.62,
     lastWeekSpent: Double = 377.06,
-    currencySymbol: String = "Ksh"
+    currencySymbol: String = "Ksh",
+    onClick: () -> Unit = {}
 ) {
     val difference = amountSpent - lastWeekSpent
     val percentageChange = if (lastWeekSpent > 0) {
@@ -208,6 +213,7 @@ fun WeeklySpendingCard(
             .padding(vertical = 8.dp)
     ) {
         Card(
+            onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(

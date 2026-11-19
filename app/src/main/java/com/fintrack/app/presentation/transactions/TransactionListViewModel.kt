@@ -13,6 +13,8 @@ import com.fintrack.app.core.domain.model.TransactionType
 import com.fintrack.app.core.domain.repository.CategoryRepository
 import com.fintrack.app.core.domain.repository.ExternalTransactionRepository
 import com.fintrack.app.core.domain.repository.TransactionRepository
+import com.fintrack.app.core.domain.util.SpendingPeriods
+import com.fintrack.app.core.domain.util.WeeklySpendingSummary
 import com.fintrack.app.presentation.settings.getIconByName
 import com.fintrack.app.presentation.ui.theme.FinTrackGreen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +28,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
@@ -140,6 +144,54 @@ class TransactionListViewModel @Inject constructor(
                 searchFiltered
             }
         }
+    }
+
+    // --- Weekly Spending Summary ---
+    // 0 = current week, -1 = last week, etc. Never positive (no future weeks).
+    private val _weekOffset = MutableStateFlow(0)
+    val weekOffset: StateFlow<Int> = _weekOffset.asStateFlow()
+
+    private val firstDayOfWeek = SpendingPeriods.localeFirstDayOfWeek()
+
+    private fun weekStartFor(offset: Int): LocalDate =
+        SpendingPeriods.weekStartOf(LocalDate.now(), firstDayOfWeek).plusWeeks(offset.toLong())
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val weeklySummary: StateFlow<WeeklySpendingSummary> = _weekOffset
+        .flatMapLatest { offset ->
+            val zone = ZoneId.systemDefault()
+            val weekStart = weekStartFor(offset)
+            // Load the previous week as well so we can show the comparison
+            val rangeStart = weekStart.minusWeeks(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val rangeEnd = weekStart.plusWeeks(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+
+            val localFlow = transactionRepository.getTransactionsByDateRange(rangeStart, rangeEnd)
+            val externalFlow = if (flavorIntegration.supportsMpesa) {
+                externalTransactionRepository.getAllTransactions()
+            } else {
+                kotlinx.coroutines.flow.flowOf(emptyList())
+            }
+
+            combine(localFlow, externalFlow) { local, external ->
+                // Planned (future-dated) transactions haven't happened yet, so they don't count as spending
+                val now = System.currentTimeMillis()
+                val relevant = (local + external).filter { it.date in rangeStart..minOf(rangeEnd, now) }
+                SpendingPeriods.weeklySummary(relevant, weekStart, LocalDate.now(), zone)
+            }
+        }
+        .flowOn(kotlinx.coroutines.Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = WeeklySpendingSummary.empty(weekStartFor(0), LocalDate.now())
+        )
+
+    fun previousWeek() {
+        _weekOffset.value -= 1
+    }
+
+    fun nextWeek() {
+        if (_weekOffset.value < 0) _weekOffset.value += 1
     }
 
     // Planned transactions flow - always fetch planned transactions
