@@ -47,12 +47,8 @@ fun SyncingStep(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = when (lookbackPeriod) {
-                LookbackPeriod.ONE_MONTH -> "Looking back 1 month"
-                LookbackPeriod.THREE_MONTHS -> "Looking back 3 months"
-                LookbackPeriod.SIX_MONTHS -> "Looking back 6 months"
-                LookbackPeriod.ONE_YEAR -> "Looking back 1 year"
-            },
+            text = if (lookbackPeriod == LookbackPeriod.ALL_TIME) "Scanning all M-Pesa messages"
+                else "Looking back ${lookbackPeriod.label}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

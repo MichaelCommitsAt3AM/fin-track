@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.settings.mpesa
 
+import com.fintrack.app.core.domain.model.LookbackPeriod
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -74,7 +75,7 @@ fun MpesaSettingsScreen(
     viewModel: MpesaSettingsViewModel = hiltViewModel()
 ) {
     val isRealTimeEnabled by viewModel.isRealTimeEnabled.collectAsState()
-    val lookbackPeriod by viewModel.lookbackPeriodMonths.collectAsState()
+    val lookbackPeriod by viewModel.lookbackPeriod.collectAsState()
 
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
@@ -83,13 +84,13 @@ fun MpesaSettingsScreen(
     var showResetDialog by remember { mutableStateOf(false) }
     
     // Rescan Confirmation
-    var pendingLookbackMonths by remember { mutableStateOf<Int?>(null) }
+    var pendingLookback by remember { mutableStateOf<LookbackPeriod?>(null) }
 
     if (showLookbackSheet) {
         ModalBottomSheet(
             onDismissRequest = { 
                 showLookbackSheet = false
-                pendingLookbackMonths = null
+                pendingLookback = null
             },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -97,11 +98,12 @@ fun MpesaSettingsScreen(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 32.dp)
             ) {
-                if (pendingLookbackMonths == null) {
+                if (pendingLookback == null) {
                     // Selection view
                     Text(
                         text = "Lookback Period",
@@ -110,19 +112,14 @@ fun MpesaSettingsScreen(
                         modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
                     )
 
-                    val options = listOf(1, 3, 6, 12)
-                    options.forEach { months ->
-                        val label = when (months) {
-                            1 -> "1 Month"
-                            12 -> "1 Year"
-                            else -> "$months Months"
-                        }
-                        val isSelected = lookbackPeriod == months
+                    LookbackPeriod.entries.forEach { option ->
+                        val label = if (option == LookbackPeriod.DEFAULT) "${option.label} (recommended)" else option.label
+                        val isSelected = lookbackPeriod == option
 
                         Surface(
                             onClick = {
-                                if (lookbackPeriod != months) {
-                                    pendingLookbackMonths = months
+                                if (lookbackPeriod != option) {
+                                    pendingLookback = option
                                 } else {
                                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                                         if (!sheetState.isVisible) {
@@ -219,7 +216,14 @@ fun MpesaSettingsScreen(
                                 )
                             }
                             Text(
-                                text = "Changing the lookback period requires rescanning your SMS inbox to find transactions. This may take a moment.",
+                                text = buildString {
+                                    append("Changing the lookback period requires rescanning your SMS inbox to find transactions.")
+                                    if ((pendingLookback?.months ?: 0) > LookbackPeriod.ONE_YEAR.months || pendingLookback == LookbackPeriod.ALL_TIME) {
+                                        append(" Scanning a longer history can take a few minutes; it runs in the background.")
+                                    } else {
+                                        append(" This may take a moment.")
+                                    }
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -235,7 +239,7 @@ fun MpesaSettingsScreen(
                     ) {
                         androidx.compose.material3.OutlinedButton(
                             onClick = {
-                                pendingLookbackMonths = null
+                                pendingLookback = null
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -244,12 +248,11 @@ fun MpesaSettingsScreen(
                         
                         Button(
                             onClick = {
-                                pendingLookbackMonths?.let { months ->
-                                    viewModel.setLookbackPeriod(months)
-                                    pendingLookbackMonths = null
+                                pendingLookback?.let { period ->
+                                    viewModel.changeLookbackPeriodAndRescan(period)
+                                    pendingLookback = null
                                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                                         showLookbackSheet = false
-                                        viewModel.triggerRescan()
                                     }
                                 }
                             },
@@ -374,11 +377,7 @@ fun MpesaSettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.History,
                     title = "Lookback Period",
-                    trailingText = when (lookbackPeriod) {
-                        1 -> "1 Month"
-                        12 -> "1 Year"
-                        else -> "$lookbackPeriod Months"
-                    },
+                    trailingText = lookbackPeriod.label,
                     onClick = { showLookbackSheet = true }
                 )
             }

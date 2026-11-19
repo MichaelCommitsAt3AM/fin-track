@@ -57,7 +57,7 @@ class MpesaOnboardingViewModel @Inject constructor(
     private val _insights = MutableStateFlow(OnboardingInsights())
     val insights: StateFlow<OnboardingInsights> = _insights
     
-    private val _selectedLookbackPeriod = MutableStateFlow(LookbackPeriod.THREE_MONTHS)
+    private val _selectedLookbackPeriod = MutableStateFlow(LookbackPeriod.DEFAULT)
     val selectedLookbackPeriod: StateFlow<LookbackPeriod> = _selectedLookbackPeriod
     
     /**
@@ -161,14 +161,7 @@ class MpesaOnboardingViewModel @Inject constructor(
                 )
                 
                 // Save lookback period preference
-                onboardingPrefs.setLookbackPeriod(
-                    when (lookbackPeriod) {
-                        LookbackPeriod.ONE_MONTH -> 1
-                        LookbackPeriod.THREE_MONTHS -> 3
-                        LookbackPeriod.SIX_MONTHS -> 6
-                        LookbackPeriod.ONE_YEAR -> 12
-                    }
-                )
+                onboardingPrefs.setLookbackPeriod(lookbackPeriod)
                 
                 // Auto-advance after 1.5 seconds
                 delay(1500)

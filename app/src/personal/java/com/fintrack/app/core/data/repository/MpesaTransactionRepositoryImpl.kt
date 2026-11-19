@@ -44,7 +44,7 @@ class MpesaTransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncMpesaSms(lookbackPeriod: LookbackPeriod): List<MpesaTransaction> {
-        Log.d(TAG, "Starting M-Pesa SMS sync with lookback period: ${lookbackPeriod.months} months")
+        Log.d(TAG, "Starting M-Pesa SMS sync with lookback period: ${lookbackPeriod.label}")
         
         val startTimestamp = lookbackPeriod.getStartTimestamp()
         val smsUri: Uri = Telephony.Sms.CONTENT_URI

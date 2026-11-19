@@ -1,5 +1,6 @@
 package com.fintrack.app.presentation.settings.mpesa
 
+import com.fintrack.app.core.domain.model.LookbackPeriod
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,8 +46,8 @@ class MpesaSettingsViewModel @Inject constructor(
     val isRealTimeEnabled = mpesaPreferences.isRealTimeEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val lookbackPeriodMonths = mpesaPreferences.lookbackPeriodMonths
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 3)
+    val lookbackPeriod = mpesaPreferences.lookbackPeriod
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LookbackPeriod.DEFAULT)
 
     // --- Merchant Mapping Data ---
     val availableCategories = categoryDao.getAllCategories(currentUserId)
@@ -151,22 +152,27 @@ class MpesaSettingsViewModel @Inject constructor(
         }
     }
 
-    fun setLookbackPeriod(months: Int) {
+    /** Saves the new period, then rescans the inbox with it. */
+    fun changeLookbackPeriodAndRescan(period: LookbackPeriod) {
         viewModelScope.launch {
-            mpesaPreferences.setLookbackPeriod(months)
+            mpesaPreferences.setLookbackPeriod(period)
+            // Pass the period explicitly rather than reading the StateFlow, which may not
+            // have observed the write yet (it used to rescan with the old value).
+            enqueueRescan(period)
         }
     }
 
     fun triggerRescan() {
-        viewModelScope.launch {
-            val months = lookbackPeriodMonths.value
-            val request = OneTimeWorkRequestBuilder<MpesaSyncWorker>()
-                .setInputData(workDataOf(MpesaSyncWorker.INPUT_LOOKBACK_MONTHS to months))
-                .build()
-            
-            workManager.enqueue(request)
-            _syncWorkId.value = request.id
-        }
+        enqueueRescan(lookbackPeriod.value)
+    }
+
+    private fun enqueueRescan(period: LookbackPeriod) {
+        val request = OneTimeWorkRequestBuilder<MpesaSyncWorker>()
+            .setInputData(workDataOf(MpesaSyncWorker.INPUT_LOOKBACK_MONTHS to period.months))
+            .build()
+
+        workManager.enqueue(request)
+        _syncWorkId.value = request.id
     }
 
     fun resetOnboarding() {
