@@ -1,5 +1,6 @@
 package com.fintrack.app.core.data.local.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -55,5 +56,10 @@ data class MpesaTransactionEntity(
     
     val transactionCost: Double? = null, // M-Pesa transaction fee
     
-    val createdAt: Long = System.currentTimeMillis() // When parsed and inserted
+    val createdAt: Long = System.currentTimeMillis(), // When parsed and inserted
+
+    // "SMS" for rows parsed from an SMS, "BACKUP" for rows restored from the encrypted cloud
+    // backup (no SMS text exists for those: rawBody is empty and smsId is "backup:<receipt>")
+    @ColumnInfo(defaultValue = "SMS")
+    val source: String = "SMS"
 )
